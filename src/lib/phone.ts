@@ -16,3 +16,7 @@ export function normalizePhone(input: string, defaultCountry: CountryCode = "MX"
   return { e164, country: phone.country ?? null, isValid };
 }
 
+export function normalizePhoneToE164(input: string, defaultCountry: CountryCode = "MX") {
+  return normalizePhone(input, defaultCountry).e164;
+}
+
