@@ -1,6 +1,6 @@
-import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
 
-export function normalizePhoneToE164(input: string, defaultCountry: string = "MX") {
+export function normalizePhone(input: string, defaultCountry: CountryCode = "MX") {
   const raw = (input || "").trim();
 
   if (!raw) return { e164: null, country: null, isValid: false };
