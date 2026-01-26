@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { normalizePhoneToE164 } from "@/lib/phone";
+import { normalizePhone } from "@/lib/phone";
+
 
 function getBearerToken(req: NextRequest) {
   const h = req.headers.get("authorization") || "";
@@ -35,8 +36,9 @@ export async function POST(req: NextRequest) {
 
     // ✅ Normaliza teléfono para que acepte "+52 434..." o "434..."
     const phone_raw = String(prof.phone_e164 ?? "").trim();
-    const n = normalizePhoneToE164(phone_raw, "MX");
+    const n = normalizePhone(phone_raw, "MX");
     const phone_e164 = phone_raw ? (n.isValid ? (n.e164 ?? "") : "") : "";
+
 
     const birthday = prof.birth_date ?? null;
     const player_notes = (prof.notes ?? null) as string | null;
