@@ -1,26 +1,202 @@
 @import "tailwindcss";
 
+
+/* =========================
+   THEME: Beige + Cobre
+   ========================= */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand (logo cobre) */
+  --brand-shadow: #782E15;
+  --brand: #AF4E2B;
+  --brand-highlight: #E4794B;
+
+  /* Light, warm background */
+  --background: #F6F0E6;     /* beige cálido */
+  --foreground: #1E1B18;     /* texto base (negro cálido) */
+  --surface: #FFFFFF;        /* tarjetas */
+  --surface-2: #FBF6EE;      /* inputs / panels */
+  --muted: #6B645D;          /* texto secundario */
+  --ring: rgba(175, 78, 43, 0.22);
+
+  /* Brand scale */
+  --brand-900: #4a1e10;
+  --brand-800: #5f2613;
+  --brand-700: var(--brand-shadow);
+  --brand-600: #9f4426;
+  --brand-500: var(--brand);
+  --brand-400: #c85f39;
+  --brand-300: var(--brand-highlight);
+  --brand-200: #f2b39a;
+  --brand-100: #f8d6c9;
+  --brand-50:  #fdeee8;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* =========================
+   BASE
+   ========================= */
+html,
+body {
+  height: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ✅ IMPORTANTÍSIMO:
+   Fuerza texto negro por defecto en todas las páginas claras
+   (evita que textos con herencia/estilos viejos queden blancos). */
+.page,
+.page * {
+  color: var(--foreground);
+}
+
+/* Placeholders bonitos */
+::placeholder {
+  color: rgba(30, 27, 24, 0.45);
+}
+
+/* Inputs en general (por si algún input no usa .input) */
+input,
+select,
+textarea {
+  color: var(--foreground);
+}
+
+/* =========================
+   COMPONENTS
+   ========================= */
+@layer components {
+  .page {
+    @apply min-h-screen;
+    background: var(--background);
+  }
+
+  .page-gradient {
+    background:
+      radial-gradient(900px 500px at 10% 0%, rgba(228, 121, 75, 0.18), transparent 60%),
+      radial-gradient(700px 500px at 90% 10%, rgba(175, 78, 43, 0.12), transparent 55%),
+      linear-gradient(180deg, rgba(255,255,255,0.55), rgba(246,240,230,1));
+  }
+
+  .card {
+    @apply rounded-2xl border p-6;
+    background: var(--surface);
+    border-color: rgba(120, 46, 21, 0.10);
+    box-shadow: 0 10px 30px rgba(30, 27, 24, 0.08);
+    color: var(--foreground);
+  }
+
+  .input {
+    @apply mt-1 w-full rounded-md border px-3 py-2 text-sm outline-none;
+    background: var(--surface-2);
+    border-color: rgba(120, 46, 21, 0.14);
+    color: var(--foreground);
+  }
+
+  .input:focus {
+    border-color: rgba(175, 78, 43, 0.55);
+    box-shadow: 0 0 0 4px var(--ring);
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition disabled:opacity-60;
+    background: linear-gradient(180deg, var(--brand-highlight), var(--brand));
+    color: #ffffff;
+    box-shadow: 0 10px 18px rgba(175, 78, 43, 0.20);
+  }
+
+  .btn-primary:hover {
+    filter: brightness(1.03);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition;
+    background: rgba(255, 255, 255, 0.65);
+    border: 1px solid rgba(120, 46, 21, 0.14);
+    color: var(--foreground);
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  .section-title {
+    @apply text-3xl font-semibold tracking-tight;
+    color: var(--foreground);
+  }
+
+  .section-subtitle {
+    @apply mt-1 text-sm;
+    color: rgba(30, 27, 24, 0.70);
+  }
+
+  /* ========= Recepción: tabla premium ========= */
+
+  .table-shell {
+    @apply overflow-hidden rounded-2xl border bg-white;
+    border-color: rgba(120, 46, 21, 0.12);
+    box-shadow: 0 10px 30px rgba(30, 27, 24, 0.06);
+  }
+
+  .table-head {
+    background: linear-gradient(
+      180deg,
+      rgba(253, 238, 232, 0.9),
+      rgba(255, 255, 255, 0.9)
+    );
+    border-bottom: 1px solid rgba(120, 46, 21, 0.10);
+  }
+
+  .table-th {
+    @apply px-3 py-3 text-xs font-semibold;
+    color: rgba(30, 27, 24, 0.75);
+    letter-spacing: 0.06em;
+  }
+
+  .table-tr {
+    border-bottom: 1px solid rgba(120, 46, 21, 0.08);
+  }
+
+  .table-tr:hover {
+    background: rgba(253, 238, 232, 0.55);
+  }
+
+  .table-td {
+    @apply px-3 py-4 text-sm;
+    color: rgba(30, 27, 24, 0.88);
+  }
+
+  /* Badges elegantes */
+  .badge {
+    @apply inline-flex items-center rounded-full px-2 py-1 text-xs font-medium;
+    border: 1px solid rgba(120, 46, 21, 0.12);
+    background: rgba(255, 255, 255, 0.65);
+    color: rgba(30, 27, 24, 0.85);
+  }
+
+  .badge-ok {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.25);
+    color: rgb(6, 95, 70);
+  }
+
+  .badge-warn {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.25);
+    color: rgb(146, 64, 14);
+  }
+
+  .badge-danger {
+    background: rgba(239, 68, 68, 0.10);
+    border-color: rgba(239, 68, 68, 0.22);
+    color: rgb(153, 27, 27);
+  }
+
+  .badge-brand {
+    background: rgba(253, 238, 232, 1);
+    border-color: rgba(175, 78, 43, 0.22);
+    color: rgba(120, 46, 21, 0.95);
+  }
 }

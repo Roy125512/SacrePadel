@@ -9,9 +9,16 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/auth-helpers-nextjs": "^0.15.0",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.90.1",
+    "date-fns": "^4.1.0",
+    "libphonenumber-js": "^1.12.34",
     "next": "16.1.1",
+    "nodemailer": "^7.0.12",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
