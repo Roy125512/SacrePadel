@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 const TARIFF_PER_HOUR = 350;
@@ -9,18 +9,22 @@ function clampInt(v: any, def: number, min: number, max: number) {
   return Math.max(min, Math.min(max, Math.trunc(n)));
 }
 
-export async function GET(req: Request, ctx: { params?: { id?: string } }) {
-  let id = (ctx?.params?.id ?? "").trim();
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: paramId } = await params;
 
+  // 1) id por params
+  let id = (paramId ?? "").trim();
+
+  // 2) fallback por pathname (por si algo llega raro)
   if (!id) {
     const url = new URL(req.url);
     const parts = url.pathname.split("/").filter(Boolean);
     id = (parts[parts.length - 1] ?? "").trim();
   }
 
-  if (!id || id === "customers") {
-    return NextResponse.json({ error: "Missing customer id" }, { status: 400 });
-  }
 
   const url = new URL(req.url);
   const limit = clampInt(url.searchParams.get("limit"), 200, 1, 200);
