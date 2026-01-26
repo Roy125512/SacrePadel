@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { normalizePhoneToE164 } from "@/lib/phone";
+import { normalizePhone } from "@/lib/phone";
 import { createClient } from "@/lib/supabaseServer";
 
 export async function GET(req: Request) {
@@ -41,9 +41,10 @@ export async function GET(req: Request) {
   let phoneE164: string | null = null;
 
   if (looksPhone) {
-    const n = normalizePhoneToE164(q, "MX");
+    const n = normalizePhone(q, "MX");
     phoneE164 = n.e164;
   }
+
 
   let query = supabaseAdmin
     .from("customers")
