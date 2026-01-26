@@ -132,8 +132,13 @@ export async function GET(
   );
 }
 
-export async function PATCH(req: Request, ctx: { params?: { id?: string } }) {
-  let id = (ctx?.params?.id ?? "").trim();
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: paramId } = await params;
+
+  let id = (paramId ?? "").trim();
 
   if (!id) {
     const url = new URL(req.url);
@@ -146,6 +151,7 @@ export async function PATCH(req: Request, ctx: { params?: { id?: string } }) {
   }
 
   const body = await req.json().catch(() => ({}));
+
 
   const notes = typeof body.notes === "string" ? body.notes.trim() : undefined;
 
