@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
-import { normalizePhoneToE164 } from "@/lib/phone";
+import { normalizePhone as normalizePhoneLib } from "@/lib/phone";
+
+
 
 
 type ProfileRow = {
@@ -16,16 +18,22 @@ type ProfileRow = {
   division: string | null;
 };
 
-function normalizePhone(raw: string) {
-  const input = (raw || "").trim();
+function normalizePhoneForProfile(raw: string) {
+  const input = (raw ?? "").trim();
+
+  // Si lo dejan vacío, lo permitimos (teléfono opcional)
   if (!input) return { e164: null as string | null, isValid: true };
 
-  // Acepta "434 123 4567" y también "+52 434 123 4567"
-  const n = normalizePhoneToE164(input, "MX");
-  if (!n.isValid || !n.e164) return { e164: null as string | null, isValid: false };
+  // Usa tu helper real de lib/phone.ts
+  const n = normalizePhoneLib(input, "MX");
+
+  if (!n.isValid || !n.e164) {
+    return { e164: null as string | null, isValid: false };
+  }
 
   return { e164: n.e164, isValid: true };
 }
+
 
 
 export default function ProfilePage() {
@@ -103,7 +111,7 @@ export default function ProfilePage() {
       const { data } = await supabase.auth.getUser();
       if (!data.user) throw new Error("Sesión no válida. Inicia sesión de nuevo.");
 
-      const phoneNorm = normalizePhone(phone);
+      const phoneNorm = normalizePhoneForProfile(phone);
       if (!phoneNorm.isValid) {
         throw new Error("Teléfono inválido. Ej: 434 123 4567 o +52 434 123 4567");
       }
