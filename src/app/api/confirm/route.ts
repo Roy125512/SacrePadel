@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { supabaseServer } from "@/lib/supabaseServer";
+import { createClient } from "@/lib/supabaseServer";
+
 
 type ConfirmBody = {
   booking_id?: string;
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
   if (!full_name) return NextResponse.json({ error: "full_name es requerido" }, { status: 400 });
   if (!phone_input) return NextResponse.json({ error: "phone es requerido" }, { status: 400 });
 
-  const supa = supabaseServer();
+  const supa = await createClient();
   const { data: userData } = await supa.auth.getUser();
   const user = userData?.user ?? null;
 
