@@ -53,7 +53,7 @@ export async function GET(req: Request) {
     customers:customer_id ( id, full_name, phone_e164 )
   `;
 
-  let res = await supabaseAdmin
+  let res: any = await supabaseAdmin
     .from("bookings")
     .select(selectWithCancelledBy)
     .lt("start_at", dayEndIso)
