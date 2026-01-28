@@ -5,3 +5,5 @@ export function createClient() {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   return createBrowserClient(url, key);
 }
+
+

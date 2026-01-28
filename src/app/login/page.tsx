@@ -1,10 +1,26 @@
 "use client";
 
+import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState } from "react";
 import { createClient } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="page page-gradient">
+          <div className="mx-auto max-w-xl px-6 py-16">
+            <div className="card">Cargando…</div>
+          </div>
+        </div>
+      }
+    >
+      <LoginInner />
+    </Suspense>
+  );
+}
+
+function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -13,7 +29,6 @@ export default function LoginPage() {
 
   const defaultNext = isSignup ? "/perfil" : "/reservar";
   const next = searchParams.get("next") || defaultNext;
-
 
   const supabase = createClient();
 
@@ -74,7 +89,6 @@ export default function LoginPage() {
         await new Promise((r) => setTimeout(r, 150));
 
         console.log("[AUTH] redirecting to", next);
-
         router.replace(next);
         router.refresh();
         return;
@@ -97,9 +111,7 @@ export default function LoginPage() {
       if (!cleanEmail) throw new Error("Escribe tu correo.");
 
       const origin = window.location.origin;
-      const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(
-        next
-      )}`;
+      const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
       const { error: err } = await supabase.auth.resend({
         type: "signup",
@@ -109,9 +121,7 @@ export default function LoginPage() {
 
       if (err) throw err;
 
-      setOk(
-        "Listo. Te reenvié el correo de confirmación. Revisa inbox y spam."
-      );
+      setOk("Listo. Te reenvié el correo de confirmación. Revisa inbox y spam.");
     } catch (e: any) {
       setError(e?.message ?? "No se pudo reenviar el correo");
     } finally {
@@ -130,7 +140,9 @@ export default function LoginPage() {
       if (!cleanEmail.includes("@")) throw new Error("Correo no válido.");
 
       const origin = window.location.origin;
-      const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent("/reset-password")}`;
+      const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(
+        "/reset-password"
+      )}`;
 
       const { error: err } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo,
@@ -138,7 +150,9 @@ export default function LoginPage() {
 
       if (err) throw err;
 
-      setOk("Listo. Te mandé un correo para recuperar tu contraseña. Revisa inbox y spam.");
+      setOk(
+        "Listo. Te mandé un correo para recuperar tu contraseña. Revisa inbox y spam."
+      );
     } catch (e: any) {
       setError(e?.message ?? "No se pudo enviar el correo de recuperación");
     } finally {
@@ -146,13 +160,10 @@ export default function LoginPage() {
     }
   }
 
-
   return (
     <div className="page page-gradient">
       <div className="mx-auto max-w-xl px-6 py-16">
-        <h1 className="section-title">
-          {isSignup ? "Crear cuenta" : "Iniciar sesión"}
-        </h1>
+        <h1 className="section-title">{isSignup ? "Crear cuenta" : "Iniciar sesión"}</h1>
         <p className="section-subtitle">
           {isSignup
             ? "Crea tu cuenta con correo y contraseña."
@@ -244,7 +255,6 @@ export default function LoginPage() {
               ¿Olvidaste tu contraseña?
             </button>
           )}
-
 
           <button
             onClick={submitAuth}
