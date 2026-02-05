@@ -100,16 +100,16 @@ export default function AppHeader() {
     >
       <div className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
         {/* LOGO + NOMBRE */}
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3 min-w-0">
           <Image
             src="/logo-sacre.png"
             alt="Sacré Pádel"
             width={36}
             height={36}
             priority
-            className="drop-shadow-sm"
+            className="drop-shadow-sm shrink-0"
           />
-          <span className="hidden sm:inline text-xs font-semibold tracking-[0.28em] text-black">
+          <span className="block min-w-0 truncate whitespace-nowrap text-[10px] sm:text-xs font-semibold tracking-[0.18em] sm:tracking-[0.28em] text-black">
             SACRÉ PÁDEL
           </span>
 
@@ -172,35 +172,48 @@ export default function AppHeader() {
                 style={{ borderColor: "rgba(120, 46, 21, 0.12)" }}
               >
                 <div className="mx-auto max-w-6xl px-6 py-3 grid gap-2">
-                  <Link href="/" className="w-full text-sm rounded-md border px-3 py-2"
-                    style={{ borderColor: "rgba(120, 46, 21, 0.14)" }}>
+                  <Link
+                    href="/"
+                    className="w-full text-sm rounded-md border px-3 py-2 text-center"
+                    style={{ borderColor: "rgba(120, 46, 21, 0.14)" }}
+                  >
                     Inicio
                   </Link>
 
+
                   <Link
                     href={loggedIn ? "/reservar" : loginToReserveHref}
-                    className="w-full text-sm rounded-md border px-3 py-2"
+                    className="w-full text-sm rounded-md border px-3 py-2 text-center"
                     style={{ borderColor: "rgba(120, 46, 21, 0.14)" }}
                   >
                     Reservar
                   </Link>
 
-                  <Link href="/perfil" className="w-full text-sm rounded-md border px-3 py-2"
+                  <Link href="/perfil" className="w-full text-sm rounded-md border px-3 py-2 text-center"
                     style={{ borderColor: "rgba(120, 46, 21, 0.14)" }}>
                     Perfil
                   </Link>
 
                   {loggedIn && (role === "owner" || role === "reception") && (
-                    <Link href="/reception" className="w-full text-sm rounded-md border px-3 py-2"
+                    <Link href="/reception" className="w-full text-sm rounded-md border px-3 py-2 text-center"
                       style={{ borderColor: "rgba(120, 46, 21, 0.14)" }}>
                       Recepción
                     </Link>
                   )}
 
                   {loggedIn ? (
-                    <button onClick={signOut} className="w-full btn-secondary">
+                    <button
+                      onClick={signOut}
+                      className="w-full text-sm rounded-md border px-3 py-2 text-center transition"
+                      style={{
+                        borderColor: "rgba(175, 78, 43, 0.25)",
+                        background: "rgba(253, 238, 232, 0.9)",
+                        color: "rgba(120, 46, 21, 0.95)",
+                      }}
+                    >
                       Cerrar sesión
                     </button>
+
                   ) : (
                     <Link href={loginToReserveHref} className="w-full btn-primary text-center">
                       Iniciar sesión
@@ -210,11 +223,12 @@ export default function AppHeader() {
                   <button
                     type="button"
                     onClick={() => setMenuOpen(false)}
-                    className="w-full rounded-md border px-3 py-2 text-sm"
+                    className="w-full rounded-md border px-3 py-2 text-sm text-center"
                     style={{ borderColor: "rgba(120, 46, 21, 0.14)" }}
                   >
                     Cerrar menú
                   </button>
+
                 </div>
               </div>
             )}
