@@ -1,11 +1,13 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabaseServer";
+import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
-export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const origin = url.origin;
+  const searchParams = url.searchParams;
 
   const code = searchParams.get("code");
-  const type = (searchParams.get("type") || "").toLowerCase(); // recovery | signup | magiclink...
+  const type = (searchParams.get("type") || "").toLowerCase();
   let next = searchParams.get("next");
 
   // Si Supabase manda redirect_to, respétalo (solo si es del mismo origen)
@@ -15,9 +17,7 @@ export async function GET(request: Request) {
       try {
         const u = new URL(redirectTo);
         if (u.origin === origin) next = `${u.pathname}${u.search}${u.hash}`;
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
   }
 
@@ -28,10 +28,30 @@ export async function GET(request: Request) {
     else next = "/reservar";
   }
 
+  // Creamos response desde el inicio (para poder setear cookies)
+  const response = NextResponse.redirect(`${origin}${next}`);
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value;
+        },
+        set(name: string, value: string, options: any) {
+          response.cookies.set({ name, value, ...options });
+        },
+        remove(name: string, options: any) {
+          response.cookies.set({ name, value: "", ...options, maxAge: 0 });
+        },
+      },
+    }
+  );
+
   if (code) {
-    const supabase = await createClient();
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  return NextResponse.redirect(`${origin}${next}`);
+  return response;
 }
