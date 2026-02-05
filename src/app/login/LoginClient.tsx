@@ -122,6 +122,7 @@ export default function LoginClient() {
           {isSignup ? "Crea tu cuenta con correo y contraseña." : "Ingresa con tu correo y contraseña."}
         </p>
 
+
         <div className="mt-8 card">
           {error && (
             <div className="mb-4 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
@@ -213,6 +214,15 @@ export default function LoginClient() {
           <button onClick={() => router.push("/")} className="mt-2 w-full btn-secondary">
             Volver
           </button>
+
+          <div className="mt-3 text-center">
+            <a href="/forgot-password" className="text-sm underline text-white/70 hover:text-white">
+              ¿Olvidaste tu contraseña?
+            </a>
+          </div>
+
+
+
         </div>
       </div>
     </div>

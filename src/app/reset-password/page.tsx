@@ -1,116 +1,92 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabaseClient";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const supabase = createClient();
-
-  const [loading, setLoading] = useState(true);
-  const [hasSession, setHasSession] = useState(false);
-
+  const [ready, setReady] = useState(false);
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-
+  const [password2, setPassword2] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
 
+  // Cuando abres desde el correo, Supabase deja una sesión temporal
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      setHasSession(Boolean(data.session));
-      setLoading(false);
+      const { data } = await supabaseBrowser.auth.getSession();
+      // Si no hay sesión, puede ser que el link no se procesó bien
+      setReady(true);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function updatePassword() {
-    setSaving(true);
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
-    setOk(null);
 
+    if (password.length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+    if (password !== password2) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+
+    setSaving(true);
     try {
-      if (!password) throw new Error("Escribe tu nueva contraseña.");
-      if (password.length < 8) throw new Error("La contraseña debe tener al menos 8 caracteres.");
-      if (!confirm) throw new Error("Confirma tu nueva contraseña.");
-      if (password !== confirm) throw new Error("Las contraseñas no coinciden.");
+      const { error } = await supabaseBrowser.auth.updateUser({ password });
+      if (error) throw error;
 
-      const { error: err } = await supabase.auth.updateUser({ password });
-      if (err) throw err;
-
-      setOk("Listo. Tu contraseña se actualizó.");
-      setTimeout(() => {
-        router.replace("/perfil");
-        router.refresh();
-      }, 600);
-    } catch (e: any) {
-      setError(e?.message ?? "No se pudo actualizar la contraseña");
+      // Opcional: redirige a perfil o login
+      router.push("/perfil");
+    } catch (err: any) {
+      setError(err?.message ?? "No se pudo actualizar la contraseña.");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="page page-gradient">
-      <div className="mx-auto max-w-xl px-6 py-16">
-        <h1 className="section-title">Recuperar contraseña</h1>
-        <p className="section-subtitle">
-          Crea una contraseña nueva. (Abre esta página desde el link que te llega por correo.)
-        </p>
+    <div className="min-h-[calc(100vh-56px)] page page-gradient">
+      <div className="mx-auto max-w-md px-6 py-12">
+        <h1 className="section-title">Nueva contraseña</h1>
+        <p className="section-subtitle">Crea una contraseña segura para tu cuenta.</p>
 
-        <div className="mt-8 card">
-          {error && (
-            <div className="mb-4 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
-              {error}
-            </div>
-          )}
-
-          {ok && (
-            <div className="mb-4 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
-              {ok}
-            </div>
-          )}
-
-          {loading ? (
+        <div className="card mt-6 p-6">
+          {!ready ? (
             <div className="text-sm text-white/70">Cargando…</div>
-          ) : !hasSession ? (
-            <div className="text-sm text-white/70">
-              No veo una sesión de recuperación activa. Abre el link de recuperación desde tu correo
-              y vuelve a intentarlo.
-            </div>
           ) : (
-            <>
-              <label className="block text-xs text-white/70">Nueva contraseña</label>
-              <input
-                className="input"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                type="password"
-                autoComplete="new-password"
-              />
+            <form onSubmit={onSubmit} className="grid gap-4">
+              <div>
+                <label className="block text-xs text-white/70">Contraseña nueva</label>
+                <input
+                  className="input w-full"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
 
-              <label className="mt-4 block text-xs text-white/70">Confirmar contraseña</label>
-              <input
-                className="input"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                placeholder="••••••••"
-                type="password"
-                autoComplete="new-password"
-              />
+              <div>
+                <label className="block text-xs text-white/70">Confirmar contraseña</label>
+                <input
+                  className="input w-full"
+                  type="password"
+                  value={password2}
+                  onChange={(e) => setPassword2(e.target.value)}
+                  required
+                />
+              </div>
 
-              <button onClick={updatePassword} disabled={saving} className="mt-4 w-full btn-primary">
+              {error && <div className="text-sm text-red-200">{error}</div>}
+
+              <button className="btn-primary w-full" disabled={saving}>
                 {saving ? "Guardando…" : "Guardar contraseña"}
               </button>
-
-              <button onClick={() => router.push("/")} className="mt-2 w-full btn-secondary">
-                Volver
-              </button>
-            </>
+            </form>
           )}
         </div>
       </div>
