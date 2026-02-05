@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireReceptionAccess } from "@/lib/guards/reception";
+import { BUSINESS_TZ_OFFSET } from "@/lib/config";
+
 
 export async function GET(req: Request) {
   const gate = await requireReceptionAccess();
@@ -32,8 +34,8 @@ export async function GET(req: Request) {
   const windowStart = isRange ? start! : date!;
   const windowEnd = isRange ? end! : date!;
 
-  const dayStartIso = `${windowStart}T00:00:00-06:00`;
-  const dayEndIso = `${windowEnd}T23:59:59-06:00`;
+  const dayStartIso = `${windowStart}T00:00:00${BUSINESS_TZ_OFFSET}`;
+  const dayEndIso = `${windowEnd}T23:59:59${BUSINESS_TZ_OFFSET}`;
 
   const selectWithCancelledBy = `
     id,
@@ -119,7 +121,7 @@ export async function GET(req: Request) {
       date: isRange ? null : date,
       start: isRange ? windowStart : null,
       end: isRange ? windowEnd : null,
-      timezone_offset: "-06:00",
+      timezone_offset: BUSINESS_TZ_OFFSET,
       count: bookings.length,
       bookings,
     },

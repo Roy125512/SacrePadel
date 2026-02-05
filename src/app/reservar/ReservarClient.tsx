@@ -3,6 +3,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { useRouter, useSearchParams } from "next/navigation";
+import { BUSINESS_TZ_OFFSET } from "@/lib/config";
+
 
 const TZ = "-06:00";
 
@@ -22,7 +24,8 @@ function formatDateES(ymd: string) {
 }
 function addMinutesIso(iso: string, minutes: number) {
   const m = iso.match(/([+-]\d{2}:\d{2})$/);
-  const offset = m ? m[1] : TZ;
+  const offset = m ? m[1] : BUSINESS_TZ_OFFSET;
+
 
   const [datePart, timeAndOffset] = iso.split("T");
   const timePart = timeAndOffset.slice(0, 8); // HH:mm:ss
@@ -472,10 +475,7 @@ export default function ReservarClient() {
                 <h1 className="section-title">
                 Reservar {isGuest ? <span className="text-white/60">(Invitado)</span> : null}
                 </h1>
-                <p className="section-subtitle">
-                Elige la hora de inicio (intervalos de 30 min) y la duración. El pago se realiza en recepción.
-
-                </p>
+               
                 {isGuest && (
                 <div className="mt-2 text-xs text-white/50">
                     ¿Quieres que la próxima sea más rápido?{" "}
@@ -604,7 +604,7 @@ export default function ReservarClient() {
             </div>
 
             <div className="mt-6 text-xs text-white/50">
-            El calendario muestra disponibilidad por <b>bloques de 30 min</b>. La duración se elige después.
+            El calendario muestra horarios en <b>intervalos de 30 min</b>. La reserva mínima es de <b>60 min</b>; la duración se elige después.
             </div>
         </div>
 
@@ -613,11 +613,35 @@ export default function ReservarClient() {
             <div className="w-full max-w-md card">
                 <div className="text-lg font-semibold">Confirmar reserva</div>
 
-                <div className="mt-2 text-sm text-white/70">
-                <span className="text-white">{selected.court_name}</span> · Inicio{" "}
-                <span className="text-white">{parseISOToLocalTime(selected.start_at)}</span> ·{" "}
-                <span className="text-white">{formatDateES(dateYMD)}</span>
-                </div>
+                <div className="mt-2">
+                    <div className="text-sm text-white/70">
+                        <span className="text-white">{selected.court_name}</span> ·{" "}
+                        <span className="text-white">{formatDateES(dateYMD)}</span>
+                    </div>
+
+                    {selectedEndAt && (
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <div className="text-xl font-semibold text-white">
+                            {parseISOToLocalTime(selected.start_at)}–{parseISOToLocalTime(selectedEndAt)}
+                        </div>
+
+                        <span
+                            className="rounded-full border px-2 py-0.5 text-xs font-semibold"
+                            style={{ borderColor: "rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.78)" }}
+                        >
+                            {durationMin} min
+                        </span>
+
+                        <span
+                            className="rounded-full border px-2 py-0.5 text-xs font-semibold"
+                            style={{ borderColor: "rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.78)" }}
+                        >
+                            Pago en recepción
+                        </span>
+                        </div>
+                    )}
+                    </div>
+
 
                 <div className="mt-4">
                 <label className="block text-xs text-white/70">Duración</label>
@@ -655,9 +679,6 @@ export default function ReservarClient() {
                     Total: ${priceInfo.total} MXN
                     </div>
 
-                    <div className="mt-1 text-xs text-white/50">
-                    Fin: <span className="text-white/70">{parseISOToLocalTime(selectedEndAt)}</span>
-                    </div>
                 </div>
                 )}
 
@@ -720,7 +741,7 @@ export default function ReservarClient() {
                 </div>
 
                 <div className="mt-3 text-xs text-white/50">
-                Se reservará exactamente el rango elegido. Si cancelas, se libera el bloqueo. Para cancelar, llama al +52 452 115 8507.
+                Se reservará exactamente el rango seleccionado. Para cambios o cancelaciones, llama al +52 452 115 8507
 
                 </div>
             </div>

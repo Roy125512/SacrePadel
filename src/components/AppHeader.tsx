@@ -77,6 +77,15 @@ export default function AppHeader() {
     ].join(" ");
   };
 
+  const isAuthRoute =
+    pathname === "/login" ||
+    pathname === "/reset-password"; // agrega aquí otras rutas de acceso si tienes
+
+  const hideNavOnThisPage =
+    pathname === "/inicio" || isAuthRoute;
+
+
+
   return (
     <header
       className="w-full border-b bg-white/80 backdrop-blur"
@@ -99,39 +108,42 @@ export default function AppHeader() {
         </Link>
 
         {/* NAV */}
-        <nav className="flex items-center gap-3">
-          <Link href="/" className={linkClass("/")}>
-            Inicio
-          </Link>
-
-          <Link
-            href={loggedIn ? "/reservar" : loginToReserveHref}
-            className={linkClass("/reservar")}
-          >
-            Reservar
-          </Link>
-
-          <Link href="/perfil" className={linkClass("/perfil")}>
-            Perfil
-          </Link>
-
-          {/* Acceso rápido a recepción (solo owner / recepción) */}
-          {loggedIn && (role === "owner" || role === "reception") && (
-            <Link href="/reception" className={linkClass("/reception")}>
-              Recepción
+        {!hideNavOnThisPage && (
+          <nav className="flex items-center gap-3">
+            <Link href="/" className={linkClass("/")}>
+              Inicio
             </Link>
-          )}
 
-          {loggedIn ? (
-            <button onClick={signOut} className="btn-secondary">
-              Cerrar sesión
-            </button>
-          ) : (
-            <Link href={loginToReserveHref} className="btn-primary">
-              Iniciar sesión
+            <Link
+              href={loggedIn ? "/reservar" : loginToReserveHref}
+              className={linkClass("/reservar")}
+            >
+              Reservar
             </Link>
-          )}
-        </nav>
+
+            <Link href="/perfil" className={linkClass("/perfil")}>
+              Perfil
+            </Link>
+
+            {/* Acceso rápido a recepción (solo owner / recepción) */}
+            {loggedIn && (role === "owner" || role === "reception") && (
+              <Link href="/reception" className={linkClass("/reception")}>
+                Recepción
+              </Link>
+            )}
+
+            {loggedIn ? (
+              <button onClick={signOut} className="btn-secondary">
+                Cerrar sesión
+              </button>
+            ) : (
+              <Link href={loginToReserveHref} className="btn-primary">
+                Iniciar sesión
+              </Link>
+            )}
+          </nav>
+        )}
+
       </div>
     </header>
   );

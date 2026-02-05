@@ -1,367 +1,53 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 
-/* ===================== TIPOS ===================== */
-
-type BookingStatus = "HOLD" | "CONFIRMED" | "CANCELLED" | "NO_SHOW" | "COMPLETED";
-type PaymentStatus = "UNPAID" | "PAID";
-type PaymentMethod = "CASH" | "CARD" | "TRANSFER";
-
-type DateMode = "DAY" | "RANGE";
-
-type Booking = {
-  id: string;
-  court_id?: string;
-  court_name: string;
-  start_at: string; // ISO
-  end_at: string; // ISO
-  status: BookingStatus;
-  source?: string;
-  kind?: string;
-
-  payment_status?: PaymentStatus;
-  paid_amount?: number;
-  payment_method?: PaymentMethod | null;
-  paid_at?: string | null;
-
-  customer_id?: string | null;
-  customer_name?: string | null;
-  customer_phone?: string | null;
-
-  session_type?: "CLASS" | "MATCH" | null;
-
-  duration_hours?: number;
-  amount?: number;
-};
-
-
-type ApiResponse = {
-  date?: string | null;
-  start?: string | null;
-  end?: string | null;
-  timezone_offset?: string;
-  count: number;
-  bookings: Booking[];
-  error?: string;
-};
-
-type FilterKey =
-  | "fecha"
-  | "cancha"
-  | "horario"
-  | "tipo"
-  | "estatus"
-  | "pago"
-  | "monto"
-  | "origen"
-  | "cliente"
-  | "asistencia";
-
-
-type FiltersState = Record<FilterKey, Set<string>>;
-
-/* ===================== CONSTANTES ===================== */
-
-const TARIFF_PER_HOUR = 350;
-
-const DAY_RATE = 350;   // 07:00 - 18:00
-const NIGHT_RATE = 400; // 18:00 - 22:00
-const NIGHT_START_HOUR = 18;
-const NIGHT_END_HOUR = 22;
-
-// Suma por bloques de 30 min (tu app trabaja en bloques de 30)
-function computeExpectedAmountMXN(startISO: string, endISO: string) {
-  const start = new Date(startISO);
-  const end = new Date(endISO);
-
-  const stepMs = 30 * 60 * 1000; // 30 min
-  let total = 0;
-
-  for (let t = start.getTime(); t < end.getTime(); t += stepMs) {
-    const d = new Date(t);
-    const h = d.getHours();
-
-    const isNight = h >= NIGHT_START_HOUR && h < NIGHT_END_HOUR;
-    const ratePerHour = isNight ? NIGHT_RATE : DAY_RATE;
-
-    total += ratePerHour / 2; // media hora
-  }
-
-  return Math.round(total); // MXN
-}
-
-
-/* ===================== HELPERS ===================== */
-
-
-
-function toYMDLocal(d: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function addDaysYMD(ymd: string, deltaDays: number) {
-  const d = new Date(`${ymd}T00:00:00`);
-  d.setDate(d.getDate() + deltaDays);
-  return toYMDLocal(d);
-}
-
-function normalizeRange(a: string, b: string) {
-  return a <= b ? { start: a, end: a <= b ? b : a } : { start: b, end: a };
-}
-
-function daysInclusive(startYmd: string, endYmd: string) {
-  const s = new Date(`${startYmd}T00:00:00`);
-  const e = new Date(`${endYmd}T00:00:00`);
-  const ms = e.getTime() - s.getTime();
-  const days = Math.floor(ms / (24 * 60 * 60 * 1000)) + 1;
-  return Number.isFinite(days) && days > 0 ? days : 1;
-}
-
-function formatDateES(ymd: string) {
-  const d = new Date(`${ymd}T00:00:00`);
-  return d.toLocaleDateString("es-MX", { year: "numeric", month: "2-digit", day: "2-digit" });
-}
-
-function formatRangeES(startYmd: string, endYmd: string) {
-  const { start, end } = startYmd <= endYmd ? { start: startYmd, end: endYmd } : { start: endYmd, end: startYmd };
-  return `${formatDateES(start)} – ${formatDateES(end)}`;
-}
-
-function parseISOToLocalTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
-}
-
-function hoursBetween(startISO: string, endISO: string) {
-  const a = new Date(startISO).getTime();
-  const b = new Date(endISO).getTime();
-  const h = (b - a) / (1000 * 60 * 60);
-  return Math.max(0, Math.round(h * 10) / 10);
-}
-
-function currencyMXN(n: number) {
-  return (n ?? 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
-}
-
-function statusLabelES(s: BookingStatus) {
-  if (s === "HOLD") return "Apartada";
-
-  if (s === "CONFIRMED") return "Confirmada";
-  if (s === "CANCELLED") return "Cancelada";
-  if (s === "NO_SHOW") return "No asistió";
-  if (s === "COMPLETED") return "Completada";
-  return s;
-}
-
-function origenLabel(src?: string) {
-  if (!src) return "—";
-  const s = String(src).toUpperCase();
-  if (s === "WEB") return "Web";
-  if (s === "WHATSAPP") return "WhatsApp";
-  if (s === "RECEPTION") return "Recepción";
-  return src;
-}
-
-function asistenciaLabel(b: Booking) {
-  if (b.status === "NO_SHOW") return "No asistió";
-  if (b.status === "COMPLETED") return "Asistió";
-  return "—";
-}
-
-function tipoLabel(b: Booking) {
-  if (b.session_type === "CLASS") return "Clase";
-  if (b.session_type === "MATCH") return "Reta";
-  return "Reserva";
-}
-
-function isPaid(b: Booking) {
-  return (b.payment_status ?? "UNPAID") === "PAID";
-}
-
-// ===================== REGLAS DE BLOQUEO (RECEPCIÓN) =====================
-// Objetivo:
-// 1) Prioridad a COBRAR: no permitir marcar asistencia (asistió / no asistió) sin pago.
-// 2) Una vez marcada asistencia, bloquear completamente cambios de cliente y cancelación.
-// 3) Si ya está pagado, ya no se debe permitir cancelar.
-
-function isAttendanceFinal(b: Booking) {
-  return b.status === "COMPLETED" || b.status === "NO_SHOW";
-}
-
-function canEditCustomer(b: Booking) {
-  if (b.status === "CANCELLED") return false;
-  if (b.status === "COMPLETED" || b.status === "NO_SHOW") return false;
-  if (isPaid(b)) return false; // ✅ recomendado: si ya está pagado, ya no cambiar nombre
-  return true;
-}
-
-
-function canCancelBooking(b: Booking) {
-  // No cancelar si ya hay pago o ya se capturó asistencia
-  if (b.status === "CANCELLED") return false;
-  if (isPaid(b)) return false;
-  if (isAttendanceFinal(b)) return false;
-  return true;
-}
-
-function canMarkAttendance(b: Booking) {
-  // Prioridad a cobrar: solo permitir marcar asistencia si ya está pagado
-  if (b.status !== "CONFIRMED") return false;
-  if (!isPaid(b)) return false;
-  return true;
-}
-
-
-function canCharge(b: Booking) {
-  if (isPaid(b)) return false;
-  if (b.status !== "CONFIRMED" && b.status !== "COMPLETED") return false;
-  return true;
-}
-
-function useDebounce<T>(value: T, delay = 300) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
-}
-
-function formatDateMX(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-function parseISOToLocalTime24(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", hour12: false });
-}
-
-
-
-/* ===================== UI COMPONENTS ===================== */
-
-function KpiCard(props: { title: string; value: string; valueClass?: string }) {
-  return (
-    <div className="card p-5">
-      <div className="text-xs" style={{ color: "rgba(30,27,24,0.60)" }}>
-        {props.title}
-      </div>
-      <div className={`mt-2 text-3xl font-semibold ${props.valueClass ?? ""}`} style={{ color: "var(--foreground)" }}>
-        {props.value}
-      </div>
-    </div>
-  );
-}
-
-function MiniStat(props: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border bg-white p-4" style={{ borderColor: "rgba(120,46,21,0.10)" }}>
-      <div className="text-xs" style={{ color: "rgba(30,27,24,0.60)" }}>
-        {props.label}
-      </div>
-      <div className="mt-2 text-base font-semibold" style={{ color: "var(--foreground)" }}>
-        {props.value}
-      </div>
-    </div>
-  );
-}
-
-function Pill(props: { text: string; tone?: "ok" | "warn" | "danger" | "brand" | "neutral" }) {
-  const tone = props.tone ?? "neutral";
-
-  const map: Record<string, React.CSSProperties> = {
-    ok: { background: "rgba(16,185,129,0.12)", borderColor: "rgba(16,185,129,0.25)", color: "rgb(6,95,70)" },
-    warn: { background: "rgba(245,158,11,0.12)", borderColor: "rgba(245,158,11,0.25)", color: "rgb(146,64,14)" },
-    danger: { background: "rgba(239,68,68,0.10)", borderColor: "rgba(239,68,68,0.22)", color: "rgb(153,27,27)" },
-    brand: { background: "rgba(253,238,232,1)", borderColor: "rgba(175,78,43,0.22)", color: "rgba(120,46,21,0.95)" },
-    neutral: { background: "rgba(255,255,255,0.70)", borderColor: "rgba(120,46,21,0.14)", color: "rgba(30,27,24,0.85)" },
-  };
-
-  return (
-    <span
-      className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium"
-      style={map[tone]}
-    >
-      {props.text}
-    </span>
-  );
-}
-
-function IconButton(props: React.ButtonHTMLAttributes<HTMLButtonElement> & { text: string; variant?: "primary" | "secondary" }) {
-  const variant = props.variant ?? "secondary";
-  return (
-    <button {...props} className={`${variant === "primary" ? "btn-primary" : "btn-secondary"} ${props.className ?? ""}`}>
-      {props.text}
-    </button>
-  );
-}
-
-function Menu({
-  open,
-  anchorRef,
-  children,
-  onClose,
-}: {
-  open: boolean;
-  anchorRef: React.RefObject<HTMLElement>;
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  
-
-  useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (!open) return;
-      const anchorEl = anchorRef.current;
-      const menuEl = menuRef.current;
-
-      if (anchorEl && anchorEl.contains(e.target as Node)) return;
-      if (menuEl && menuEl.contains(e.target as Node)) return;
-
-      onClose();
-    }
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [open, anchorRef, onClose]);
-
-  useEffect(() => {
-    if (!open) return;
-    const el = anchorRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    setPos({ top: r.bottom + 8, left: r.left });
-  }, [open, anchorRef]);
-
-  if (!open || !pos) return null;
-
-  return createPortal(
-    <div
-      ref={menuRef}
-      className="z-50 min-w-[220px] rounded-2xl border bg-white p-2 shadow-2xl"
-      style={{
-        position: "fixed",
-        top: pos.top,
-        left: pos.left,
-        borderColor: "rgba(120,46,21,0.12)",
-        boxShadow: "0 20px 50px rgba(30,27,24,0.14)",
-      }}
-    >
-      {children}
-    </div>,
-    document.body
-  );
-}
+import type {
+  ApiResponse,
+  Booking,
+  BookingStatus,
+  DateMode,
+  FiltersState,
+  FilterKey,
+  PaymentMethod,
+  PaymentStatus,
+} from "@/lib/reception/types";
+
+import {
+  computeExpectedAmountMXN,
+  DAY_RATE,
+  NIGHT_RATE,
+  NIGHT_START_HOUR,
+  NIGHT_END_HOUR,
+  TARIFF_PER_HOUR,
+} from "@/lib/reception/pricing";
+
+import {
+  addDaysYMD,
+  asistenciaLabel,
+  canCancelBooking,
+  canCharge,
+  canEditCustomer,
+  canMarkAttendance,
+  currencyMXN,
+  daysInclusive,
+  formatDateES,
+  formatDateMX,
+  formatRangeES,
+  hoursBetween,
+  isAttendanceFinal,
+  isPaid,
+  normalizeRange,
+  origenLabel,
+  parseISOToLocalTime,
+  parseISOToLocalTime24,
+  statusLabelES,
+  tipoLabel,
+  toYMDLocal,
+} from "@/lib/reception/utils";
+
+import { useDebounce } from "@/lib/reception/hooks";
+import { IconButton, KpiCard, Menu, MiniStat, Pill } from "@/components/reception/ui";
 
 /* ===================== PÁGINA ===================== */
 

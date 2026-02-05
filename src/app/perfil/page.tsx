@@ -53,6 +53,11 @@ export default function ProfilePage() {
   const [sex, setSex] = useState("");
   const [division, setDivision] = useState("");
 
+  const dobOk = Boolean(birthDate);
+  const sexOk = Boolean(sex.trim());
+  const canSave = dobOk && sexOk && !saving && !syncing;
+
+
   async function load() {
     setLoading(true);
     setError(null);
@@ -116,14 +121,21 @@ export default function ProfilePage() {
         throw new Error("Teléfono inválido. Ej: 434 123 4567 o +52 434 123 4567");
       }
 
+      // Requeridos para promos y analítica de comunidad
+      if (!birthDate) {
+        throw new Error("Por favor ingresa tu fecha de nacimiento (la usamos para promociones de cumpleaños).");
+      }
+      if (!sex.trim()) {
+        throw new Error("Por favor selecciona tu sexo (nos ayuda a organizar eventos y ligas).");
+      }
 
       const payload = {
         id: data.user.id,
         full_name: fullName.trim() || null,
         phone_e164: phoneNorm.e164,
-        birth_date: birthDate || null,
+        birth_date: birthDate,
         notes: playerNotes.trim() || null,
-        sex: sex.trim() || null,
+        sex: sex.trim(),
         division: division.trim() || null,
         updated_at: new Date().toISOString(),
       };
@@ -143,10 +155,7 @@ export default function ProfilePage() {
     }
   }
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    router.push("/");
-  }
+
 
   useEffect(() => {
     void load();
@@ -165,10 +174,6 @@ export default function ProfilePage() {
             <h1 className="section-title">Mi perfil</h1>
             <p className="section-subtitle">Completa tus datos para reservar más rápido.</p>
           </div>
-
-          <button onClick={signOut} className="btn-secondary">
-            Cerrar sesión
-          </button>
         </div>
 
         <div className="mt-6 card">
@@ -195,19 +200,36 @@ export default function ProfilePage() {
             </div>
 
             <div>
-              <label className="block text-xs text-white/70">Fecha de nacimiento (opcional)</label>
+              <label className="block text-xs text-white/70">
+                Fecha de nacimiento <span className="text-white/60">*</span>
+              </label>
+
               <input className="input" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+              <div className="mt-1 text-xs text-white/50">
+                La usamos para promociones de cumpleaños 🎉
+              </div>
+
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-xs text-white/70">Sexo (opcional)</label>
+                <label className="block text-xs text-white/70">
+                  Sexo <span className="text-white/60">*</span>
+                </label>
+
                 <select className="input" value={sex} onChange={(e) => setSex(e.target.value)}>
-                  <option value="">—</option>
+                  <option value="" disabled>
+                    Selecciona…
+                  </option>
+
                   <option value="M">Masculino</option>
                   <option value="F">Femenino</option>
                   <option value="Otro">Otro</option>
                 </select>
+                <div className="mt-1 text-xs text-white/50">
+                  Nos ayuda a organizar eventos y ligas por categoría.
+                </div>
+
               </div>
 
               <div>
@@ -226,9 +248,14 @@ export default function ProfilePage() {
               <textarea className="input" value={playerNotes} onChange={(e) => setPlayerNotes(e.target.value)} rows={4} />
             </div>
 
-            <button onClick={save} disabled={saving || syncing} className="w-full btn-primary">
+            <button
+              onClick={save}
+              disabled={!canSave}
+              className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               {saving ? "Guardando…" : syncing ? "Sincronizando…" : "Guardar perfil"}
             </button>
+
           </div>
         </div>
       </div>

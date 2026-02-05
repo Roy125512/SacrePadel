@@ -34,10 +34,8 @@ export default function InicioPage() {
   return (
     <div className="min-h-[calc(100vh-56px)] page page-gradient">
       <div className="mx-auto max-w-3xl px-6 py-12">
-        <h1 className="section-title">Bienvenido</h1>
-        <p className="section-subtitle">
-          Reserva tu cancha rápido. Con cuenta, tus datos se autocompletan.
-        </p>
+        <h1 className="section-title">Reserva tu cancha y únete a la comunidad Sacré! 🎾</h1>
+        <p className="section-subtitle">Donde el juego se hace sagrado</p>
 
         <div className="mt-8 grid gap-3">
           {hasSession ? (
@@ -80,10 +78,18 @@ export default function InicioPage() {
                 Continuar como invitado
               </button>
 
-              <div className="mt-2 text-xs text-white/50">
-                Invitado: llenas tus datos cada vez. Con cuenta: se autocompletan y guardas tu historial.
+              <div className="mt-3 text-xs text-white/60 leading-relaxed">
+                <div className="font-semibold text-white/70">Si seleccionas:</div>
 
+                <div className="mt-1">
+                  <span className="font-semibold">Continuar como invitado:</span> Tus datos los tendrás que llenar cada que reserves cancha
+                </div>
+
+                <div className="mt-1">
+                  <span className="font-semibold">Crear cuenta:</span> Ya tendremos tus datos y generarás historial para promociones!! 🙌🏻
+                </div>
               </div>
+
             </>
           )}
 
