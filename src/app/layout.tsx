@@ -16,7 +16,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Sacré Pádel",
   description: "Reservas de canchas",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
 };
+
+
+
 
 export default function RootLayout({
   children,
