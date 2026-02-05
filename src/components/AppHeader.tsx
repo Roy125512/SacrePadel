@@ -174,7 +174,10 @@ export default function AppHeader() {
                 <div className="mx-auto max-w-6xl px-6 py-3 grid gap-2">
                   <Link
                     href="/"
-                    className="w-full text-sm rounded-md border px-3 py-2 text-center"
+                    className="w-full text-sm rounded-md border px-3 py-2 text-center
+                      transition active:scale-[0.99]
+                      active:bg-[rgba(253,238,232,0.95)]
+                      active:border-[rgba(175,78,43,0.35)]"
                     style={{ borderColor: "rgba(120, 46, 21, 0.14)" }}
                   >
                     Inicio
@@ -183,19 +186,32 @@ export default function AppHeader() {
 
                   <Link
                     href={loggedIn ? "/reservar" : loginToReserveHref}
-                    className="w-full text-sm rounded-md border px-3 py-2 text-center"
+                    className="w-full text-sm rounded-md border px-3 py-2 text-center
+                      transition active:scale-[0.99]
+                      active:bg-[rgba(253,238,232,0.95)]
+                      active:border-[rgba(175,78,43,0.35)]"
                     style={{ borderColor: "rgba(120, 46, 21, 0.14)" }}
                   >
                     Reservar
                   </Link>
 
-                  <Link href="/perfil" className="w-full text-sm rounded-md border px-3 py-2 text-center"
+                  <Link 
+                    href="/perfil" 
+                    className="w-full text-sm rounded-md border px-3 py-2 text-center
+                      transition active:scale-[0.99]
+                      active:bg-[rgba(253,238,232,0.95)]
+                      active:border-[rgba(175,78,43,0.35)]"
                     style={{ borderColor: "rgba(120, 46, 21, 0.14)" }}>
                     Perfil
                   </Link>
 
                   {loggedIn && (role === "owner" || role === "reception") && (
-                    <Link href="/reception" className="w-full text-sm rounded-md border px-3 py-2 text-center"
+                    <Link 
+                      href="/reception" 
+                      className="w-full text-sm rounded-md border px-3 py-2 text-center
+                        transition active:scale-[0.99]
+                        active:bg-[rgba(253,238,232,0.95)]
+                        active:border-[rgba(175,78,43,0.35)]"
                       style={{ borderColor: "rgba(120, 46, 21, 0.14)" }}>
                       Recepción
                     </Link>
@@ -204,11 +220,12 @@ export default function AppHeader() {
                   {loggedIn ? (
                     <button
                       onClick={signOut}
-                      className="w-full text-sm rounded-md border px-3 py-2 text-center transition"
+                      className="w-full text-sm rounded-md border px-3 py-2 text-center
+                        transition active:scale-[0.99]
+                        active:bg-[rgba(253,238,232,0.95)]
+                        active:border-[rgba(175,78,43,0.35)]"
                       style={{
                         borderColor: "rgba(175, 78, 43, 0.25)",
-                        background: "rgba(253, 238, 232, 0.9)",
-                        color: "rgba(120, 46, 21, 0.95)",
                       }}
                     >
                       Cerrar sesión
@@ -223,7 +240,10 @@ export default function AppHeader() {
                   <button
                     type="button"
                     onClick={() => setMenuOpen(false)}
-                    className="w-full rounded-md border px-3 py-2 text-sm text-center"
+                    className="w-full text-sm rounded-md border px-3 py-2 text-center
+                      transition active:scale-[0.99]
+                      active:bg-[rgba(253,238,232,0.95)]
+                      active:border-[rgba(175,78,43,0.35)]"
                     style={{ borderColor: "rgba(120, 46, 21, 0.14)" }}
                   >
                     Cerrar menú
