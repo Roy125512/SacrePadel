@@ -17,15 +17,12 @@ export default function ForgotPasswordPage() {
     setSending(true);
 
     try {
-      // Usa un dominio estable (prod) aunque estés en preview/local si quieres.
-      const siteUrl =
-        process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
-        window.location.origin;
+      const origin = window.location.origin;
 
       const { error } = await supabaseBrowser.auth.resetPasswordForEmail(email.trim(), {
-        // IMPORTANTÍSIMO: pasar por callback para exchangeCodeForSession
-        redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
+        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
       });
+
 
       if (error) throw error;
       setDone(true);
