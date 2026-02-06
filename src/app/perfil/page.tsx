@@ -190,7 +190,7 @@ export default function ProfilePage() {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-xs text-white/70">Nombre</label>
+              <label className="block text-xs text-white/70">Nombre Completo (Apellidos incluidos)</label>
               <input className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} />
             </div>
 
