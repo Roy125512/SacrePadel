@@ -47,7 +47,7 @@ export async function POST(req: Request) {
   const player_notes = typeof body.player_notes === "string" ? body.player_notes.trim() : null;
 
   if (!full_name) {
-    return NextResponse.json({ error: "full_name is required" }, { status: 400 });
+    return NextResponse.json({ error: "El nombre completo es requerido" }, { status: 400 });
   }
 
   // ✅ Si viene teléfono, buscamos si ya existe por phone_e164

@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid body", details: parsed.error.flatten() },
+      { error: "Cuerpo de la solicitud inválido.", details: parsed.error.flatten() },
       { status: 400 }
     );
   }
@@ -29,13 +29,13 @@ export async function POST(req: Request) {
     .single();
 
   if (readErr || !booking) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
   }
 
   // 2) Regla operativa: solo se paga una reserva real (CONFIRMED)
   if (booking.status !== "CONFIRMED") {
     return NextResponse.json(
-      { error: "Only CONFIRMED bookings can be marked as paid" },
+      { error: "Solo las reservas CONFIRMED se pueden marcar como pagadas." },
       { status: 409 }
     );
   }
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
   // 3) Evitar doble cobro
   if (booking.payment_status === "PAID") {
     return NextResponse.json(
-      { error: "Booking is already PAID" },
+      { error: "La reserva ya está pagada." },
       { status: 409 }
     );
   }
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
 
   if (updErr) {
     return NextResponse.json(
-      { error: "Could not mark as paid", details: updErr.message },
+      { error: "No se pudo marcar como pagado.", details: updErr.message },
       { status: 500 }
     );
   }

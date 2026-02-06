@@ -37,7 +37,7 @@ export async function GET(
     .maybeSingle();
 
   if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 });
-  if (!customer) return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+  if (!customer) return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
 
   const { count: totalCount, error: countErr } = await supabaseAdmin
     .from("bookings")
@@ -147,7 +147,7 @@ export async function PATCH(
   }
 
   if (!id || id === "customers") {
-    return NextResponse.json({ error: "Missing customer id" }, { status: 400 });
+    return NextResponse.json({ error: "Falta el id del cliente." }, { status: 400 });
   }
 
   const body = await req.json().catch(() => ({}));

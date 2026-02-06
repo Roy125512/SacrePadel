@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const date = (searchParams.get("date") || "").trim();
 
-  if (!date) return NextResponse.json({ error: "date (YYYY-MM-DD) is required" }, { status: 400 });
+  if (!date) return NextResponse.json({ error: "date (YYYY-MM-DD) es obligatorio." }, { status: 400 });
 
   const tzOffset = BUSINESS_TZ_OFFSET;
 

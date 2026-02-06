@@ -7,7 +7,7 @@ export async function POST(req: Request) {
     const booking_id = String(body.booking_id ?? "").trim();
 
     if (!booking_id) {
-      return NextResponse.json({ error: "booking_id is required" }, { status: 400 });
+      return NextResponse.json({ error: "booking_id es obligatorio." }, { status: 400 });
     }
 
     // ✅ Liberar HOLD = BORRARLO (no CANCELLED)
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
         payload: {},
       });
     } catch (e) {
-      console.warn("booking_events insert failed (ignored):", e);
+      console.warn("Falló el insert en booking_events (ignorado):", e);
     }
 
     return NextResponse.json({ ok: true, released: true }, { status: 200 });

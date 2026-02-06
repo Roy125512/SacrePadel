@@ -47,7 +47,7 @@ export async function POST(req: Request) {
 
 
     if (!booking_id || !status) {
-      return NextResponse.json({ error: "booking_id and status are required" }, { status: 400 });
+      return NextResponse.json({ error: "booking_id y status son obligatorios." }, { status: 400 });
     }
 
     const patch: Record<string, any> = { status };

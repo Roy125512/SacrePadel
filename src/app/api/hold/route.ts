@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid body", details: parsed.error.flatten() },
+      { error: "Cuerpo de la solicitud inválido", details: parsed.error.flatten() },
       { status: 400 }
     );
   }
@@ -27,10 +27,10 @@ export async function POST(req: Request) {
   const end = new Date(end_at);
 
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    return NextResponse.json({ error: "Invalid ISO timestamps" }, { status: 400 });
+    return NextResponse.json({ error: "Timestamps ISO inválidos." }, { status: 400 });
   }
   if (end <= start) {
-    return NextResponse.json({ error: "end_at must be after start_at" }, { status: 400 });
+    return NextResponse.json({ error: "end_at debe ser posterior a start_at" }, { status: 400 });
   }
 
   // Expira en 10 minutos (ajustable)
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     // Cuando hay choque de horario por constraint, normalmente es un 409 (conflict)
     // No dependemos del texto exacto; solo devolvemos 409 cuando falla la inserción.
     return NextResponse.json(
-      { error: "Time slot not available", details: error.message },
+      { error: "El horario no está disponible.", details: error.message },
       { status: 409 }
     );
   }

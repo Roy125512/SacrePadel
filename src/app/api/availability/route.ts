@@ -8,7 +8,7 @@ export async function GET(req: Request) {
   const date = searchParams.get("date");
 
   if (!date) {
-    return NextResponse.json({ error: "Missing required query param: date (YYYY-MM-DD)" }, { status: 400 });
+    return NextResponse.json({ error: "MFalta el parámetro requerido: fecha (YYYY-MM-DD)." }, { status: 400 });
   }
 
   const tzOffset = BUSINESS_TZ_OFFSET;
@@ -64,6 +64,6 @@ export async function GET(req: Request) {
       { status: 200 }
     );
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Unexpected error" }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "Error inesperado" }, { status: 500 });
   }
 }

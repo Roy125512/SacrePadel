@@ -13,7 +13,7 @@ export async function POST(req: Request) {
 
   if (!booking_id || !customer_id) {
     return NextResponse.json(
-      { error: "booking_id and customer_id are required" },
+      { error: "booking_id y customer_id son obligatorios." },
       { status: 400 }
     );
   }

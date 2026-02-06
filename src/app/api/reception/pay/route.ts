@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid body", details: parsed.error.flatten() },
+      { error: "Cuerpo de la solicitud inválido.", details: parsed.error.flatten() },
       { status: 400 }
     );
   }
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
 
   if (updErr) {
     return NextResponse.json(
-      { error: "Could not register payment", details: updErr.message },
+      { error: "No se pudo registrar el pago.", details: updErr.message },
       { status: 500 }
     );
   }
@@ -61,26 +61,26 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (readErr || !booking) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+      return NextResponse.json({ error: "Reserva no encontrada." }, { status: 404 });
     }
 
     if (booking.payment_status === "PAID") {
       return NextResponse.json(
-        { error: "Booking already paid", booking },
+        { error: "La reserva ya está pagada.", booking },
         { status: 409 }
       );
     }
 
     if (booking.status !== "CONFIRMED" && booking.status !== "COMPLETED") {
       return NextResponse.json(
-        { error: "Only CONFIRMED/COMPLETED bookings can be paid", booking },
+        { error: "Solo se pueden pagar reservas CONFIRMED/COMPLETED.", booking },
         { status: 409 }
       );
     }
 
     // fallback (raro)
     return NextResponse.json(
-      { error: "Payment could not be applied", booking },
+      { error: "No se pudo aplicar el pago.", booking },
       { status: 409 }
     );
   }

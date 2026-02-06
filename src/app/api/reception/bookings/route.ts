@@ -19,14 +19,14 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         error:
-          "Missing required query param: either date=YYYY-MM-DD OR start=YYYY-MM-DD&end=YYYY-MM-DD",
+          "Falta un parámetro requerido: usa date=YYYY-MM-DD o start=YYYY-MM-DD&end=YYYY-MM-DD.",
       },
       { status: 400 }
     );
   }
   if (isRange && (!start || !end)) {
     return NextResponse.json(
-      { error: "For range mode, both start and end are required (YYYY-MM-DD)." },
+      { error: "Para el modo por rango, se requieren start y end (YYYY-MM-DD)." },
       { status: 400 }
     );
   }

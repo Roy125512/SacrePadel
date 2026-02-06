@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
     const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(token);
     if (userErr || !userData?.user) {
-      return NextResponse.json({ error: userErr?.message ?? "Invalid token" }, { status: 401 });
+      return NextResponse.json({ error: userErr?.message ?? "Token inválido o expirado" }, { status: 401 });
     }
 
     const user = userData.user;

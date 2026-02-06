@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const end_at = String(body.end_at ?? "").trim();
 
   if (!booking_id || !end_at) {
-    return NextResponse.json({ error: "booking_id and end_at are required" }, { status: 400 });
+    return NextResponse.json({ error: "booking_id y end_at son obligatorios." }, { status: 400 });
   }
 
   const holdMinutes = 10;
