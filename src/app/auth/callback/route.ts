@@ -30,11 +30,31 @@ export async function GET(request: NextRequest) {
     }
   );
 
-  if (token_hash && type) {
-    await supabase.auth.verifyOtp({ type: type as any, token_hash });
-  } else if (code) {
-    await supabase.auth.exchangeCodeForSession(code);
+  // ✅ 1) Prioriza PKCE code
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      return NextResponse.redirect(
+        `${origin}/forgot-password?error=${encodeURIComponent(error.message)}`
+      );
+    }
+    return response;
   }
 
-  return response;
+  // ✅ 2) Si no hay code, usa token_hash (OTP link)
+  if (token_hash && type) {
+    const { error } = await supabase.auth.verifyOtp({
+      type: type as any,
+      token_hash,
+    });
+    if (error) {
+      return NextResponse.redirect(
+        `${origin}/forgot-password?error=${encodeURIComponent(error.message)}`
+      );
+    }
+    return response;
+  }
+
+  // Si no llegó nada útil, manda a forgot-password
+  return NextResponse.redirect(`${origin}/forgot-password?error=missing_params`);
 }
