@@ -6,6 +6,7 @@ export async function GET(request: Request) {
   const { searchParams, origin } = url;
 
   const code = searchParams.get("code");
+  const token_hash = searchParams.get("token_hash");
   const type = (searchParams.get("type") || "").toLowerCase(); // recovery | signup | magiclink...
   let next = searchParams.get("next");
 
@@ -32,7 +33,8 @@ export async function GET(request: Request) {
   // Prepara respuesta final (aquí vamos a pegar cookies)
   const response = NextResponse.redirect(`${origin}${next}`);
 
-  if (code) {
+  // Solo crea Supabase si vamos a intercambiar/validar algo
+  if (code || (token_hash && type)) {
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -63,7 +65,17 @@ export async function GET(request: Request) {
       }
     );
 
-    await supabase.auth.exchangeCodeForSession(code);
+    // 1) Caso recovery/verifyOtp (token_hash + type)
+    if (token_hash && type) {
+      await supabase.auth.verifyOtp({
+        type: type as any, // "recovery", "signup", etc.
+        token_hash,
+      });
+    }
+    // 2) Caso PKCE code
+    else if (code) {
+      await supabase.auth.exchangeCodeForSession(code);
+    }
   }
 
   return response;

@@ -185,20 +185,26 @@ export default function LoginClient() {
                   {showConfirm ? "Ocultar" : "Ver"}
                 </button>
               </div>
-
-              <button
-                onClick={resendConfirmation}
-                disabled={sending || !email.trim()}
-                className="mt-2 w-full btn-secondary"
-              >
-                Reenviar correo de confirmación
-              </button>
             </>
           )}
 
           <button onClick={submitAuth} disabled={sending} className="mt-4 w-full btn-primary">
             {sending ? "Procesando…" : isSignup ? "Crear cuenta" : "Iniciar sesión"}
           </button>
+
+          {isSignup && (
+            <button
+              type="button"
+              onClick={resendConfirmation}
+              disabled={sending || !email.trim()}
+              className="mt-2 mx-auto block text-xs underline opacity-70 hover:opacity-100 disabled:opacity-40"
+            >
+              Reenviar código de confirmación
+            </button>
+          )}
+
+
+          
 
           <button
             onClick={() =>
