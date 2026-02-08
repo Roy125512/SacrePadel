@@ -33,7 +33,7 @@ export async function GET(request: Request) {
   // Prepara respuesta final (aquí vamos a pegar cookies)
   const response = NextResponse.redirect(`${origin}${next}`);
 
-  // Solo crea Supabase si vamos a intercambiar/validar algo
+  // Crea el cliente solo si hay algo que intercambiar/verificar
   if (code || (token_hash && type)) {
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -65,14 +65,14 @@ export async function GET(request: Request) {
       }
     );
 
-    // 1) Caso recovery/verifyOtp (token_hash + type)
+    // 1) Caso recovery/signup con token_hash
     if (token_hash && type) {
       await supabase.auth.verifyOtp({
         type: type as any, // "recovery", "signup", etc.
         token_hash,
       });
     }
-    // 2) Caso PKCE code
+    // 2) Caso PKCE con code
     else if (code) {
       await supabase.auth.exchangeCodeForSession(code);
     }
