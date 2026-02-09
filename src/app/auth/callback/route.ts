@@ -8,8 +8,26 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const token_hash = searchParams.get("token_hash");
   const type = (searchParams.get("type") || "").toLowerCase();
-  const next =
-    searchParams.get("next") || (type === "recovery" ? "/reset-password" : "/");
+
+  // --- next robusto (decodifica si viene %2Fperfil) ---
+  let next = searchParams.get("next") || "";
+  if (next) {
+    try {
+      next = decodeURIComponent(next);
+    } catch {}
+  }
+
+  // Defaults por tipo (esto es lo que te falta)
+  if (!next) {
+    if (type === "recovery") next = "/reset-password";
+    else if (type === "signup") next = "/perfil";
+    else next = "/reservar";
+  }
+
+  // Evita open-redirect: solo paths internos
+  if (!next.startsWith("/")) {
+    next = type === "signup" ? "/perfil" : "/";
+  }
 
   const response = NextResponse.redirect(`${origin}${next}`);
 
@@ -30,31 +48,21 @@ export async function GET(request: NextRequest) {
     }
   );
 
-  // ✅ 1) Prioriza PKCE code
+  // ✅ Prioriza code (PKCE)
   if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
-      return NextResponse.redirect(
-        `${origin}/forgot-password?error=${encodeURIComponent(error.message)}`
-      );
-    }
+    await supabase.auth.exchangeCodeForSession(code);
     return response;
   }
 
-  // ✅ 2) Si no hay code, usa token_hash (OTP link)
+  // ✅ Si no hay code, usa token_hash (OTP)
   if (token_hash && type) {
-    const { error } = await supabase.auth.verifyOtp({
+    await supabase.auth.verifyOtp({
       type: type as any,
       token_hash,
     });
-    if (error) {
-      return NextResponse.redirect(
-        `${origin}/forgot-password?error=${encodeURIComponent(error.message)}`
-      );
-    }
     return response;
   }
 
-  // Si no llegó nada útil, manda a forgot-password
-  return NextResponse.redirect(`${origin}/forgot-password?error=missing_params`);
+  // Si no llegó nada, manda a login
+  return NextResponse.redirect(`${origin}/login?mode=login`);
 }
