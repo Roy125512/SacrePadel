@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizePhone } from "@/lib/phone";
+import { dbErrorResponse } from "@/lib/apiError";
 
 
 function getBearerToken(req: NextRequest) {
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(token);
     if (userErr || !userData?.user) {
-      return NextResponse.json({ error: userErr?.message ?? "Token inválido o expirado" }, { status: 401 });
+      return dbErrorResponse("POST /api/customers/sync-profile getUser", userErr, 401);
     }
 
     const user = userData.user;
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
       .eq("id", user.id)
       .maybeSingle();
 
-    if (pErr) return NextResponse.json({ error: pErr.message }, { status: 500 });
+    if (pErr) return dbErrorResponse("POST /api/customers/sync-profile fetch profile", pErr);
     if (!prof) return NextResponse.json({ error: "Profile no encontrado" }, { status: 404 });
 
     const full_name = String(prof.full_name ?? "").trim();
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    if (bErr) return NextResponse.json({ error: bErr.message }, { status: 500 });
+    if (bErr) return dbErrorResponse("POST /api/customers/sync-profile fetch last booking", bErr);
 
     if (lastBooking?.customer_id) {
       const customer_id = lastBooking.customer_id as string;
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
         .select("id, full_name, phone_e164, birthday, player_notes, sex, division")
         .single();
 
-      if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+      if (upErr) return dbErrorResponse("POST /api/customers/sync-profile update by booking", upErr);
 
       return NextResponse.json({ ok: true, action: "updated_by_booking", customer: updated });
     }
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
       .eq("phone_e164", phone_e164)
       .maybeSingle();
 
-    if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 });
+    if (cErr) return dbErrorResponse("POST /api/customers/sync-profile find by phone", cErr);
 
     if (existing?.id) {
       const { data: updated, error: upErr } = await supabaseAdmin
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
         .select("id, full_name, phone_e164, birthday, player_notes, sex, division")
         .single();
 
-      if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+      if (upErr) return dbErrorResponse("POST /api/customers/sync-profile update by phone", upErr);
 
       return NextResponse.json({ ok: true, action: "updated_by_phone", customer: updated });
     }
@@ -125,14 +126,10 @@ export async function POST(req: NextRequest) {
       .select("id, full_name, phone_e164, birthday, player_notes, sex, division")
       .single();
 
-    if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+    if (insErr) return dbErrorResponse("POST /api/customers/sync-profile insert", insErr);
 
     return NextResponse.json({ ok: true, action: "inserted", customer: created }, { status: 201 });
   } catch (e: any) {
-    console.error("sync-profile crash:", e);
-    return NextResponse.json(
-      { error: e?.message ?? "Error desconocido en sync-profile" },
-      { status: 500 }
-    );
+    return dbErrorResponse("POST /api/customers/sync-profile", e);
   }
 }

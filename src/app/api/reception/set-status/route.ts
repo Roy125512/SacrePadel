@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireReceptionAccess } from "@/lib/guards/reception";
-
+import { dbErrorResponse } from "@/lib/apiError";
 
 export async function POST(req: Request) {
   const gate = await requireReceptionAccess({ asJson: true, nextPath: "/reception" });
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
       .single();
 
     if (readErr) {
-      return NextResponse.json({ error: readErr.message }, { status: 500 });
+      return dbErrorResponse("POST /api/reception/set-status fetch booking", readErr);
     }
 
     const curStatus = current.status as string;
@@ -67,11 +67,11 @@ export async function POST(req: Request) {
     }
 
     if (res.error) {
-      return NextResponse.json({ error: res.error.message }, { status: 500 });
+      return dbErrorResponse("POST /api/reception/set-status update", res.error);
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });
+    return dbErrorResponse("POST /api/reception/set-status", e);
   }
 }

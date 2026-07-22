@@ -33,6 +33,13 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# respaldos de datos — contienen información real de clientes, nunca al repo
+/backups/
+
+# material fuente de fotos/video sin comprimir — no es parte del sitio,
+# solo se usa para elegir/curar imágenes que se copian a public/images/
+/Fotos y videos Sacre/
+
 # vercel
 .vercel
 

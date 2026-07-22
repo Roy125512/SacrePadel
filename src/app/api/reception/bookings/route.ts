@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireReceptionAccess } from "@/lib/guards/reception";
 import { BUSINESS_TZ_OFFSET } from "@/lib/config";
+import { dbErrorResponse } from "@/lib/apiError";
 
 
 export async function GET(req: Request) {
@@ -91,7 +92,7 @@ export async function GET(req: Request) {
   }
 
   if (res.error) {
-    return NextResponse.json({ error: res.error.message }, { status: 500 });
+    return dbErrorResponse("GET /api/reception/bookings", res.error);
   }
 
   const bookings = (res.data ?? []).map((b: any) => {

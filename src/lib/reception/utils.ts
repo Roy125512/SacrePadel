@@ -1,4 +1,11 @@
 import type { Booking, BookingStatus } from "./types";
+import { computeExpectedAmountMXN } from "./pricing";
+
+// Real court count in the DB (Cancha 1–4). Used for occupancy-capacity
+// math — keep in sync if a court is added/retired.
+export const DEFAULT_COURTS = 4;
+export const OPEN_HOUR = 7;
+export const CLOSE_HOUR = 22;
 
 export function toYMDLocal(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -122,4 +129,131 @@ export function formatDateMX(iso: string) {
 export function parseISOToLocalTime24(iso: string) {
   const d = new Date(iso);
   return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+// ===== Cálculos compartidos (operación + dashboard) =====
+
+/** Añade duration_hours y amount (esperado o pagado) a una reserva cruda de la API. */
+export function enrichBooking(b: Booking): Booking {
+  const dur = hoursBetween(b.start_at, b.end_at);
+  const amount =
+    typeof b.paid_amount === "number" && (b.payment_status ?? "UNPAID") === "PAID"
+      ? b.paid_amount
+      : computeExpectedAmountMXN(b.start_at, b.end_at);
+  return { ...b, duration_hours: dur, amount };
+}
+
+export type CapacityOpts = { courts?: number; openHour?: number; closeHour?: number };
+
+export type AggregateStats = {
+  totalReservas: number;
+  ingresos: number;
+  pendiente: number;
+  horasVendidas: number;
+  ocupacion: number;
+  efectivo: number;
+  tarjeta: number;
+  transfer: number;
+  mercadopago: number;
+  pendientesCount: number;
+  tarifaPromedio: number;
+};
+
+export function computeAggregateStats(rows: Booking[], days: number, opts?: CapacityOpts): AggregateStats {
+  const courts = opts?.courts ?? DEFAULT_COURTS;
+  const openHour = opts?.openHour ?? OPEN_HOUR;
+  const closeHour = opts?.closeHour ?? CLOSE_HOUR;
+
+  const confirmedOrCompleted = rows.filter((b) => b.status === "CONFIRMED" || b.status === "COMPLETED");
+  const paid = rows.filter((b) => b.payment_status === "PAID");
+  const pending = rows.filter((b) => canCharge(b));
+
+  const ingresos = paid.reduce((acc, b) => acc + (b.paid_amount ?? 0), 0);
+  const pendiente = pending.reduce((acc, b) => acc + (b.amount ?? 0), 0);
+  const horasVendidas = confirmedOrCompleted.reduce((acc, b) => acc + (b.duration_hours ?? 0), 0);
+
+  const capacityHours = courts * (closeHour - openHour) * days;
+  const ocupacion = capacityHours > 0 ? (horasVendidas / capacityHours) * 100 : 0;
+
+  const efectivo = paid.filter((b) => b.payment_method === "CASH").reduce((acc, b) => acc + (b.paid_amount ?? 0), 0);
+  const tarjeta = paid.filter((b) => b.payment_method === "CARD").reduce((acc, b) => acc + (b.paid_amount ?? 0), 0);
+  const transfer = paid.filter((b) => b.payment_method === "TRANSFER").reduce((acc, b) => acc + (b.paid_amount ?? 0), 0);
+  const mercadopago = paid.filter((b) => b.payment_method === "MERCADOPAGO").reduce((acc, b) => acc + (b.paid_amount ?? 0), 0);
+
+  const tarifaPromedio = horasVendidas > 0 ? ingresos / horasVendidas : 0;
+
+  return {
+    totalReservas: rows.length,
+    ingresos,
+    pendiente,
+    horasVendidas,
+    ocupacion,
+    efectivo,
+    tarjeta,
+    transfer,
+    mercadopago,
+    pendientesCount: pending.length,
+    tarifaPromedio,
+  };
+}
+
+export type DailySummaryRow = {
+  ymd: string;
+  reservas: number;
+  ingresos: number;
+  pendiente: number;
+  horasVendidas: number;
+  ocupacion: number;
+  canceladas: number;
+  noShow: number;
+  completadas: number;
+  tarifaPromedio: number;
+};
+
+export function buildDailySummary(
+  rows: Booking[],
+  startYMD: string,
+  endYMD: string,
+  opts?: CapacityOpts
+): DailySummaryRow[] {
+  const courts = opts?.courts ?? DEFAULT_COURTS;
+  const openHour = opts?.openHour ?? OPEN_HOUR;
+  const closeHour = opts?.closeHour ?? CLOSE_HOUR;
+
+  const norm = normalizeRange(startYMD, endYMD);
+  const days = daysInclusive(norm.start, norm.end);
+  const capacityPerDay = courts * (closeHour - openHour);
+
+  type Bucket = Omit<DailySummaryRow, "ocupacion" | "tarifaPromedio">;
+  const map = new Map<string, Bucket>();
+
+  for (const b of rows) {
+    const ymd = toYMDLocal(new Date(b.start_at));
+    const bucket: Bucket =
+      map.get(ymd) ?? { ymd, reservas: 0, ingresos: 0, pendiente: 0, horasVendidas: 0, canceladas: 0, noShow: 0, completadas: 0 };
+
+    bucket.reservas += 1;
+    if ((b.payment_status ?? "UNPAID") === "PAID") bucket.ingresos += b.paid_amount ?? 0;
+    if (canCharge(b)) bucket.pendiente += b.amount ?? 0;
+    if (b.status === "CONFIRMED" || b.status === "COMPLETED") bucket.horasVendidas += b.duration_hours ?? 0;
+    if (b.status === "CANCELLED") bucket.canceladas += 1;
+    if (b.status === "NO_SHOW") bucket.noShow += 1;
+    if (b.status === "COMPLETED") bucket.completadas += 1;
+
+    map.set(ymd, bucket);
+  }
+
+  const out: DailySummaryRow[] = [];
+  for (let i = 0; i < days; i++) {
+    const y = addDaysYMD(norm.start, i);
+    const bucket: Bucket =
+      map.get(y) ?? { ymd: y, reservas: 0, ingresos: 0, pendiente: 0, horasVendidas: 0, canceladas: 0, noShow: 0, completadas: 0 };
+
+    const ocupacion = capacityPerDay > 0 ? (bucket.horasVendidas / capacityPerDay) * 100 : 0;
+    const tarifaPromedio = bucket.horasVendidas > 0 ? bucket.ingresos / bucket.horasVendidas : 0;
+
+    out.push({ ...bucket, ocupacion, tarifaPromedio });
+  }
+
+  return out;
 }

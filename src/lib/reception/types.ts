@@ -1,7 +1,7 @@
 // Reception domain types used by /reception UI and its API routes.
 export type BookingStatus = "HOLD" | "CONFIRMED" | "CANCELLED" | "NO_SHOW" | "COMPLETED";
 export type PaymentStatus = "UNPAID" | "PAID";
-export type PaymentMethod = "CASH" | "CARD" | "TRANSFER";
+export type PaymentMethod = "CASH" | "CARD" | "TRANSFER" | "STRIPE" | "MERCADOPAGO";
 
 export type DateMode = "DAY" | "RANGE";
 

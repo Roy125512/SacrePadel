@@ -1,12 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { DEMO } from "@/lib/demo/flag";
 
 export async function middleware(req: NextRequest) {
-  let res = NextResponse.next({
+  const res = NextResponse.next({
     request: {
       headers: req.headers,
     },
   });
+
+  // Demo mode: no real Supabase to refresh against — just pass through.
+  if (DEMO) {
+    return res;
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;

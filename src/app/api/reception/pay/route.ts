@@ -7,7 +7,7 @@ import { requireReceptionAccess } from "@/lib/guards/reception";
 const BodySchema = z.object({
   booking_id: z.string().uuid(),
   paid_amount: z.number().positive(),
-  payment_method: z.enum(["CASH", "CARD", "TRANSFER"]),
+  payment_method: z.enum(["CASH", "CARD", "TRANSFER", "STRIPE"]),
 });
 
 export async function POST(req: Request) {
@@ -45,8 +45,9 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (updErr) {
+    console.error("POST /api/reception/pay update booking", updErr);
     return NextResponse.json(
-      { error: "No se pudo registrar el pago.", details: updErr.message },
+      { error: "No se pudo registrar el pago." },
       { status: 500 }
     );
   }

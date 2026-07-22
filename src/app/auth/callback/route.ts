@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { DEMO } from "@/lib/demo/flag";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -30,6 +31,11 @@ export async function GET(request: NextRequest) {
   }
 
   const response = NextResponse.redirect(`${origin}${next}`);
+
+  // Demo mode: there are no email-confirmation links to exchange; just redirect.
+  if (DEMO) {
+    return response;
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

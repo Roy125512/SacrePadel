@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizePhone } from "@/lib/phone";
 import { createClient } from "@/lib/supabaseServer";
+import { dbErrorResponse } from "@/lib/apiError";
 
 export async function GET(req: Request) {
   // ✅ 1) Requiere sesión
@@ -21,7 +22,7 @@ export async function GET(req: Request) {
     .maybeSingle();
 
   if (profErr) {
-    return NextResponse.json({ error: profErr.message }, { status: 500 });
+    return dbErrorResponse("GET /api/web/customers fetch profile", profErr);
   }
 
   const role = String(prof?.role ?? "").toLowerCase().trim();
@@ -60,6 +61,6 @@ export async function GET(req: Request) {
 
   const { data, error } = await query;
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbErrorResponse("GET /api/web/customers search", error);
   return NextResponse.json({ customers: data ?? [] }, { status: 200 });
 }

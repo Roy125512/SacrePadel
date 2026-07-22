@@ -2,21 +2,24 @@ import { NextResponse, NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createClient } from "@/lib/supabaseServer";
 import { sendEmail } from "@/lib/mailer";
-import { buildBookingConfirmationEmail } from "@/lib/bookingEmail";
+import { buildBookingConfirmationEmail, buildOwnerNotificationEmail } from "@/lib/bookingEmail";
+import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
+import { mpPayment } from "@/lib/mercadopago";
+import { DEMO } from "@/lib/demo/flag";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { dbErrorResponse } from "@/lib/apiError";
 
 type ConfirmBody = {
   booking_id?: string;
   full_name?: string;
   phone?: string;
   email?: string; // invitado (opcional)
+  payment_method?: "RECEPTION" | "MERCADOPAGO";
+  mp_payment_id?: string; // requerido cuando payment_method === "MERCADOPAGO"
 };
 
 const TOLERANCE_MINUTES = 15;
 
-// precios
-const DAY_RATE = 350; // 07:00 - 17:59
-const EVENING_RATE = 400; // 18:00 - 21:59
-const SWITCH_HOUR = 18;
 const TZ = "America/Mexico_City";
 
 function isValidEmail(e: string) {
@@ -57,46 +60,16 @@ async function normalizePhoneToE164(phoneRaw: string): Promise<string> {
   return input;
 }
 
-function getLocalHourMinute(d: Date) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: TZ,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(d);
-
-  const hh = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
-  const mm = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
-  return { hh, mm };
-}
-
-function rateAt(date: Date) {
-  const { hh } = getLocalHourMinute(date);
-  return hh >= SWITCH_HOUR ? EVENING_RATE : DAY_RATE;
-}
-
-/**
- * Calcula monto prorrateado por minuto con regla:
- * 07:00–17:59 => 350/h
- * 18:00–21:59 => 400/h
- */
-function computeExpectedAmountMXN(startIso: string, endIso: string) {
-  const startMs = new Date(startIso).getTime();
-  const endMs = new Date(endIso).getTime();
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return 0;
-
-  let total = 0;
-  // minuto a minuto (súper seguro para cruces de 18:00)
-  for (let t = startMs; t < endMs; t += 60_000) {
-    const next = Math.min(t + 60_000, endMs);
-    const hours = (next - t) / 3_600_000;
-    total += hours * rateAt(new Date(t));
-  }
-  return Math.round(total * 100) / 100;
-}
-
 export async function POST(req: NextRequest) {
   try {
+    const rl = rateLimit(`confirm:${clientIp(req)}`, 10, 60_000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Demasiadas solicitudes. Espera unos segundos e intenta de nuevo." },
+        { status: 429 }
+      );
+    }
+
     const body = (await req.json().catch(() => ({}))) as ConfirmBody;
 
     const booking_id = String(body.booking_id ?? "").trim();
@@ -146,26 +119,98 @@ export async function POST(req: NextRequest) {
 
     const { data: booking, error: bookingErr } = await supabaseAdmin
       .from("bookings")
-      .select("id, status, source, hold_expires_at, court_id, start_at, end_at")
+      .select("id, status, payment_status, source, hold_expires_at, court_id, start_at, end_at, mp_payment_id")
       .eq("id", booking_id)
       .maybeSingle();
 
-    if (bookingErr) return NextResponse.json({ error: bookingErr.message }, { status: 500 });
+    if (bookingErr) return dbErrorResponse("POST /api/web/confirm fetch booking", bookingErr);
     if (!booking) return NextResponse.json({ error: "HOLD no encontrado" }, { status: 404 });
 
     if (booking.source !== "WEB") return NextResponse.json({ error: "Esta reserva no es de WEB" }, { status: 409 });
-    if (booking.status !== "HOLD") return NextResponse.json({ error: "Esta reserva ya no está en HOLD" }, { status: 409 });
 
-    const now = new Date();
-    const exp = booking.hold_expires_at ? new Date(booking.hold_expires_at) : null;
-    if (exp && exp.getTime() <= now.getTime()) {
-      // ✅ Si expiró, bórralo para que no bloquee el constraint
-      await supabaseAdmin.from("bookings").delete().eq("id", booking_id).eq("status", "HOLD").eq("source", "WEB");
-      return NextResponse.json({ error: "El HOLD expiró. Vuelve a seleccionar el horario." }, { status: 409 });
+    // Race recovery: the Mercado Pago webhook can confirm+pay this booking
+    // before the browser makes it back from the Checkout Pro redirect.
+    // Treat that as success here too (idempotent) instead of 409ing a
+    // customer who already paid — this is also where customer_id/email get
+    // attached, which the webhook can't do.
+    const mpAlreadyFinalized =
+      booking.status === "CONFIRMED" &&
+      booking.payment_status === "PAID" &&
+      (body.payment_method ?? "RECEPTION") === "MERCADOPAGO" &&
+      !!booking.mp_payment_id;
+
+    const alreadyFinalized = mpAlreadyFinalized;
+
+    if (booking.status !== "HOLD" && !alreadyFinalized) {
+      return NextResponse.json({ error: "Esta reserva ya no está en HOLD" }, { status: 409 });
+    }
+
+    if (!alreadyFinalized) {
+      const now = new Date();
+      const exp = booking.hold_expires_at ? new Date(booking.hold_expires_at) : null;
+      if (exp && exp.getTime() <= now.getTime()) {
+        // ✅ Si expiró, bórralo para que no bloquee el constraint
+        await supabaseAdmin.from("bookings").delete().eq("id", booking_id).eq("status", "HOLD").eq("source", "WEB");
+        return NextResponse.json({ error: "El HOLD expiró. Vuelve a seleccionar el horario." }, { status: 409 });
+      }
     }
 
     // ✅ monto dinámico
     const expected_amount = computeExpectedAmountMXN(booking.start_at, booking.end_at);
+
+    // MERCADOPAGO path: verify the payment actually succeeded server-side
+    // before confirming — never trust what the client claims.
+    const paymentMethod = body.payment_method ?? "RECEPTION";
+    let isMpPaid = false;
+
+    if (paymentMethod === "MERCADOPAGO" && DEMO) {
+      return NextResponse.json(
+        { error: "El pago en línea no está disponible en modo demo." },
+        { status: 503 },
+      );
+    }
+
+    if (paymentMethod === "MERCADOPAGO" && !mpAlreadyFinalized) {
+      const mpPaymentId = String(body.mp_payment_id ?? "").trim();
+      if (!mpPaymentId) {
+        return NextResponse.json({ error: "Falta el identificador del pago de Mercado Pago." }, { status: 409 });
+      }
+
+      const payment = await mpPayment.get({ id: mpPaymentId });
+
+      if (payment.status !== "approved") {
+        return NextResponse.json({ error: "El pago aún no se ha completado." }, { status: 409 });
+      }
+
+      if (payment.external_reference !== booking_id) {
+        console.error("CONFIRM MP external_reference mismatch:", {
+          booking_id,
+          mp_external_reference: payment.external_reference,
+        });
+        return NextResponse.json({ error: "El pago no corresponde a esta reserva." }, { status: 409 });
+      }
+
+      // Defense in depth: verify the amount actually paid matches what this
+      // booking currently costs (start/end could have changed after the
+      // preference was created).
+      const paidAmount = Math.round(payment.transaction_amount ?? 0);
+      if (paidAmount !== Math.round(expected_amount)) {
+        console.error("CONFIRM MP amount mismatch:", {
+          booking_id,
+          mp_amount: paidAmount,
+          expected_amount,
+        });
+        return NextResponse.json(
+          {
+            error:
+              "El monto pagado no coincide con esta reserva. Contacta a recepción para resolverlo antes de continuar.",
+          },
+          { status: 409 },
+        );
+      }
+
+      isMpPaid = true;
+    }
 
     // customer upsert
     let customer_id: string | null = null;
@@ -176,7 +221,7 @@ export async function POST(req: NextRequest) {
       .eq("phone_e164", phone_e164)
       .maybeSingle();
 
-    if (custFindErr) return NextResponse.json({ error: custFindErr.message }, { status: 500 });
+    if (custFindErr) return dbErrorResponse("POST /api/web/confirm find customer", custFindErr);
 
     if (existingCustomer?.id) {
       customer_id = existingCustomer.id;
@@ -208,25 +253,40 @@ export async function POST(req: NextRequest) {
         .select("id")
         .single();
 
-      if (custInsertErr) return NextResponse.json({ error: custInsertErr.message }, { status: 500 });
+      if (custInsertErr) return dbErrorResponse("POST /api/web/confirm insert customer", custInsertErr);
       customer_id = newCustomer.id;
     }
 
-    const { data: confirmed, error: confirmErr } = await supabaseAdmin
-      .from("bookings")
-      .update({
-        status: "CONFIRMED",
-        customer_id,
-        user_id: user?.id ?? null,
-        hold_expires_at: null,
-      })
+    const updatePayloadBooking: Record<string, unknown> = {
+      status: "CONFIRMED",
+      customer_id,
+      user_id: user?.id ?? null,
+      hold_expires_at: null,
+    };
 
-      .eq("id", booking_id)
-      .eq("status", "HOLD")
+    if (isMpPaid) {
+      updatePayloadBooking.payment_status = "PAID";
+      updatePayloadBooking.payment_method = "MERCADOPAGO";
+      updatePayloadBooking.paid_amount = expected_amount;
+      updatePayloadBooking.paid_at = new Date().toISOString();
+      updatePayloadBooking.mp_payment_id = String(body.mp_payment_id ?? "").trim();
+    }
+
+    let confirmUpdate = supabaseAdmin.from("bookings").update(updatePayloadBooking).eq("id", booking_id);
+    if (!alreadyFinalized) {
+      // Normal path: only flip a row that is still the HOLD we validated
+      // above. When alreadyFinalized, a webhook already made this
+      // transition — this call only needs to attach customer_id/user_id.
+      confirmUpdate = confirmUpdate.eq("status", "HOLD");
+    }
+
+    const { data: confirmed, error: confirmErr } = await confirmUpdate
       .select("id, court_id, start_at, end_at, status, customer_id, user_id")
       .single();
 
-    if (confirmErr) return NextResponse.json({ error: confirmErr.message }, { status: 409 });
+    if (confirmErr) {
+      return dbErrorResponse("POST /api/web/confirm update booking", confirmErr, 409);
+    }
 
     // nombre de cancha (opcional)
     let courtName = "Cancha";
@@ -251,7 +311,8 @@ export async function POST(req: NextRequest) {
         startTimeLocal: s.timeLocal,
         endTimeLocal: e.timeLocal,
         toleranceMinutes: TOLERANCE_MINUTES,
-        // si tu template lo soporta, podrías pasar también expected_amount aquí
+        paymentMethod: isMpPaid ? "MERCADOPAGO" : "RECEPTION",
+        amountMXN: expected_amount,
       });
 
       const sent = await sendEmail({
@@ -265,6 +326,37 @@ export async function POST(req: NextRequest) {
       else email_error = sent.error;
     }
 
+    // Notify owner/admin about the new booking (best-effort)
+    const notifyEmail = (process.env.NOTIFY_EMAIL ?? "").trim();
+    if (notifyEmail) {
+      try {
+        const s = mxParts(confirmed.start_at);
+        const e = mxParts(confirmed.end_at);
+
+        const ownerMail = buildOwnerNotificationEmail({
+          clubName: "Sacre Padel",
+          customerName: full_name,
+          customerPhone: phone_e164,
+          customerEmail: emailToSend || undefined,
+          courtName,
+          dateLocal: s.dateLocal,
+          startTimeLocal: s.timeLocal,
+          endTimeLocal: e.timeLocal,
+          paymentMethod: isMpPaid ? "MERCADOPAGO" : "RECEPTION",
+          amountMXN: expected_amount,
+        });
+
+        await sendEmail({
+          to: notifyEmail,
+          subject: ownerMail.subject,
+          html: ownerMail.html,
+          text: ownerMail.text,
+        });
+      } catch (notifyErr) {
+        console.error("Owner notification email failed:", notifyErr);
+      }
+    }
+
     return NextResponse.json(
       {
         booking: confirmed,
@@ -276,7 +368,6 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   } catch (e: any) {
-    console.error("CONFIRM 500:", e);
-    return NextResponse.json({ error: e?.message ?? "Error interno" }, { status: 500 });
+    return dbErrorResponse("POST /api/web/confirm", e);
   }
 }

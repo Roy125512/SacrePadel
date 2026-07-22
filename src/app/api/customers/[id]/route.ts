@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireReceptionAccess } from "@/lib/guards/reception";
+import { dbErrorResponse } from "@/lib/apiError";
 
 const TARIFF_PER_HOUR = 350;
 
@@ -13,6 +15,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const gate = await requireReceptionAccess({ asJson: true, nextPath: "/reception" });
+  if (!gate.ok) return gate.res;
+
   const { id: paramId } = await params;
 
   // 1) id por params
@@ -36,7 +41,7 @@ export async function GET(
     .eq("id", id)
     .maybeSingle();
 
-  if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 });
+  if (cErr) return dbErrorResponse("GET /api/customers/[id] fetch customer", cErr);
   if (!customer) return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
 
   const { count: totalCount, error: countErr } = await supabaseAdmin
@@ -44,7 +49,7 @@ export async function GET(
     .select("id", { count: "exact", head: true })
     .eq("customer_id", id);
 
-  if (countErr) return NextResponse.json({ error: countErr.message }, { status: 500 });
+  if (countErr) return dbErrorResponse("GET /api/customers/[id] count bookings", countErr);
 
   const { data: bookings, error: bErr } = await supabaseAdmin
     .from("bookings")
@@ -67,7 +72,7 @@ export async function GET(
     .order("start_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (bErr) return NextResponse.json({ error: bErr.message }, { status: 500 });
+  if (bErr) return dbErrorResponse("GET /api/customers/[id] fetch bookings", bErr);
 
   const rows = (bookings ?? []).map((b: any) => {
     const startMs = new Date(b.start_at).getTime();
@@ -92,8 +97,8 @@ export async function GET(
   });
 
   const totalPaid = rows
-    .filter((r) => r.payment_status === "PAID")
-    .reduce((acc, r) => acc + (r.paid_amount ?? 0), 0);
+    .filter((r: { payment_status: string }) => r.payment_status === "PAID")
+    .reduce((acc: number, r: { paid_amount: number }) => acc + (r.paid_amount ?? 0), 0);
 
   const lastVisit = rows.length > 0 ? rows[0].start_at : null;
 
@@ -136,6 +141,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const gate = await requireReceptionAccess({ asJson: true, nextPath: "/reception" });
+  if (!gate.ok) return gate.res;
+
   const { id: paramId } = await params;
 
   let id = (paramId ?? "").trim();
@@ -165,10 +173,13 @@ export async function PATCH(
       ? body.player_notes.trim()
       : undefined;
 
+  const is_active = typeof body.is_active === "boolean" ? body.is_active : undefined;
+
   const patch: any = {};
   if (notes !== undefined) patch.notes = notes || null;
   if (birthday !== undefined) patch.birthday = birthday;
   if (player_notes !== undefined) patch.player_notes = player_notes || null;
+  if (is_active !== undefined) patch.is_active = is_active;
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
@@ -181,7 +192,7 @@ export async function PATCH(
     .select("id, full_name, phone_e164, email, notes, birthday, player_notes, sex, division, is_active, created_at")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbErrorResponse("PATCH /api/customers/[id] update customer", error);
 
   return NextResponse.json({ customer: data }, { status: 200 });
 }

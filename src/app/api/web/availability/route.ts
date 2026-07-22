@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { BUSINESS_TZ_OFFSET, OPEN_HOUR, CLOSE_HOUR, STEP_MINUTES, MIN_BOOKING_MINUTES } from "@/lib/config";
 import { buildSlots, fetchActiveCourts, fetchBlockingBookings, overlapsIso, toIsoAt } from "@/lib/availability";
+import { dbErrorResponse } from "@/lib/apiError";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -70,6 +71,6 @@ export async function GET(req: Request) {
       { status: 200 }
     );
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Unexpected error" }, { status: 500 });
+    return dbErrorResponse("GET /api/web/availability", e);
   }
 }

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Menu, X } from "lucide-react";
 import { createClient } from "@/lib/supabaseClient";
 
 export default function AppHeader() {
@@ -11,6 +12,16 @@ export default function AppHeader() {
   const pathname = usePathname();
   const supabase = createClient();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Purely presentational "condensing header" effect — shrinks padding/logo
+  // slightly once the page is scrolled. Does not touch any session state.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
 
   const [loggedIn, setLoggedIn] = useState(false);
@@ -50,7 +61,7 @@ export default function AppHeader() {
       }
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
       setLoggedIn(Boolean(session));
       if (session?.user?.id) loadRole(session.user.id);
       else setRole(null);
@@ -91,23 +102,38 @@ export default function AppHeader() {
   const hideNavOnThisPage =
     pathname === "/inicio" || isAuthRoute;
 
-
+  // On /inicio the Hero component renders its own complete embedded top bar
+  // (logo + wordmark + "Iniciar sesión"), so showing AppHeader's logo bar on
+  // top of it would just duplicate it. Keep it visible on other hidden-nav
+  // routes (login/reset-password), which don't have their own header.
+  if (pathname === "/inicio") return null;
 
   return (
     <header
-      className="w-full border-b bg-white/80 backdrop-blur"
+      className={[
+        "sticky top-0 z-50 w-full border-b backdrop-blur transition-all duration-300",
+        scrolled ? "bg-white/90 shadow-sm" : "bg-white/80",
+      ].join(" ")}
       style={{ borderColor: "rgba(120, 46, 21, 0.12)" }}
     >
-      <div className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+      <div
+        className={[
+          "relative mx-auto flex max-w-6xl items-center justify-between px-6 transition-all duration-300",
+          scrolled ? "py-2" : "py-3",
+        ].join(" ")}
+      >
         {/* LOGO + NOMBRE */}
-        <Link href="/" className="flex items-center gap-3 min-w-0">
+        <Link href="/" className="flex items-center gap-3 min-w-0 group">
           <Image
             src="/logo-sacre.png"
             alt="Sacré Pádel"
-            width={36}
-            height={36}
+            width={40}
+            height={40}
             priority
-            className="drop-shadow-sm shrink-0"
+            className={[
+              "drop-shadow-sm shrink-0 transition-all duration-300 group-hover:scale-105",
+              scrolled ? "h-8 w-8" : "h-9 w-9 sm:h-10 sm:w-10",
+            ].join(" ")}
           />
           <span className="block min-w-0 truncate whitespace-nowrap text-[10px] sm:text-xs font-semibold tracking-[0.18em] sm:tracking-[0.28em] text-black">
             SACRÉ PÁDEL
@@ -157,11 +183,12 @@ export default function AppHeader() {
               <button
                 type="button"
                 onClick={() => setMenuOpen((v) => !v)}
-                className="rounded-md border px-3 py-2 text-sm"
+                className="inline-flex items-center justify-center rounded-md border p-2 text-sm transition hover:bg-[rgba(253,238,232,0.6)]"
                 style={{ borderColor: "rgba(120, 46, 21, 0.18)" }}
-                aria-label="Abrir menú"
+                aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
+                aria-expanded={menuOpen}
               >
-                ☰
+                {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
             </div>
 

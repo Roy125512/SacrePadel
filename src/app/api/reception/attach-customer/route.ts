@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireReceptionAccess } from "@/lib/guards/reception";
-
+import { dbErrorResponse } from "@/lib/apiError";
 
 export async function POST(req: Request) {
   const gate = await requireReceptionAccess();
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     `)
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbErrorResponse("POST /api/reception/attach-customer", error);
 
   return NextResponse.json(
     {

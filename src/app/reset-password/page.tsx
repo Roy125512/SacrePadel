@@ -33,7 +33,7 @@ export default function ResetPasswordPage() {
 
     check();
 
-    const { data: sub } = supabaseBrowser.auth.onAuthStateChange((_evt, session) => {
+    const { data: sub } = supabaseBrowser.auth.onAuthStateChange((_evt: string, session: any) => {
       setHasSession(!!session);
     });
 

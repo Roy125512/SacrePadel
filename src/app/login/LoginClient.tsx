@@ -28,7 +28,6 @@ export default function LoginClient() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   async function submitAuth() {
-    console.log("[AUTH] submitAuth", { isSignup, email, next });
     setSending(true);
     setError(null);
     setOk(null);
@@ -65,14 +64,11 @@ export default function LoginClient() {
           email: cleanEmail,
           password,
         });
-        console.log("[AUTH] signInWithPassword result", { signErr });
 
         if (signErr) throw signErr;
 
         // Espera un tick para que se escriba la cookie de sesión
         await new Promise((r) => setTimeout(r, 150));
-
-        console.log("[AUTH] redirecting to", next);
 
         router.replace(next);
         router.refresh();
@@ -125,18 +121,18 @@ export default function LoginClient() {
 
         <div className="mt-8 card">
           {error && (
-            <div className="mb-4 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+            <div className="mb-4 rounded-lg border border-red-500/25 bg-red-50 p-3 text-sm text-red-800">
               {error}
             </div>
           )}
 
           {ok && (
-            <div className="mb-4 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+            <div className="mb-4 rounded-lg border border-emerald-500/25 bg-emerald-50 p-3 text-sm text-emerald-800">
               {ok}
             </div>
           )}
 
-          <label className="block text-xs text-white/70">Correo</label>
+          <label className="block text-xs font-medium text-[var(--muted)]">Correo</label>
           <input
             className="input"
             value={email}
@@ -146,7 +142,7 @@ export default function LoginClient() {
             autoComplete="email"
           />
 
-          <label className="mt-4 block text-xs text-white/70">Contraseña</label>
+          <label className="mt-4 block text-xs font-medium text-[var(--muted)]">Contraseña</label>
           <div className="relative">
             <input
               className="input pr-16"
@@ -159,7 +155,7 @@ export default function LoginClient() {
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/70 hover:text-white"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-700)]"
             >
               {showPassword ? "Ocultar" : "Ver"}
             </button>
@@ -167,7 +163,7 @@ export default function LoginClient() {
 
           {isSignup && (
             <>
-              <label className="mt-4 block text-xs text-white/70">Confirmar contraseña</label>
+              <label className="mt-4 block text-xs font-medium text-[var(--muted)]">Confirmar contraseña</label>
               <div className="relative">
                 <input
                   className="input pr-16"
@@ -180,7 +176,7 @@ export default function LoginClient() {
                 <button
                   type="button"
                   onClick={() => setShowConfirm((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/70 hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-700)]"
                 >
                   {showConfirm ? "Ocultar" : "Ver"}
                 </button>
@@ -222,7 +218,7 @@ export default function LoginClient() {
           </button>
 
           <div className="mt-3 text-center">
-            <a href="/forgot-password" className="text-sm underline text-white/70 hover:text-white">
+            <a href="/forgot-password" className="text-sm underline text-[var(--muted)] hover:text-[var(--brand)]">
               ¿Olvidaste tu contraseña?
             </a>
           </div>

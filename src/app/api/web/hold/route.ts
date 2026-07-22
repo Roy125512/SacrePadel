@@ -1,14 +1,20 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-
-function friendlyOverlap(msg: string) {
-  return msg.includes("bookings_no_overlap")
-    ? "Ese horario ya fue tomado. Da clic en “Ver disponibilidad” y elige otro horario."
-    : msg;
-}
+import { mpPayment } from "@/lib/mercadopago";
+import { DEMO } from "@/lib/demo/flag";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { dbErrorResponse } from "@/lib/apiError";
 
 export async function POST(req: Request) {
   try {
+    const rl = rateLimit(`hold:${clientIp(req)}`, 20, 60_000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Demasiadas solicitudes. Espera unos segundos e intenta de nuevo." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const court_id = String(body.court_id ?? "").trim();
     const start_at = String(body.start_at ?? "").trim();
@@ -24,17 +30,82 @@ export async function POST(req: Request) {
     const holdMinutes = 10;
     const hold_expires_at = new Date(Date.now() + holdMinutes * 60_000).toISOString();
 
-    // ✅ Limpieza: borrar HOLDS expirados para que no sigan bloqueando el overlap
+    // Limpieza: un solo SELECT de HOLDS expirados, luego se decide por fila
+    // si es seguro borrarla (una sola query en vez de dos round-trips).
     const nowIso = new Date().toISOString();
-    const { error: cleanErr } = await supabaseAdmin
+    const { data: expired, error: expiredErr } = await supabaseAdmin
       .from("bookings")
-      .delete()
+      .select("id, mp_preference_id")
       .eq("status", "HOLD")
       .eq("source", "WEB")
       .lt("hold_expires_at", nowIso);
 
-    if (cleanErr) {
-      return NextResponse.json({ error: cleanErr.message }, { status: 500 });
+    if (expiredErr) {
+      return dbErrorResponse("POST /api/web/hold fetch expired holds", expiredErr);
+    }
+
+    if (expired && expired.length > 0) {
+      const noPayment = expired.filter((h: any) => !h.mp_preference_id);
+      const withMpPref = expired.filter((h: any) => h.mp_preference_id);
+
+      const deletableIds: string[] = noPayment.map((h: any) => h.id);
+
+      // Safety net for Mercado Pago: a HOLD can expire while the customer
+      // is mid-checkout, or right after paying if they close the browser
+      // before it returns to /reservar. If the webhook hasn't (yet, or
+      // isn't configured) flipped the booking to CONFIRMED/PAID either,
+      // this booking would otherwise sit stuck in HOLD forever — worse,
+      // once hold_expires_at is in the past the availability grid stops
+      // treating it as blocking (see fetchBlockingBookings), so it would
+      // *look* free to other customers while still occupying the slot at
+      // the DB level. So: never delete a booking that actually got paid,
+      // and reconcile it to CONFIRMED/PAID right here if it hasn't been
+      // already — this makes every visitor's browsing traffic double as a
+      // lazy poll, closing the gap even without the webhook configured.
+      if (withMpPref.length > 0 && !DEMO) {
+        const results = await Promise.allSettled(
+          withMpPref.map(async (h: any) => {
+            const search = await mpPayment.search({ options: { external_reference: h.id } });
+            const approved = (search.results ?? []).find((p) => p.status === "approved");
+
+            if (approved) {
+              await supabaseAdmin
+                .from("bookings")
+                .update({
+                  status: "CONFIRMED",
+                  payment_status: "PAID",
+                  payment_method: "MERCADOPAGO",
+                  paid_amount: approved.transaction_amount ?? null,
+                  paid_at: approved.date_approved ?? new Date().toISOString(),
+                  mp_payment_id: String(approved.id),
+                  hold_expires_at: null,
+                })
+                .eq("id", h.id)
+                .eq("status", "HOLD");
+
+              console.warn(
+                "Expired HOLD had an approved Mercado Pago payment — reconciled to CONFIRMED/PAID:",
+                h.id
+              );
+              return null;
+            }
+
+            return h.id as string;
+          })
+        );
+
+        for (const r of results) {
+          if (r.status === "fulfilled" && r.value) {
+            deletableIds.push(r.value);
+          } else if (r.status === "rejected") {
+            console.error("hold cleanup: failed to check Mercado Pago payment status", r.reason);
+          }
+        }
+      }
+
+      if (deletableIds.length > 0) {
+        await supabaseAdmin.from("bookings").delete().in("id", deletableIds);
+      }
     }
 
     const { data, error } = await supabaseAdmin
@@ -52,12 +123,17 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: friendlyOverlap(error.message) }, { status: 409 });
+      if (error.message.includes("bookings_no_overlap")) {
+        return NextResponse.json(
+          { error: "Ese horario ya fue tomado. Da clic en “Ver disponibilidad” y elige otro horario." },
+          { status: 409 }
+        );
+      }
+      return dbErrorResponse("POST /api/web/hold insert booking", error, 409);
     }
 
     return NextResponse.json({ booking: data }, { status: 201 });
   } catch (e: any) {
-    console.error("WEB HOLD 500:", e);
-    return NextResponse.json({ error: e?.message ?? "Internal error" }, { status: 500 });
+    return dbErrorResponse("POST /api/web/hold", e);
   }
 }

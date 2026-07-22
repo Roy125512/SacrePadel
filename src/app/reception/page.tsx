@@ -14,7 +14,6 @@ import type {
 } from "@/lib/reception/types";
 
 import {
-  computeExpectedAmountMXN,
   DAY_RATE,
   NIGHT_RATE,
   NIGHT_START_HOUR,
@@ -25,12 +24,16 @@ import {
 import {
   addDaysYMD,
   asistenciaLabel,
+  buildDailySummary,
   canCancelBooking,
   canCharge,
   canEditCustomer,
   canMarkAttendance,
+  computeAggregateStats,
   currencyMXN,
   daysInclusive,
+  DEFAULT_COURTS,
+  enrichBooking,
   formatDateES,
   formatDateMX,
   formatRangeES,
@@ -48,10 +51,12 @@ import {
 
 import { useDebounce } from "@/lib/reception/hooks";
 import { IconButton, KpiCard, Menu, MiniStat, Pill } from "@/components/reception/ui";
+import ReceptionDashboard from "@/components/reception/Dashboard";
 
 /* ===================== PÁGINA ===================== */
 
 export default function ReceptionPage() {
+  const [view, setView] = useState<"ops" | "dashboard">("ops");
   const [dateMode, setDateMode] = useState<DateMode>("DAY");
   const [dateYMD, setDateYMD] = useState<string>(() => toYMDLocal(new Date()));
   const [rangeStartYMD, setRangeStartYMD] = useState<string>(() => toYMDLocal(new Date()));
@@ -95,11 +100,21 @@ export default function ReceptionPage() {
     asistencia: null,
   });
 
-  // Sticky: medir alturas para fijar barra de búsqueda + filtros debajo del sticky de KPIs
+  // Sticky (solo en escritorio, md+): medir alturas para apilar KPIs, corte de
+  // caja, barra de búsqueda y acciones (exportar/limpiar), uno debajo del
+  // otro. La tabla también se ancla justo debajo de esa pila (si no, al
+  // seguir haciendo scroll de la página, su borde normal terminaría
+  // deslizándose POR DEBAJO de las barras ancladas y su thead quedaría
+  // tapado) — con eso anclado, el scroll extra pasa a ser interno a la
+  // tabla (max-height + overflow-y-auto), donde el thead sí sticky
+  // correctamente. En móvil nada de esto se ancla — demasiado poco
+  // espacio vertical, ver feedback del usuario.
   const kpiStickyRef = useRef<HTMLDivElement | null>(null);
   const toolsStickyRef = useRef<HTMLDivElement | null>(null);
   const [toolsStickyTop, setToolsStickyTop] = useState(0);
-  const [tableHeadTop, setTableHeadTop] = useState(0);
+  const actionsStickyRef = useRef<HTMLDivElement | null>(null);
+  const [actionsTop, setActionsTop] = useState(0);
+  const [tableTop, setTableTop] = useState(0);
   const cashoutStickyRef = useRef<HTMLDivElement | null>(null);
   const [cashoutTop, setCashoutTop] = useState(0);
     // Scroll sync (para que el header y el body se muevan juntos en horizontal)
@@ -173,6 +188,7 @@ export default function ReceptionPage() {
   const [receptionNotes, setReceptionNotes] = useState("");
 const [notesSaving, setNotesSaving] = useState(false);
 const [notesOk, setNotesOk] = useState<string | null>(null);
+const [activeSaving, setActiveSaving] = useState(false);
 
 function statusES(s: string) {
   const v = String(s || "").toUpperCase();
@@ -226,16 +242,7 @@ function statusES(s: string) {
       }
 
       const typed = (body ?? {}) as ApiResponse;
-
-      const enriched = (typed.bookings ?? []).map((b) => {
-        const dur = hoursBetween(b.start_at, b.end_at);
-        const amount =
-          typeof b.paid_amount === "number" && (b.payment_status ?? "UNPAID") === "PAID"
-            ? b.paid_amount
-            : computeExpectedAmountMXN(b.start_at, b.end_at);
-
-        return { ...b, duration_hours: dur, amount };
-      });
+      const enriched = (typed.bookings ?? []).map(enrichBooking);
 
       setRows(enriched);
     } catch (e: any) {
@@ -260,11 +267,12 @@ function statusES(s: string) {
       const kpiH = kpiStickyRef.current?.offsetHeight ?? 0;
       const cashH = cashoutStickyRef.current?.offsetHeight ?? 0;
       const toolsH = toolsStickyRef.current?.offsetHeight ?? 0;
+      const actionsH = actionsStickyRef.current?.offsetHeight ?? 0;
 
-      setCashoutTop(kpiH);                // cashout debajo de KPIs
-      setToolsStickyTop(kpiH + cashH);    // barra debajo de cashout
-      setTableHeadTop(kpiH + cashH + toolsH); // thead debajo de todo
-
+      setCashoutTop(kpiH);                        // cashout debajo de KPIs
+      setToolsStickyTop(kpiH + cashH);            // barra de búsqueda debajo de cashout
+      setActionsTop(kpiH + cashH + toolsH);       // exportar/limpiar debajo de la barra
+      setTableTop(kpiH + cashH + toolsH + actionsH); // tabla anclada debajo de todo
     };
 
     
@@ -288,19 +296,6 @@ function statusES(s: string) {
   /* ===================== KPIs ===================== */
 
   const stats = useMemo(() => {
-    const confirmedOrCompleted = rows.filter((b) => b.status === "CONFIRMED" || b.status === "COMPLETED");
-    const paid = rows.filter((b) => b.payment_status === "PAID");
-    const pending = rows.filter((b) => canCharge(b));
-
-    const ingresos = paid.reduce((acc, b) => acc + (b.paid_amount ?? 0), 0);
-    const pendiente = pending.reduce((acc, b) => acc + (b.amount ?? 0), 0);
-
-    const horasVendidas = confirmedOrCompleted.reduce((acc, b) => acc + (b.duration_hours ?? 0), 0);
-
-    const COURTS = 4;
-    const OPEN = 7;
-    const CLOSE = 22;
-
     const days =
       dateMode === "RANGE"
         ? daysInclusive(
@@ -309,27 +304,7 @@ function statusES(s: string) {
           )
         : 1;
 
-    const capacityHours = COURTS * (CLOSE - OPEN) * days;
-    const ocupacion = capacityHours > 0 ? (horasVendidas / capacityHours) * 100 : 0;
-
-    const efectivo = paid.filter((b) => b.payment_method === "CASH").reduce((acc, b) => acc + (b.paid_amount ?? 0), 0);
-    const tarjeta = paid.filter((b) => b.payment_method === "CARD").reduce((acc, b) => acc + (b.paid_amount ?? 0), 0);
-    const transfer = paid.filter((b) => b.payment_method === "TRANSFER").reduce((acc, b) => acc + (b.paid_amount ?? 0), 0);
-
-    const tarifaPromedio = horasVendidas > 0 ? ingresos / horasVendidas : 0;
-
-    return {
-      totalReservas: rows.length,
-      ingresos,
-      pendiente,
-      horasVendidas,
-      ocupacion,
-      efectivo,
-      tarjeta,
-      transfer,
-      pendientesCount: pending.length,
-      tarifaPromedio,
-    };
+    return computeAggregateStats(rows, days);
   }, [rows, dateMode, rangeStartYMD, rangeEndYMD]);
 
   /* ===================== FILTROS ===================== */
@@ -397,103 +372,8 @@ function statusES(s: string) {
   }, [rows, filters, debouncedSearch]);
 
   const dailySummary = useMemo(() => {
-    if (dateMode !== "RANGE")
-      return [] as Array<{
-        ymd: string;
-        reservas: number;
-        ingresos: number;
-        pendiente: number;
-        horasVendidas: number;
-        ocupacion: number;
-        canceladas: number;
-        noShow: number;
-        completadas: number;
-        tarifaPromedio: number;
-      }>;
-
-    const norm = rangeStartYMD <= rangeEndYMD ? { start: rangeStartYMD, end: rangeEndYMD } : { start: rangeEndYMD, end: rangeStartYMD };
-    const days = daysInclusive(norm.start, norm.end);
-
-    const COURTS = 4;
-    const OPEN = 7;
-    const CLOSE = 22;
-    const capacityPerDay = COURTS * (CLOSE - OPEN);
-
-    const map = new Map<
-      string,
-      {
-        ymd: string;
-        reservas: number;
-        ingresos: number;
-        pendiente: number;
-        horasVendidas: number;
-        canceladas: number;
-        noShow: number;
-        completadas: number;
-      }
-    >();
-
-    for (const b of rows) {
-      const ymd = toYMDLocal(new Date(b.start_at));
-      const bucket =
-        map.get(ymd) ?? {
-          ymd,
-          reservas: 0,
-          ingresos: 0,
-          pendiente: 0,
-          horasVendidas: 0,
-          canceladas: 0,
-          noShow: 0,
-          completadas: 0,
-        };
-
-      bucket.reservas += 1;
-      if ((b.payment_status ?? "UNPAID") === "PAID") bucket.ingresos += b.paid_amount ?? 0;
-      if (canCharge(b)) bucket.pendiente += b.amount ?? 0;
-
-      if (b.status === "CONFIRMED" || b.status === "COMPLETED") bucket.horasVendidas += b.duration_hours ?? 0;
-
-      if (b.status === "CANCELLED") bucket.canceladas += 1;
-      if (b.status === "NO_SHOW") bucket.noShow += 1;
-      if (b.status === "COMPLETED") bucket.completadas += 1;
-
-      map.set(ymd, bucket);
-    }
-
-    const out: Array<{
-      ymd: string;
-      reservas: number;
-      ingresos: number;
-      pendiente: number;
-      horasVendidas: number;
-      ocupacion: number;
-      canceladas: number;
-      noShow: number;
-      completadas: number;
-      tarifaPromedio: number;
-    }> = [];
-
-    for (let i = 0; i < days; i++) {
-      const y = addDaysYMD(norm.start, i);
-      const bucket =
-        map.get(y) ?? {
-          ymd: y,
-          reservas: 0,
-          ingresos: 0,
-          pendiente: 0,
-          horasVendidas: 0,
-          canceladas: 0,
-          noShow: 0,
-          completadas: 0,
-        };
-
-      const ocupacion = capacityPerDay > 0 ? (bucket.horasVendidas / capacityPerDay) * 100 : 0;
-      const tarifaPromedio = bucket.horasVendidas > 0 ? bucket.ingresos / bucket.horasVendidas : 0;
-
-      out.push({ ...bucket, ocupacion, tarifaPromedio });
-    }
-
-    return out;
+    if (dateMode !== "RANGE") return [];
+    return buildDailySummary(rows, rangeStartYMD, rangeEndYMD);
   }, [dateMode, rangeStartYMD, rangeEndYMD, rows]);
 
   function clearAllFilters() {
@@ -827,6 +707,35 @@ function statusES(s: string) {
     }
   }
 
+  async function toggleCustomerActive() {
+    if (!playerData?.customer?.id) return;
+
+    const nextActive = playerData.customer.is_active === false;
+    setActiveSaving(true);
+    setPlayerError(null);
+
+    try {
+      const r = await fetch(`/api/customers/${playerData.customer.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: nextActive }),
+      });
+
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.error ?? `Error ${r.status}`);
+
+      setPlayerData((prev) =>
+        prev
+          ? { ...prev, customer: { ...prev.customer, is_active: j?.customer?.is_active ?? nextActive } }
+          : prev
+      );
+    } catch (e: any) {
+      setPlayerError(e?.message ?? "No se pudo cambiar el estado del cliente.");
+    } finally {
+      setActiveSaving(false);
+    }
+  }
+
 
   /* ===================== RENDER ===================== */
 
@@ -835,11 +744,41 @@ function statusES(s: string) {
       <div className="mx-auto w-full max-w-[96vw] px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="section-title">Recepción</div>
-            <div className="section-subtitle">Control de reservas y cobros del día.</div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--brand)]">Sacré Pádel</p>
+            <h1 className="font-display mt-1 text-4xl leading-[1.05] sm:text-5xl">
+              <span className="font-light italic">Control</span> <span className="font-black">de recepción.</span>
+            </h1>
+            <div className="section-subtitle">Reservas, cobros y desempeño del club, en un solo lugar.</div>
+
+            {/* Tabs */}
+            <div className="mt-4 inline-flex items-center gap-1 rounded-xl border bg-white/70 p-1 backdrop-blur" style={{ borderColor: "rgba(120,46,21,0.12)" }}>
+              <button
+                className="rounded-md px-4 py-2 text-sm font-medium transition"
+                style={
+                  view === "ops"
+                    ? { border: "1px solid rgba(120,46,21,0.14)", background: "#fff", color: "var(--foreground)" }
+                    : { color: "rgba(30,27,24,0.70)" }
+                }
+                onClick={() => setView("ops")}
+              >
+                Reservas
+              </button>
+              <button
+                className="rounded-md px-4 py-2 text-sm font-medium transition"
+                style={
+                  view === "dashboard"
+                    ? { border: "1px solid rgba(120,46,21,0.14)", background: "#fff", color: "var(--foreground)" }
+                    : { color: "rgba(30,27,24,0.70)" }
+                }
+                onClick={() => setView("dashboard")}
+              >
+                Dashboard
+              </button>
+            </div>
           </div>
 
           {/* Date controls */}
+          {view === "ops" && (
           <div className="flex flex-wrap items-end gap-3">
             {/* modo */}
             <div className="rounded-xl border bg-white/70 p-1 backdrop-blur" style={{ borderColor: "rgba(120,46,21,0.12)" }}>
@@ -991,11 +930,16 @@ function statusES(s: string) {
               Actualizar
             </button>
           </div>
+          )}
         </div>
 
+        {view === "dashboard" && <ReceptionDashboard />}
+
+        {view === "ops" && (
+        <>
         {/* ===== Sticky Resumen ===== */}
         <div
-          ref={kpiStickyRef} className="sticky top-0 z-50 -mx-4 px-4 pt-4"
+          ref={kpiStickyRef} className="md:sticky top-0 z-50 -mx-4 px-4 pt-4"
           style={{
             background: "linear-gradient(180deg, rgba(253,238,232,0.92), rgba(255,255,255,0.92))",
             backdropFilter: "blur(6px)",
@@ -1059,7 +1003,7 @@ function statusES(s: string) {
         {/* Cashout (sticky) */}
           <div
             ref={cashoutStickyRef}
-            className="sticky z-45 -mx-4 px-4 pb-4"
+            className="md:sticky z-45 -mx-4 px-4 pb-4"
             style={{
               top: cashoutTop,
               background: "rgba(255,255,255,0.92)",
@@ -1072,10 +1016,11 @@ function statusES(s: string) {
               <div className="text-sm font-semibold" style={{ color: "rgba(30,27,24,0.90)" }}>
                 Corte de caja (pagado)
               </div>
-              <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-4">
                 <MiniStat label="Efectivo" value={currencyMXN(stats.efectivo)} />
                 <MiniStat label="Tarjeta" value={currencyMXN(stats.tarjeta)} />
                 <MiniStat label="Transferencia" value={currencyMXN(stats.transfer)} />
+                <MiniStat label="Mercado Pago" value={currencyMXN(stats.mercadopago)} />
               </div>
             </div>
           </div>
@@ -1136,7 +1081,7 @@ function statusES(s: string) {
         {/* Table header line */}
         <div
           ref={toolsStickyRef}
-          className="mt-6 sticky z-40 -mx-4 px-4 py-3"
+          className="mt-6 md:sticky z-40 -mx-4 px-4 py-3"
 
           style={{
             top: toolsStickyTop,
@@ -1162,6 +1107,7 @@ function statusES(s: string) {
                 placeholder="Buscar cliente / teléfono / cancha…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                suppressHydrationWarning
               />
 
               {/* Si quieres dejar Exportar aquí fijo, ponlo aquí.
@@ -1171,9 +1117,18 @@ function statusES(s: string) {
           </div>
         </div>
 
-        {/* No sticky: Limpiar filtros */}
-
-        <div className="mt-2 flex justify-end gap-2 -mx-4 px-4">
+        {/* Acciones (sticky en escritorio, debajo de la barra de búsqueda) */}
+        <div
+          ref={actionsStickyRef}
+          className="md:sticky z-[35] -mx-4 flex justify-end gap-2 px-4 py-2"
+          style={{
+            top: actionsTop,
+            background: "rgba(255,255,255,0.96)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            borderBottom: "1px solid rgba(120,46,21,0.10)",
+          }}
+        >
           <button
             className="btn-secondary"
             onClick={exportCsv}
@@ -1190,21 +1145,35 @@ function statusES(s: string) {
 
 
 
-        {/* Table */}
+        {/* Table.
+            El thead sticky solo puede anclarse a SU contenedor de scroll más
+            cercano — y overflow-x-auto obliga al navegador a computar
+            overflow-y:auto en este div también (no hay forma de evitarlo con
+            overflow-x != visible), así que ese contenedor YA es el que manda,
+            aunque nunca tenga su propio scrollbar. Por eso le damos una
+            altura máxima + scroll vertical propio en escritorio (así el
+            thead sticky top:0 ancla dentro de su propio panel), Y ADEMÁS
+            anclamos el panel completo justo debajo de las barras ya
+            ancladas (KPIs/caja/búsqueda/acciones) — si no, al seguir
+            haciendo scroll de la página, el panel (que no es sticky por sí
+            mismo) terminaría deslizándose por debajo de esas barras y su
+            thead quedaría tapado. En móvil nada de esto aplica (todo fluye
+            normal, sin paneles con scroll interno). */}
         <div
-          className="mt-4 min-h-[60vh] overflow-x-auto rounded-2xl border bg-white"
+          className="mt-4 min-h-[60vh] overflow-x-auto rounded-2xl border bg-white md:sticky md:max-h-[65vh] md:overflow-y-auto"
           style={{
             borderColor: "rgba(120,46,21,0.12)",
+            top: tableTop,
           }}
         >
           <table className="min-w-[1200px] w-full text-left text-sm">
             <thead
+              className="md:sticky"
               style={{
                 // Opaque (sin transparencia) para que NO se vean las filas “a través”
                 background: "linear-gradient(180deg, rgb(253,238,232), rgb(255,255,255))",
                 borderBottom: "1px solid rgba(120,46,21,0.10)",
 
-                position: "sticky",
                 top: 0,
                 zIndex: 10,
 
@@ -1420,6 +1389,8 @@ function statusES(s: string) {
             </tbody>
           </table>
         </div>
+        </>
+        )}
       </div>
 
       {/* MODAL: COBRO */}
@@ -1577,9 +1548,23 @@ function statusES(s: string) {
                         <div className="mt-1 text-xs" style={{ color: "rgba(30,27,24,0.60)" }}>
                           {playerData.customer.email ?? "—"} • {playerData.customer.phone_e164 ?? "—"}
                         </div>
-                        <div className="mt-1 text-xs" style={{ color: "rgba(30,27,24,0.60)" }}>
-                          Cumpleaños: {playerData.customer.birthday ?? "—"} • Estado:{" "}
-                          {playerData.customer.is_active === false ? "Inactivo" : "Activo"}
+                        <div className="mt-1 flex items-center gap-2 text-xs" style={{ color: "rgba(30,27,24,0.60)" }}>
+                          <span>
+                            Cumpleaños: {playerData.customer.birthday ?? "—"} • Estado:{" "}
+                            {playerData.customer.is_active === false ? "Inactivo" : "Activo"}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn-secondary px-2 py-0.5 text-[11px]"
+                            onClick={toggleCustomerActive}
+                            disabled={activeSaving}
+                          >
+                            {activeSaving
+                              ? "Guardando…"
+                              : playerData.customer.is_active === false
+                              ? "Reactivar"
+                              : "Desactivar"}
+                          </button>
                         </div>
                         <div className="mt-1 text-xs" style={{ color: "rgba(30,27,24,0.60)" }}>
                           Sexo: {playerData.customer.sex ?? "—"} • División: {playerData.customer.division ?? "—"}

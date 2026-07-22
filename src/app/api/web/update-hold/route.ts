@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { dbErrorResponse } from "@/lib/apiError";
 
 // Actualiza el rango de un HOLD (principalmente end_at) y renueva su expiración.
 // Si hay conflicto por overlap (exclusion constraint), debe regresar 409.
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
 
   if (error) {
     // Cuando choca por overlap, normalmente llega como error del constraint.
-    return NextResponse.json({ error: error.message }, { status: 409 });
+    return dbErrorResponse("POST /api/web/update-hold", error, 409);
   }
 
   return NextResponse.json({ booking: data }, { status: 200 });
