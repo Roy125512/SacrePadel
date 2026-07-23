@@ -47,8 +47,12 @@ export default function LoginClient() {
         if (password !== confirmPassword)
           throw new ValidationError("Las contraseñas no coinciden.");
 
+        // Después de confirmar el correo, siempre a /perfil primero — sin
+        // importar de dónde haya venido el usuario (p. ej. llegó por el link
+        // "Reservar", que trae next=/reservar; eso no debe pisar este
+        // destino, completar el perfil va antes que cualquier otra cosa).
         const origin = window.location.origin;
-        const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
+        const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent("/perfil")}`;
 
         const { error: signErr } = await supabase.auth.signUp({
           email: cleanEmail,
@@ -92,7 +96,7 @@ export default function LoginClient() {
       if (!cleanEmail) throw new ValidationError("Escribe tu correo.");
 
       const origin = window.location.origin;
-      const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
+      const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent("/perfil")}`;
 
       const { error: err } = await supabase.auth.resend({
         type: "signup",
