@@ -80,6 +80,16 @@ body {
   color: var(--dark-foreground);
 }
 
+/* Same problem, smaller scope: .btn-secondary:hover turns its background
+   dark and wants light text (see @layer components below), but ".page *"
+   sits outside any @layer, so it always beats it — leaving hovered
+   secondary buttons with unreadable dark-on-dark text. Force it back to
+   light on hover, same pattern as the dark-section exception above. */
+.page .btn-secondary:hover,
+.page .btn-secondary:hover * {
+  color: var(--background);
+}
+
 /* Placeholders bonitos */
 ::placeholder {
   color: rgba(30, 27, 24, 0.45);

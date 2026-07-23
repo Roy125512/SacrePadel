@@ -9,6 +9,7 @@ const LINKS = [
   { href: "#precios", label: "Precios" },
   { href: "#proximamente", label: "Próximamente" },
   { href: "#faq", label: "Preguntas" },
+  { href: "#ubicacion", label: "Ubicación" },
 ];
 
 export default function SectionNav() {

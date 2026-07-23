@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { createClient } from "@/lib/supabaseClient";
 
@@ -22,6 +22,22 @@ export default function AppHeader() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Fixed (not sticky) so it always stays put regardless of what any given
+  // page does with its own scroll containers — sticky's positioning breaks
+  // too easily depending on ancestor layout. Since `fixed` takes the header
+  // out of document flow, a spacer with the same live-measured height keeps
+  // page content from starting underneath it.
+  const headerRef = useRef<HTMLElement | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
+    ro.observe(el);
+    setHeaderHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, [scrolled]);
 
 
   const [loggedIn, setLoggedIn] = useState(false);
@@ -109,9 +125,11 @@ export default function AppHeader() {
   if (pathname === "/inicio") return null;
 
   return (
+    <>
     <header
+      ref={headerRef}
       className={[
-        "sticky top-0 z-50 w-full border-b backdrop-blur transition-all duration-300",
+        "fixed top-0 left-0 right-0 z-50 w-full border-b backdrop-blur transition-all duration-300",
         scrolled ? "bg-white/90 shadow-sm" : "bg-white/80",
       ].join(" ")}
       style={{ borderColor: "rgba(120, 46, 21, 0.12)" }}
@@ -285,5 +303,9 @@ export default function AppHeader() {
 
       </div>
     </header>
+    {/* Empuja el contenido de la página para que no quede tapado por el
+        header, que ahora está fixed (fuera del flujo normal). */}
+    <div style={{ height: headerHeight }} aria-hidden="true" />
+    </>
   );
 }

@@ -35,6 +35,17 @@ export async function GET(req: Request) {
   const windowStart = isRange ? start! : date!;
   const windowEnd = isRange ? end! : date!;
 
+  // El rol "reception" (recepcionista, acceso restringido) solo puede
+  // consultar un día a la vez — nunca un rango — para no exponer
+  // tendencias/cifras agregadas del negocio. Se refuerza aquí (no solo en
+  // la UI) para que no se pueda saltar con una llamada directa a la API.
+  if (gate.role === "reception" && windowStart !== windowEnd) {
+    return NextResponse.json(
+      { error: "Tu cuenta solo puede consultar un día a la vez." },
+      { status: 403 }
+    );
+  }
+
   const dayStartIso = `${windowStart}T00:00:00${BUSINESS_TZ_OFFSET}`;
   const dayEndIso = `${windowEnd}T23:59:59${BUSINESS_TZ_OFFSET}`;
 

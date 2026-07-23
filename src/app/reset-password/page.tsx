@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { useRouter } from "next/navigation";
+import { friendlyAuthError } from "@/lib/authErrors";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -67,7 +68,7 @@ export default function ResetPasswordPage() {
       // opcional: manda a perfil o a login (yo prefiero perfil)
       router.push("/perfil");
     } catch (err: any) {
-      setError(err?.message ?? "No se pudo actualizar la contraseña.");
+      setError(friendlyAuthError(err));
     } finally {
       setSaving(false);
     }

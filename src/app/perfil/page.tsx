@@ -220,14 +220,6 @@ export default function ProfilePage() {
               {error}
             </div>
           )}
-          {okMsg && (
-            <div className="mb-5 flex items-center gap-2 rounded-lg border border-emerald-500/25 bg-emerald-50 p-3 text-sm text-emerald-800">
-              <span className="animate-checkmark flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
-                <Check className="h-3.5 w-3.5" strokeWidth={3} />
-              </span>
-              {okMsg}
-            </div>
-          )}
 
           {/* Section: contacto */}
           <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">
@@ -330,12 +322,22 @@ export default function ProfilePage() {
                   <Trophy className={iconClass} />
                   División / Nivel (opcional)
                 </label>
-                <input
+                <select
                   className="input"
                   value={division}
                   onChange={(e) => setDivision(e.target.value)}
-                  placeholder="Ej. 4ta, 5ta, Intermedio…"
-                />
+                >
+                  <option value="">Sin especificar</option>
+                  <option value="1ra">1ra — Avanzado / Competitivo</option>
+                  <option value="2da">2da — Avanzado</option>
+                  <option value="3ra">3ra — Intermedio alto</option>
+                  <option value="4ta">4ta — Intermedio</option>
+                  <option value="5ta">5ta — Intermedio bajo</option>
+                  <option value="6ta">6ta — Principiante</option>
+                </select>
+                <div className="mt-1 text-xs text-[var(--muted)]">
+                  1ra es la categoría más avanzada; 6ta es para quienes están empezando.
+                </div>
               </div>
             </div>
 
@@ -361,6 +363,15 @@ export default function ProfilePage() {
           >
             {saving ? "Guardando…" : syncing ? "Sincronizando…" : "Guardar perfil"}
           </button>
+
+          {okMsg && (
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-500/25 bg-emerald-50 p-3 text-sm text-emerald-800">
+              <span className="animate-checkmark flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
+                <Check className="h-3.5 w-3.5" strokeWidth={3} />
+              </span>
+              {okMsg}
+            </div>
+          )}
         </form>
       </div>
     </div>

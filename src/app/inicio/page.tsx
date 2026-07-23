@@ -6,6 +6,7 @@ import PhotoGallery from "@/components/home/PhotoGallery";
 import PricingTeaser from "@/components/home/PricingTeaser";
 import Offerings from "@/components/home/Offerings";
 import FAQ from "@/components/home/FAQ";
+import LocationSection from "@/components/home/LocationSection";
 import CommunitySection from "@/components/home/CommunitySection";
 
 export default function InicioPage() {
@@ -19,6 +20,7 @@ export default function InicioPage() {
       <PricingTeaser />
       <Offerings />
       <FAQ />
+      <LocationSection />
       <CommunitySection />
     </main>
   );

@@ -52,10 +52,37 @@ import {
 import { useDebounce } from "@/lib/reception/hooks";
 import { IconButton, KpiCard, Menu, MiniStat, Pill } from "@/components/reception/ui";
 import ReceptionDashboard from "@/components/reception/Dashboard";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 /* ===================== PÁGINA ===================== */
 
 export default function ReceptionPage() {
+  // El rol "reception" es la cuenta de bajo privilegio para quien atiende el
+  // mostrador: solo ve Reservas (nunca Dashboard) y solo puede consultar un
+  // día a la vez (nunca Rango) — así no tiene visibilidad de tendencias o
+  // cifras agregadas del negocio. "owner" sigue viendo todo. Reforzado
+  // también del lado del servidor en /api/reception/bookings.
+  const [myRole, setMyRole] = useState<string | null>(null);
+  const isRestricted = myRole === "reception";
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data } = await supabaseBrowser.auth.getUser();
+      const uid = data?.user?.id;
+      if (!uid) return;
+      const { data: prof } = await supabaseBrowser
+        .from("profiles")
+        .select("role")
+        .eq("id", uid)
+        .maybeSingle();
+      if (mounted) setMyRole((prof?.role as string) ?? null);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const [view, setView] = useState<"ops" | "dashboard">("ops");
   const [dateMode, setDateMode] = useState<DateMode>("DAY");
   const [dateYMD, setDateYMD] = useState<string>(() => toYMDLocal(new Date()));
@@ -67,6 +94,19 @@ export default function ReceptionPage() {
 
   const [rows, setRows] = useState<Booking[]>([]);
   const [exporting, setExporting] = useState(false);
+
+  // Salvaguarda: si por lo que sea view/dateMode quedan en algo que un rol
+  // restringido no debería poder alcanzar (p. ej. venían de un estado viejo),
+  // los regresa a lo permitido en cuanto se conoce el rol.
+  useEffect(() => {
+    if (!isRestricted) return;
+    if (view !== "ops") setView("ops");
+    if (dateMode !== "DAY") {
+      setDateMode("DAY");
+      refreshData({ mode: "DAY", date: dateYMD });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRestricted]);
 
 
   const [filters, setFilters] = useState<FiltersState>(() => ({
@@ -84,6 +124,7 @@ export default function ReceptionPage() {
 
 
   const [search, setSearch] = useState("");
+  const [showDailySummary, setShowDailySummary] = useState(false);
   const debouncedSearch = useDebounce(search, 250);
 
   const [openMenu, setOpenMenu] = useState<FilterKey | null>(null);
@@ -100,23 +141,10 @@ export default function ReceptionPage() {
     asistencia: null,
   });
 
-  // Sticky (solo en escritorio, md+): medir alturas para apilar KPIs, corte de
-  // caja, barra de búsqueda y acciones (exportar/limpiar), uno debajo del
-  // otro. La tabla también se ancla justo debajo de esa pila (si no, al
-  // seguir haciendo scroll de la página, su borde normal terminaría
-  // deslizándose POR DEBAJO de las barras ancladas y su thead quedaría
-  // tapado) — con eso anclado, el scroll extra pasa a ser interno a la
-  // tabla (max-height + overflow-y-auto), donde el thead sí sticky
-  // correctamente. En móvil nada de esto se ancla — demasiado poco
-  // espacio vertical, ver feedback del usuario.
-  const kpiStickyRef = useRef<HTMLDivElement | null>(null);
-  const toolsStickyRef = useRef<HTMLDivElement | null>(null);
-  const [toolsStickyTop, setToolsStickyTop] = useState(0);
-  const actionsStickyRef = useRef<HTMLDivElement | null>(null);
-  const [actionsTop, setActionsTop] = useState(0);
-  const [tableTop, setTableTop] = useState(0);
-  const cashoutStickyRef = useRef<HTMLDivElement | null>(null);
-  const [cashoutTop, setCashoutTop] = useState(0);
+  // Solo el thead de la tabla queda fijo (sticky) al hacer scroll — así se
+  // ve siempre qué columna es cada dato (fecha, cancha, horario, tipo…) sin
+  // sacrificar tanto espacio vertical como antes, cuando KPIs/caja/búsqueda
+  // también se anclaban uno debajo del otro. Ver el thead más abajo.
     // Scroll sync (para que el header y el body se muevan juntos en horizontal)
   const headScrollRef = useRef<HTMLDivElement | null>(null);
   const bodyScrollRef = useRef<HTMLDivElement | null>(null);
@@ -137,6 +165,79 @@ export default function ReceptionPage() {
   const [assignName, setAssignName] = useState("");
   const [assignPhone, setAssignPhone] = useState("");
   const [assignSaving, setAssignSaving] = useState(false);
+
+  // Nueva reserva manual (walk-in / teléfono / WhatsApp)
+  const [courts, setCourts] = useState<{ id: string; name: string }[]>([]);
+  const [newBookingOpen, setNewBookingOpen] = useState(false);
+  const [nbCourtId, setNbCourtId] = useState("");
+  const [nbDate, setNbDate] = useState<string>(() => toYMDLocal(new Date()));
+  const [nbTime, setNbTime] = useState<string>(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  });
+  const [nbDuration, setNbDuration] = useState(60);
+  const [nbOrigin, setNbOrigin] = useState<"PHONE" | "WHATSAPP" | "WALK_IN">("WALK_IN");
+  const [nbName, setNbName] = useState("");
+  const [nbPhone, setNbPhone] = useState("");
+  const [nbSaving, setNbSaving] = useState(false);
+  const [nbError, setNbError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/reception/courts")
+      .then((r) => r.json())
+      .then((j) => {
+        const list = j?.courts ?? [];
+        setCourts(list);
+        if (list.length > 0) setNbCourtId((prev) => prev || list[0].id);
+      })
+      .catch(() => {});
+  }, []);
+
+  function openNewBooking() {
+    setNbCourtId((prev) => prev || courts[0]?.id || "");
+    setNbDate(dateMode === "DAY" ? dateYMD : toYMDLocal(new Date()));
+    const now = new Date();
+    setNbTime(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`);
+    setNbDuration(60);
+    setNbOrigin("WALK_IN");
+    setNbName("");
+    setNbPhone("");
+    setNbError(null);
+    setNewBookingOpen(true);
+  }
+
+  async function submitNewBooking() {
+    if (!nbCourtId || !nbDate || !nbTime || !nbName.trim()) {
+      setNbError("Cancha, fecha, hora y nombre del cliente son obligatorios.");
+      return;
+    }
+    setNbSaving(true);
+    setNbError(null);
+    try {
+      const r = await fetch("/api/reception/create-booking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          court_id: nbCourtId,
+          date: nbDate,
+          start_time: nbTime,
+          duration_minutes: nbDuration,
+          origin: nbOrigin,
+          full_name: nbName.trim(),
+          phone: nbPhone.trim(),
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.error ?? "No se pudo crear la reserva.");
+
+      setNewBookingOpen(false);
+      await refreshCurrent();
+    } catch (e: any) {
+      setNbError(e?.message ?? "No se pudo crear la reserva.");
+    } finally {
+      setNbSaving(false);
+    }
+  }
 
   type PlayerApiResponse = {
     customer: {
@@ -261,32 +362,6 @@ function statusES(s: string) {
       end: rangeEndYMD,
     });
   }
-
-  useEffect(() => {
-    const calc = () => {
-      const kpiH = kpiStickyRef.current?.offsetHeight ?? 0;
-      const cashH = cashoutStickyRef.current?.offsetHeight ?? 0;
-      const toolsH = toolsStickyRef.current?.offsetHeight ?? 0;
-      const actionsH = actionsStickyRef.current?.offsetHeight ?? 0;
-
-      setCashoutTop(kpiH);                        // cashout debajo de KPIs
-      setToolsStickyTop(kpiH + cashH);            // barra de búsqueda debajo de cashout
-      setActionsTop(kpiH + cashH + toolsH);       // exportar/limpiar debajo de la barra
-      setTableTop(kpiH + cashH + toolsH + actionsH); // tabla anclada debajo de todo
-    };
-
-    
-
-    const raf = requestAnimationFrame(calc);
-    window.addEventListener("resize", calc);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", calc);
-    };
-  }, [dateMode, loading, rows.length]);
-
-
 
   useEffect(() => {
     refreshData({ mode: "DAY", date: dateYMD });
@@ -750,37 +825,61 @@ function statusES(s: string) {
             </h1>
             <div className="section-subtitle">Reservas, cobros y desempeño del club, en un solo lugar.</div>
 
-            {/* Tabs */}
-            <div className="mt-4 inline-flex items-center gap-1 rounded-xl border bg-white/70 p-1 backdrop-blur" style={{ borderColor: "rgba(120,46,21,0.12)" }}>
-              <button
-                className="rounded-md px-4 py-2 text-sm font-medium transition"
-                style={
-                  view === "ops"
-                    ? { border: "1px solid rgba(120,46,21,0.14)", background: "#fff", color: "var(--foreground)" }
-                    : { color: "rgba(30,27,24,0.70)" }
-                }
-                onClick={() => setView("ops")}
-              >
+            {/* Tabs — el rol restringido ("reception") no tiene Dashboard,
+                así que ni siquiera se muestra el selector. */}
+            {isRestricted ? (
+              <div className="mt-4 inline-flex items-center rounded-xl border bg-white/70 px-4 py-2 text-sm font-medium" style={{ borderColor: "rgba(120,46,21,0.12)", color: "var(--foreground)" }}>
                 Reservas
-              </button>
-              <button
-                className="rounded-md px-4 py-2 text-sm font-medium transition"
-                style={
-                  view === "dashboard"
-                    ? { border: "1px solid rgba(120,46,21,0.14)", background: "#fff", color: "var(--foreground)" }
-                    : { color: "rgba(30,27,24,0.70)" }
-                }
-                onClick={() => setView("dashboard")}
-              >
-                Dashboard
-              </button>
+              </div>
+            ) : (
+              <div className="mt-4 inline-flex items-center gap-1 rounded-xl border bg-white/70 p-1 backdrop-blur" style={{ borderColor: "rgba(120,46,21,0.12)" }}>
+                <button
+                  className="rounded-md px-4 py-2 text-sm font-medium transition"
+                  style={
+                    view === "ops"
+                      ? { border: "1px solid rgba(120,46,21,0.14)", background: "#fff", color: "var(--foreground)" }
+                      : { color: "rgba(30,27,24,0.70)" }
+                  }
+                  onClick={() => setView("ops")}
+                >
+                  Reservas
+                </button>
+                <button
+                  className="rounded-md px-4 py-2 text-sm font-medium transition"
+                  style={
+                    view === "dashboard"
+                      ? { border: "1px solid rgba(120,46,21,0.14)", background: "#fff", color: "var(--foreground)" }
+                      : { color: "rgba(30,27,24,0.70)" }
+                  }
+                  onClick={() => setView("dashboard")}
+                >
+                  Dashboard
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {!isRestricted && view === "dashboard" && <ReceptionDashboard />}
+
+        {view === "ops" && (
+        <>
+        {/* Header + filtros (misma posición/estilo que "Panorama del negocio" en Dashboard) */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="font-display text-2xl">
+              <span className="font-light italic">Detalle</span> <span className="font-black">de reservas.</span>
+            </div>
+            <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
+              {dateMode === "DAY" ? formatDateES(dateYMD) : formatRangeES(rangeStartYMD, rangeEndYMD)}
             </div>
           </div>
 
-          {/* Date controls */}
-          {view === "ops" && (
           <div className="flex flex-wrap items-end gap-3">
-            {/* modo */}
+            {/* modo — el rol restringido ("reception") solo tiene Día, así
+                que ni se muestra el toggle (dateMode ya está forzado a
+                "DAY" por el efecto de arriba). */}
+            {!isRestricted && (
             <div className="rounded-xl border bg-white/70 p-1 backdrop-blur" style={{ borderColor: "rgba(120,46,21,0.12)" }}>
               <div className="flex items-center gap-1">
                 <button
@@ -825,6 +924,7 @@ function statusES(s: string) {
                 </button>
               </div>
             </div>
+            )}
 
             {dateMode === "DAY" ? (
               <>
@@ -911,6 +1011,16 @@ function statusES(s: string) {
                     refreshData({ mode: "RANGE", start, end });
                   }}
                 />
+                <IconButton
+                  text="90 días"
+                  onClick={() => {
+                    const end = toYMDLocal(new Date());
+                    const start = addDaysYMD(end, -89);
+                    setRangeStartYMD(start);
+                    setRangeEndYMD(end);
+                    refreshData({ mode: "RANGE", start, end });
+                  }}
+                />
               </>
             )}
 
@@ -930,20 +1040,13 @@ function statusES(s: string) {
               Actualizar
             </button>
           </div>
-          )}
         </div>
 
-        {view === "dashboard" && <ReceptionDashboard />}
-
-        {view === "ops" && (
-        <>
-        {/* ===== Sticky Resumen ===== */}
+        {/* ===== Resumen (ya no se fija al hacer scroll) ===== */}
         <div
-          ref={kpiStickyRef} className="md:sticky top-0 z-50 -mx-4 px-4 pt-4"
+          className="-mx-4 px-4 pt-4"
           style={{
             background: "linear-gradient(180deg, rgba(253,238,232,0.92), rgba(255,255,255,0.92))",
-            backdropFilter: "blur(6px)",
-            WebkitBackdropFilter: "blur(6px)", // opcional, pero ayuda en Safari
             borderBottom: "1px solid rgba(120,46,21,0.10)",
           }}
         >
@@ -999,16 +1102,12 @@ function statusES(s: string) {
             </div>
           </div>
         </div>
-        {/* ===== /Sticky Resumen ===== */}
-        {/* Cashout (sticky) */}
+        {/* ===== /Resumen ===== */}
+        {/* Cashout */}
           <div
-            ref={cashoutStickyRef}
-            className="md:sticky z-45 -mx-4 px-4 pb-4"
+            className="-mx-4 px-4 pb-4"
             style={{
-              top: cashoutTop,
               background: "rgba(255,255,255,0.92)",
-              backdropFilter: "blur(6px)",
-              WebkitBackdropFilter: "blur(6px)",
               borderBottom: "1px solid rgba(120,46,21,0.10)",
             }}
           >
@@ -1026,18 +1125,29 @@ function statusES(s: string) {
           </div>
 
 
-        {/* Resumen por día (RANGO) */}
+        {/* Resumen por día (RANGO) — la tabla queda oculta hasta que se pide,
+            para no obligar a hacer scroll por decenas de filas de un rango
+            largo (90 días) solo para llegar a la lista de reservas. */}
         {dateMode === "RANGE" && (
           <div className="mt-4 card p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-sm font-semibold" style={{ color: "rgba(30,27,24,0.90)" }}>
                 Resumen por día
               </div>
-              <div className="text-xs" style={{ color: "rgba(30,27,24,0.60)" }}>
-                Tip: detecta días flojos para meter promo, liga o torneo.
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="text-xs" style={{ color: "rgba(30,27,24,0.60)" }}>
+                  Tip: detecta días flojos para meter promo, liga o torneo.
+                </div>
+                <button
+                  className="btn-secondary text-xs px-3 py-1.5"
+                  onClick={() => setShowDailySummary((v) => !v)}
+                >
+                  {showDailySummary ? "Ocultar tabla" : "Ver tabla"}
+                </button>
               </div>
             </div>
 
+            {showDailySummary && (
             <div className="mt-3 overflow-x-auto">
               <table className="w-full min-w-[1040px] text-left text-sm">
                 <thead
@@ -1074,19 +1184,16 @@ function statusES(s: string) {
                 </tbody>
               </table>
             </div>
+            )}
           </div>
         )}
-        
+
 
         {/* Table header line */}
         <div
-          ref={toolsStickyRef}
-          className="mt-6 md:sticky z-40 -mx-4 px-4 py-3"
-
+          className="mt-6 -mx-4 px-4 py-3"
           style={{
-            top: toolsStickyTop,
             background: "rgba(255,255,255,0.96)",
-            backdropFilter: "blur(8px)",
             borderBottom: "1px solid rgba(120,46,21,0.10)",
           }}
         >
@@ -1117,58 +1224,54 @@ function statusES(s: string) {
           </div>
         </div>
 
-        {/* Acciones (sticky en escritorio, debajo de la barra de búsqueda) */}
+        {/* Acciones */}
         <div
-          ref={actionsStickyRef}
-          className="md:sticky z-[35] -mx-4 flex justify-end gap-2 px-4 py-2"
+          className="-mx-4 flex flex-wrap justify-between gap-2 px-4 py-2"
           style={{
-            top: actionsTop,
             background: "rgba(255,255,255,0.96)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
             borderBottom: "1px solid rgba(120,46,21,0.10)",
           }}
         >
-          <button
-            className="btn-secondary"
-            onClick={exportCsv}
-            disabled={exporting || loading || filteredRows.length === 0}
-          >
-            {exporting ? "Exportando…" : "Exportar CSV"}
+          <button className="btn-primary" onClick={openNewBooking}>
+            + Nueva reserva
           </button>
 
-          <button className="btn-secondary" onClick={clearAllFilters}>
-            Limpiar filtros
-          </button>
+          <div className="flex gap-2">
+            <button
+              className="btn-secondary"
+              onClick={exportCsv}
+              disabled={exporting || loading || filteredRows.length === 0}
+            >
+              {exporting ? "Exportando…" : "Exportar CSV"}
+            </button>
+
+            <button className="btn-secondary" onClick={clearAllFilters}>
+              Limpiar filtros
+            </button>
+          </div>
         </div>
 
 
 
 
-        {/* Table.
-            El thead sticky solo puede anclarse a SU contenedor de scroll más
-            cercano — y overflow-x-auto obliga al navegador a computar
-            overflow-y:auto en este div también (no hay forma de evitarlo con
-            overflow-x != visible), así que ese contenedor YA es el que manda,
-            aunque nunca tenga su propio scrollbar. Por eso le damos una
-            altura máxima + scroll vertical propio en escritorio (así el
-            thead sticky top:0 ancla dentro de su propio panel), Y ADEMÁS
-            anclamos el panel completo justo debajo de las barras ya
-            ancladas (KPIs/caja/búsqueda/acciones) — si no, al seguir
-            haciendo scroll de la página, el panel (que no es sticky por sí
-            mismo) terminaría deslizándose por debajo de esas barras y su
-            thead quedaría tapado. En móvil nada de esto aplica (todo fluye
-            normal, sin paneles con scroll interno). */}
+        {/* Table. El panel tiene su propia altura acotada + scroll interno
+            (en vez de dejar que la página entera se desplace), y el thead
+            queda sticky DENTRO de ese panel — así el encabezado (fecha,
+            cancha, horario, tipo…) siempre se ve mientras se recorren las
+            filas, sin necesidad de fijar nada más arriba en la página.
+            (overflow-x-auto por sí solo rompe el sticky-a-la-página: el
+            propio contenedor se vuelve el "ancestro con scroll" del thead,
+            así que en vez de pelear contra eso, este panel adopta ese
+            scroll a propósito.) */}
         <div
-          className="mt-4 min-h-[60vh] overflow-x-auto rounded-2xl border bg-white md:sticky md:max-h-[65vh] md:overflow-y-auto"
+          className="mt-4 max-h-[70vh] overflow-auto rounded-2xl border bg-white"
           style={{
             borderColor: "rgba(120,46,21,0.12)",
-            top: tableTop,
           }}
         >
           <table className="min-w-[1200px] w-full text-left text-sm">
             <thead
-              className="md:sticky"
+              className="sticky"
               style={{
                 // Opaque (sin transparencia) para que NO se vean las filas “a través”
                 background: "linear-gradient(180deg, rgb(253,238,232), rgb(255,255,255))",
@@ -1331,9 +1434,9 @@ function statusES(s: string) {
                       <td className="px-4 py-4">{asistenciaLabel(b)}</td>
 
                       <td className="px-4 py-4">
-                        <div className="grid grid-cols-1 gap-2 min-w-[140px]">
+                        <div className="grid grid-cols-2 gap-1.5 min-w-[150px]">
                           <button
-                            className="btn-primary w-full h-11"
+                            className="btn-primary w-full px-2 py-1.5 text-xs"
                             disabled={!canCharge(b) || loading}
                             onClick={() => payBooking(b)}
                             style={{ opacity: !canCharge(b) || loading ? 0.5 : 1 }}
@@ -1342,7 +1445,7 @@ function statusES(s: string) {
                           </button>
 
                           <button
-                            className="btn-secondary w-full h-11"
+                            className="btn-secondary w-full px-2 py-1.5 text-xs"
                             disabled={!canCancelBooking(b) || loading}
                             onClick={() => {
                               if (canCancelBooking(b) && !loading)
@@ -1355,7 +1458,7 @@ function statusES(s: string) {
                           </button>
 
                           <button
-                            className="btn-secondary w-full h-11"
+                            className="btn-secondary w-full px-2 py-1.5 text-xs"
                             disabled={!canMarkAttendance(b) || loading}
                             onClick={() => {
                               if (canMarkAttendance(b) && !loading)
@@ -1368,7 +1471,7 @@ function statusES(s: string) {
                           </button>
 
                           <button
-                            className="btn-secondary w-full h-11"
+                            className="btn-secondary w-full px-2 py-1.5 text-xs"
                             disabled={!canMarkAttendance(b) || loading}
                             onClick={() => {
                               if (canMarkAttendance(b) && !loading)
@@ -1392,6 +1495,122 @@ function statusES(s: string) {
         </>
         )}
       </div>
+
+      {/* MODAL: NUEVA RESERVA (walk-in / teléfono / WhatsApp) */}
+      {newBookingOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md card p-5">
+            <div className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
+              Nueva reserva
+            </div>
+            <div className="mt-1 text-sm" style={{ color: "rgba(30,27,24,0.60)" }}>
+              Para clientes que llaman, escriben o llegan directo a la cancha.
+            </div>
+
+            {nbError && (
+              <div className="mt-3 rounded-md border px-3 py-2 text-sm" style={{ borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.08)", color: "rgb(153,27,27)" }}>
+                {nbError}
+              </div>
+            )}
+
+            <div className="mt-4">
+              <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
+                Origen
+              </label>
+              <div className="mt-1 grid grid-cols-3 gap-2">
+                {([
+                  { key: "WALK_IN", label: "🚶 Presencial" },
+                  { key: "PHONE", label: "📞 Teléfono" },
+                  { key: "WHATSAPP", label: "💬 WhatsApp" },
+                ] as Array<{ key: typeof nbOrigin; label: string }>).map((o) => (
+                  <button
+                    key={o.key}
+                    type="button"
+                    className={nbOrigin === o.key ? "btn-primary text-xs px-2 py-2" : "btn-secondary text-xs px-2 py-2"}
+                    onClick={() => setNbOrigin(o.key)}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
+                  Cancha
+                </label>
+                <select className="input" value={nbCourtId} onChange={(e) => setNbCourtId(e.target.value)}>
+                  {courts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
+                  Duración
+                </label>
+                <select className="input" value={nbDuration} onChange={(e) => setNbDuration(Number(e.target.value))}>
+                  <option value={60}>60 min</option>
+                  <option value={90}>90 min</option>
+                  <option value={120}>120 min</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
+                  Fecha
+                </label>
+                <input className="input" type="date" value={nbDate} onChange={(e) => setNbDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
+                  Hora de inicio
+                </label>
+                <input className="input" type="time" value={nbTime} onChange={(e) => setNbTime(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
+                Nombre del cliente
+              </label>
+              <input
+                className="input"
+                value={nbName}
+                onChange={(e) => setNbName(e.target.value)}
+                placeholder="Nombre completo"
+                autoFocus
+              />
+            </div>
+
+            <div className="mt-3">
+              <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
+                Teléfono (opcional)
+              </label>
+              <input
+                className="input"
+                value={nbPhone}
+                onChange={(e) => setNbPhone(e.target.value)}
+                placeholder="Si ya es cliente, lo reconoce por el número"
+              />
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button className="btn-secondary" onClick={() => setNewBookingOpen(false)} disabled={nbSaving}>
+                Cancelar
+              </button>
+              <button className="btn-primary" disabled={nbSaving} onClick={submitNewBooking}>
+                {nbSaving ? "Creando…" : "Crear reserva"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: COBRO */}
       {chargeOpen && chargeBooking && (
@@ -1508,9 +1727,15 @@ function statusES(s: string) {
 
       {/* MODAL: FICHA JUGADOR */}
       {playerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-2xl card p-5">
-            <div className="flex items-start justify-between gap-3">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8"
+          onClick={() => closePlayerCard()}
+        >
+          <div
+            className="flex w-full max-w-2xl max-h-[85vh] flex-col card p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-start justify-between gap-3">
               <div>
                 <div className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
                   Ficha de jugador
@@ -1520,12 +1745,12 @@ function statusES(s: string) {
                 </div>
               </div>
 
-              <button className="btn-secondary" onClick={() => closePlayerCard()}>
+              <button className="btn-secondary shrink-0" onClick={() => closePlayerCard()}>
                 Cerrar
               </button>
             </div>
 
-            <div className="mt-4">
+            <div className="mt-4 overflow-y-auto">
               {playerLoading && <div className="text-sm" style={{ color: "rgba(30,27,24,0.70)" }}>Cargando…</div>}
 
               {!playerLoading && playerError && (
@@ -1592,23 +1817,23 @@ function statusES(s: string) {
 
                     <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div className="rounded-md border bg-white p-3" style={{ borderColor: "rgba(120,46,21,0.10)" }}>
-                        <div className="text-xs font-semibold text-white/80">Notas de recepción</div>
+                        <div className="text-xs font-semibold" style={{ color: "rgba(30,27,24,0.80)" }}>Notas de recepción</div>
 
                         <textarea
-                          className="mt-2 w-full min-h-[90px] rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/90 placeholder:text-white/40"
+                          className="input mt-2 min-h-[90px] w-full"
                           placeholder="Escribe aquí notas internas (ej. nivel, preferencias, puntualidad, etc.)"
                           value={receptionNotes}
                           onChange={(e) => setReceptionNotes(e.target.value)}
                         />
 
                         <div className="mt-2 flex items-center justify-between gap-2">
-                          <div className="text-xs text-emerald-300">{notesOk ?? ""}</div>
+                          <div className="text-xs" style={{ color: "#0f9d6e" }}>{notesOk ?? ""}</div>
 
                           <button
                             type="button"
                             onClick={saveReceptionNotes}
                             disabled={notesSaving}
-                            className="rounded-md bg-white px-3 py-1.5 text-xs text-black hover:opacity-90 disabled:opacity-60"
+                            className="btn-secondary px-3 py-1.5 text-xs"
                           >
                             {notesSaving ? "Guardando…" : "Guardar notas"}
                           </button>

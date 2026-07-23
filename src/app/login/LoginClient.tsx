@@ -3,6 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabaseClient";
+import { ValidationError, friendlyAuthError } from "@/lib/authErrors";
 
 export default function LoginClient() {
   const router = useRouter();
@@ -34,17 +35,17 @@ export default function LoginClient() {
 
     try {
       const cleanEmail = email.trim().toLowerCase();
-      if (!cleanEmail) throw new Error("Escribe tu correo.");
-      if (!cleanEmail.includes("@")) throw new Error("Correo no válido.");
+      if (!cleanEmail) throw new ValidationError("Escribe tu correo.");
+      if (!cleanEmail.includes("@")) throw new ValidationError("Correo no válido.");
 
-      if (!password) throw new Error("Escribe tu contraseña.");
+      if (!password) throw new ValidationError("Escribe tu contraseña.");
       if (password.length < 8)
-        throw new Error("La contraseña debe tener al menos 8 caracteres.");
+        throw new ValidationError("La contraseña debe tener al menos 8 caracteres.");
 
       if (isSignup) {
-        if (!confirmPassword) throw new Error("Confirma tu contraseña.");
+        if (!confirmPassword) throw new ValidationError("Confirma tu contraseña.");
         if (password !== confirmPassword)
-          throw new Error("Las contraseñas no coinciden.");
+          throw new ValidationError("Las contraseñas no coinciden.");
 
         const origin = window.location.origin;
         const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
@@ -75,8 +76,7 @@ export default function LoginClient() {
         return;
       }
     } catch (e: any) {
-      const msg = e?.message ?? "Error de autenticación";
-      setError(msg);
+      setError(friendlyAuthError(e));
     } finally {
       setSending(false);
     }
@@ -89,7 +89,7 @@ export default function LoginClient() {
 
     try {
       const cleanEmail = email.trim().toLowerCase();
-      if (!cleanEmail) throw new Error("Escribe tu correo.");
+      if (!cleanEmail) throw new ValidationError("Escribe tu correo.");
 
       const origin = window.location.origin;
       const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
@@ -104,7 +104,7 @@ export default function LoginClient() {
 
       setOk("Listo. Te reenvié el correo de confirmación. Revisa inbox y spam.");
     } catch (e: any) {
-      setError(e?.message ?? "No se pudo reenviar el correo");
+      setError(friendlyAuthError(e));
     } finally {
       setSending(false);
     }

@@ -70,6 +70,8 @@ export function origenLabel(src?: string) {
   const s = String(src).toUpperCase();
   if (s === "WEB") return "Web";
   if (s === "WHATSAPP") return "WhatsApp";
+  if (s === "PHONE") return "Teléfono";
+  if (s === "WALK_IN") return "Presencial";
   if (s === "RECEPTION") return "Recepción";
   return src;
 }

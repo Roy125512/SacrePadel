@@ -27,6 +27,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if (new Date(start_at).getTime() < Date.now()) {
+      return NextResponse.json(
+        { error: "Ese horario ya pasó. Elige uno disponible." },
+        { status: 409 }
+      );
+    }
+
     const holdMinutes = 10;
     const hold_expires_at = new Date(Date.now() + holdMinutes * 60_000).toISOString();
 

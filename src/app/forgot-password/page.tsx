@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { useRouter } from "next/navigation";
+import { friendlyAuthError } from "@/lib/authErrors";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function ForgotPasswordPage() {
       if (error) throw error;
       setDone(true);
     } catch (err: any) {
-      setError(err?.message ?? "No se pudo enviar el correo.");
+      setError(friendlyAuthError(err));
     } finally {
       setSending(false);
     }

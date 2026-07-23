@@ -25,14 +25,9 @@ import {
   toYMDLocal,
 } from "@/lib/reception/utils";
 import { AreaTrendChart, DonutChart, HBarList, HourlyBarChart } from "@/components/reception/charts";
+import { IconButton } from "@/components/reception/ui";
 
-type Period = 7 | 30 | 90;
-
-const PERIODS: { key: Period; label: string }[] = [
-  { key: 7, label: "7 días" },
-  { key: 30, label: "30 días" },
-  { key: 90, label: "90 días" },
-];
+type Mode = "DAY" | "RANGE";
 
 async function fetchBookings(start: string, end: string): Promise<Booking[]> {
   const r = await fetch(`/api/reception/bookings?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`, {
@@ -55,7 +50,7 @@ function shortDay(ymd: string) {
   return d.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit" });
 }
 
-function DeltaBadge({ current, previous }: { current: number; previous: number }) {
+function DeltaBadge({ current, previous, compareLabel }: { current: number; previous: number; compareLabel: string }) {
   if (previous === 0 && current === 0) return null;
 
   if (previous === 0) {
@@ -72,7 +67,7 @@ function DeltaBadge({ current, previous }: { current: number; previous: number }
   if (Math.abs(rounded) < 1) {
     return (
       <span className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--muted)" }}>
-        <Minus className="h-3 w-3" /> Igual que el periodo anterior
+        <Minus className="h-3 w-3" /> Igual que el {compareLabel}
       </span>
     );
   }
@@ -85,7 +80,7 @@ function DeltaBadge({ current, previous }: { current: number; previous: number }
     >
       {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
       {up ? "+" : ""}
-      {rounded}% vs. periodo anterior
+      {rounded}% vs. {compareLabel}
     </span>
   );
 }
@@ -96,6 +91,7 @@ function DashKpiCard(props: {
   value: string;
   current: number;
   previous: number;
+  compareLabel: string;
 }) {
   const Icon = props.icon;
   return (
@@ -112,7 +108,7 @@ function DashKpiCard(props: {
         {props.value}
       </div>
       <div className="mt-1.5">
-        <DeltaBadge current={props.current} previous={props.previous} />
+        <DeltaBadge current={props.current} previous={props.previous} compareLabel={props.compareLabel} />
       </div>
     </div>
   );
@@ -135,7 +131,7 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
 }
 
 export default function ReceptionDashboard() {
-  const [period, setPeriod] = useState<Period>(30);
+  const [mode, setMode] = useState<Mode>("RANGE");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<Booking[]>([]);
@@ -146,14 +142,17 @@ export default function ReceptionDashboard() {
     return { start, end };
   });
 
-  async function load(p: Period) {
+  const [dateYMD, setDateYMD] = useState<string>(() => toYMDLocal(new Date()));
+  const [rangeStartYMD, setRangeStartYMD] = useState<string>(() => addDaysYMD(toYMDLocal(new Date()), -29));
+  const [rangeEndYMD, setRangeEndYMD] = useState<string>(() => toYMDLocal(new Date()));
+
+  async function loadRange(start: string, end: string) {
     setLoading(true);
     setError(null);
     try {
-      const end = toYMDLocal(new Date());
-      const start = addDaysYMD(end, -(p - 1));
+      const spanDays = daysInclusive(start, end);
       const prevEnd = addDaysYMD(start, -1);
-      const prevStart = addDaysYMD(prevEnd, -(p - 1));
+      const prevStart = addDaysYMD(prevEnd, -(spanDays - 1));
 
       const [current, previous] = await Promise.all([fetchBookings(start, end), fetchBookings(prevStart, prevEnd)]);
 
@@ -169,10 +168,32 @@ export default function ReceptionDashboard() {
     }
   }
 
+  async function loadDay(d: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      const prevDay = addDaysYMD(d, -1);
+
+      const [current, previous] = await Promise.all([fetchBookings(d, d), fetchBookings(prevDay, prevDay)]);
+
+      setRange({ start: d, end: d });
+      setRows(current);
+      setPrevRows(previous);
+    } catch (e: any) {
+      setError(e?.message ?? "Error al cargar el dashboard");
+      setRows([]);
+      setPrevRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    load(30);
+    loadRange(rangeStartYMD, rangeEndYMD);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const compareLabel = mode === "DAY" ? "día anterior" : "periodo anterior";
 
   const days = daysInclusive(range.start, range.end);
   const stats = useMemo(() => computeAggregateStats(rows, days), [rows, days]);
@@ -265,44 +286,178 @@ export default function ReceptionDashboard() {
 
   return (
     <div className="space-y-4">
-      {/* Header + period selector */}
+      {/* Header + filtros (mismos controles que la vista de Reservas) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="font-display text-2xl">
             <span className="font-light italic">Panorama</span> <span className="font-black">del negocio.</span>
           </div>
           <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
-            {loading ? "Cargando…" : `Del ${shortDay(range.start)} al ${shortDay(range.end)} · comparado con los ${period} días anteriores`}
+            {loading
+              ? "Cargando…"
+              : mode === "DAY"
+              ? `${shortDay(range.start)} · comparado con el día anterior`
+              : `Del ${shortDay(range.start)} al ${shortDay(range.end)} · comparado con los ${days} días anteriores`}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-end gap-3">
+          {/* modo */}
           <div className="rounded-xl border bg-white/70 p-1 backdrop-blur" style={{ borderColor: "rgba(120,46,21,0.12)" }}>
             <div className="flex items-center gap-1">
-              {PERIODS.map((p) => {
-                const active = period === p.key;
-                return (
-                  <button
-                    key={p.key}
-                    className="rounded-md px-3 py-2 text-sm transition"
-                    style={
-                      active
-                        ? { border: "1px solid rgba(120,46,21,0.14)", background: "#fff", color: "var(--foreground)" }
-                        : { color: "rgba(30,27,24,0.70)" }
-                    }
-                    onClick={() => {
-                      setPeriod(p.key);
-                      load(p.key);
-                    }}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
+              <button
+                className={`rounded-md px-3 py-2 text-sm transition ${mode === "DAY" ? "bg-white" : ""}`}
+                style={
+                  mode === "DAY"
+                    ? { border: "1px solid rgba(120,46,21,0.14)", color: "var(--foreground)" }
+                    : { color: "rgba(30,27,24,0.70)" }
+                }
+                onClick={() => {
+                  setMode("DAY");
+                  loadDay(dateYMD);
+                }}
+              >
+                Día
+              </button>
+
+              <button
+                className={`rounded-md px-3 py-2 text-sm transition ${mode === "RANGE" ? "bg-white" : ""}`}
+                style={
+                  mode === "RANGE"
+                    ? { border: "1px solid rgba(120,46,21,0.14)", color: "var(--foreground)" }
+                    : { color: "rgba(30,27,24,0.70)" }
+                }
+                onClick={() => {
+                  setMode("RANGE");
+                  const norm =
+                    rangeStartYMD <= rangeEndYMD
+                      ? { start: rangeStartYMD, end: rangeEndYMD }
+                      : { start: rangeEndYMD, end: rangeStartYMD };
+                  setRangeStartYMD(norm.start);
+                  setRangeEndYMD(norm.end);
+                  loadRange(norm.start, norm.end);
+                }}
+              >
+                Rango
+              </button>
             </div>
           </div>
 
-          <button className="btn-secondary" onClick={() => load(period)} disabled={loading}>
+          {mode === "DAY" ? (
+            <>
+              <div>
+                <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
+                  Fecha
+                </label>
+                <input
+                  className="input w-[170px]"
+                  type="date"
+                  value={dateYMD}
+                  onChange={(e) => setDateYMD(e.target.value)}
+                />
+              </div>
+
+              <IconButton
+                text="Ayer"
+                onClick={() => {
+                  const v = addDaysYMD(dateYMD, -1);
+                  setDateYMD(v);
+                  loadDay(v);
+                }}
+              />
+              <IconButton
+                text="Hoy"
+                onClick={() => {
+                  const v = toYMDLocal(new Date());
+                  setDateYMD(v);
+                  loadDay(v);
+                }}
+              />
+              <IconButton
+                text="Mañana"
+                onClick={() => {
+                  const v = addDaysYMD(dateYMD, 1);
+                  setDateYMD(v);
+                  loadDay(v);
+                }}
+              />
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
+                  Inicio
+                </label>
+                <input
+                  className="input w-[170px]"
+                  type="date"
+                  value={rangeStartYMD}
+                  onChange={(e) => setRangeStartYMD(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
+                  Fin
+                </label>
+                <input
+                  className="input w-[170px]"
+                  type="date"
+                  value={rangeEndYMD}
+                  onChange={(e) => setRangeEndYMD(e.target.value)}
+                />
+              </div>
+
+              <IconButton
+                text="7 días"
+                onClick={() => {
+                  const end = toYMDLocal(new Date());
+                  const start = addDaysYMD(end, -6);
+                  setRangeStartYMD(start);
+                  setRangeEndYMD(end);
+                  loadRange(start, end);
+                }}
+              />
+              <IconButton
+                text="30 días"
+                onClick={() => {
+                  const end = toYMDLocal(new Date());
+                  const start = addDaysYMD(end, -29);
+                  setRangeStartYMD(start);
+                  setRangeEndYMD(end);
+                  loadRange(start, end);
+                }}
+              />
+              <IconButton
+                text="90 días"
+                onClick={() => {
+                  const end = toYMDLocal(new Date());
+                  const start = addDaysYMD(end, -89);
+                  setRangeStartYMD(start);
+                  setRangeEndYMD(end);
+                  loadRange(start, end);
+                }}
+              />
+            </>
+          )}
+
+          <button
+            className="btn-primary"
+            disabled={loading}
+            onClick={() => {
+              if (mode === "DAY") {
+                loadDay(dateYMD);
+              } else {
+                const norm =
+                  rangeStartYMD <= rangeEndYMD
+                    ? { start: rangeStartYMD, end: rangeEndYMD }
+                    : { start: rangeEndYMD, end: rangeStartYMD };
+                setRangeStartYMD(norm.start);
+                setRangeEndYMD(norm.end);
+                loadRange(norm.start, norm.end);
+              }
+            }}
+          >
             Actualizar
           </button>
         </div>
@@ -321,10 +476,11 @@ export default function ReceptionDashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <DashKpiCard
           icon={Banknote}
-          title="Ingresos del periodo"
+          title={mode === "DAY" ? "Ingresos del día" : "Ingresos del periodo"}
           value={currencyMXN(stats.ingresos)}
           current={stats.ingresos}
           previous={prevStats.ingresos}
+          compareLabel={compareLabel}
         />
         <DashKpiCard
           icon={CalendarCheck2}
@@ -332,6 +488,7 @@ export default function ReceptionDashboard() {
           value={String(stats.totalReservas)}
           current={stats.totalReservas}
           previous={prevStats.totalReservas}
+          compareLabel={compareLabel}
         />
         <DashKpiCard
           icon={Gauge}
@@ -339,6 +496,7 @@ export default function ReceptionDashboard() {
           value={`${Math.round(stats.ocupacion)}%`}
           current={stats.ocupacion}
           previous={prevStats.ocupacion}
+          compareLabel={compareLabel}
         />
         <DashKpiCard
           icon={Clock}
@@ -346,6 +504,7 @@ export default function ReceptionDashboard() {
           value={`${currencyMXN(stats.tarifaPromedio)}`}
           current={stats.tarifaPromedio}
           previous={prevStats.tarifaPromedio}
+          compareLabel={compareLabel}
         />
         <DashKpiCard
           icon={ReceiptText}
@@ -353,6 +512,7 @@ export default function ReceptionDashboard() {
           value={currencyMXN(stats.pendiente)}
           current={stats.pendiente}
           previous={prevStats.pendiente}
+          compareLabel={compareLabel}
         />
       </div>
 

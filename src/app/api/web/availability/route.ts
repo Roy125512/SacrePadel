@@ -24,6 +24,7 @@ export async function GET(req: Request) {
     const stepMs = STEP_MINUTES * 60_000;
     const minMs = MIN_BOOKING_MINUTES * 60_000;
     const closeMs = new Date(toIsoAt(date, CLOSE_HOUR * 60, tzOffset)).getTime();
+    const nowMs = Date.now();
 
     const availability = courts.map((court) => {
       const courtBookings = blockers.filter((b) => b.court_id === court.id);
@@ -43,6 +44,7 @@ export async function GET(req: Request) {
         let can_start = true;
         if (!s.available) can_start = false;
         else if (minEndMs > closeMs) can_start = false;
+        else if (startMs < nowMs) can_start = false;
 
         if (can_start) {
           for (let t = startMs; t < minEndMs; t += stepMs) {
