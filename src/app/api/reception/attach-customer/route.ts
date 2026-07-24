@@ -4,7 +4,7 @@ import { requireReceptionAccess } from "@/lib/guards/reception";
 import { dbErrorResponse } from "@/lib/apiError";
 
 export async function POST(req: Request) {
-  const gate = await requireReceptionAccess();
+  const gate = await requireReceptionAccess({ asJson: true });
   if (!gate.ok) return gate.res;
 
   const body = await req.json().catch(() => ({}));

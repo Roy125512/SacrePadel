@@ -6,7 +6,7 @@ import { dbErrorResponse } from "@/lib/apiError";
 
 
 export async function GET(req: Request) {
-  const gate = await requireReceptionAccess();
+  const gate = await requireReceptionAccess({ asJson: true });
   if (!gate.ok) return gate.res;
 
   const { searchParams } = new URL(req.url);

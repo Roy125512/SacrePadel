@@ -13,7 +13,13 @@ export default function LoginClient() {
   const isSignup = mode === "signup" || mode === "register";
 
   const defaultNext = isSignup ? "/perfil" : "/reservar";
-  const next = searchParams.get("next") || defaultNext;
+
+  // Evita open-redirect: solo se acepta una ruta interna (mismo criterio
+  // que /auth/callback). "//evil.com" también se rechaza — el navegador lo
+  // trata como URL absoluta aunque empiece con "/".
+  const rawNext = searchParams.get("next");
+  const next =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : defaultNext;
 
   const supabase = createClient();
 

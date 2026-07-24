@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { dbErrorResponse } from "@/lib/apiError";
 
 // Actualiza el rango de un HOLD (principalmente end_at) y renueva su expiración.
 // Si hay conflicto por overlap (exclusion constraint), debe regresar 409.
 
 export async function POST(req: Request) {
+  const rl = rateLimit(`update-hold:${clientIp(req)}`, 20, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Demasiadas solicitudes. Espera unos segundos e intenta de nuevo." },
+      { status: 429 }
+    );
+  }
+
   const body = await req.json().catch(() => ({}));
   const booking_id = String(body.booking_id ?? "").trim();
   const end_at = String(body.end_at ?? "").trim();

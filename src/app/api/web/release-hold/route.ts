@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { dbErrorResponse } from "@/lib/apiError";
 
 export async function POST(req: Request) {
   try {
+    const rl = rateLimit(`release-hold:${clientIp(req)}`, 20, 60_000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Demasiadas solicitudes. Espera unos segundos e intenta de nuevo." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const booking_id = String(body.booking_id ?? "").trim();
 
