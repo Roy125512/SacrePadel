@@ -1,7 +1,7 @@
 "use client";
 
-import { Sun, Moon, ArrowRight, Check } from "lucide-react";
-import { DAY_RATE, EVENING_RATE, SWITCH_HOUR } from "@/lib/pricing-shared";
+import { Sun, Moon, ArrowRight, Check, RefreshCcw, ShoppingBag } from "lucide-react";
+import { DAY_RATE, EVENING_RATE, SWITCH_HOUR, PADDLE_RENTAL_PRICE } from "@/lib/pricing-shared";
 import ReservarButton from "@/components/ReservarButton";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 
@@ -80,6 +80,38 @@ export default function PricingTeaser() {
               </div>
               <p className="mt-3 text-sm text-[rgba(246,240,230,0.85)]">
                 Bajo los reflectores, cuando la cancha se ve mejor.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Equipo: renta y venta — misma dualidad visual que día/noche pero
+            a menor escala, para que la tarifa por hora siga siendo la protagonista. */}
+        <div className="mt-6 grid grid-cols-1 gap-px overflow-hidden rounded-md border border-[rgba(120,46,21,0.15)] bg-[rgba(120,46,21,0.15)] sm:grid-cols-2">
+          <div className="flex items-center gap-4 bg-[var(--brand-50)] p-6">
+            <span className="chip shrink-0 bg-[var(--surface)]">
+              <RefreshCcw className="h-5 w-5" strokeWidth={2} />
+            </span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-700)]">
+                Renta de pala
+              </p>
+              <p className="mt-1 flex items-baseline gap-1.5 font-display text-2xl font-black leading-none text-[var(--foreground)]">
+                ${PADDLE_RENTAL_PRICE}
+                <span className="text-xs font-medium text-[var(--muted)]">MXN</span>
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 bg-[var(--brand-50)] p-6">
+            <span className="chip shrink-0 bg-[var(--surface)]">
+              <ShoppingBag className="h-5 w-5" strokeWidth={2} />
+            </span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-700)]">
+                Palas y pelotas
+              </p>
+              <p className="mt-1 text-sm leading-snug text-[var(--muted)]">
+                También en venta — precios en recepción
               </p>
             </div>
           </div>

@@ -5,6 +5,10 @@ export const DAY_RATE = 350; // 07:00 - 17:59
 export const EVENING_RATE = 400; // 18:00 - 21:59
 export const SWITCH_HOUR = 18;
 
+// Renta de pala en el club. Venta de palas y pelotas también disponible,
+// pero esos precios se dan directamente en recepción (no están fijos aquí).
+export const PADDLE_RENTAL_PRICE = 50;
+
 // Business is in Pátzcuaro, Michoacán — pricing must always be evaluated in
 // this timezone, never the server's local time. A server deployed in UTC
 // (the common case for cloud hosting) would otherwise silently swap the

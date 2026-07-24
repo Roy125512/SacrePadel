@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
-import { DAY_RATE, EVENING_RATE, SWITCH_HOUR } from "@/lib/pricing-shared";
+import { DAY_RATE, EVENING_RATE, SWITCH_HOUR, PADDLE_RENTAL_PRICE } from "@/lib/pricing-shared";
 
 const QUESTIONS = [
   {
@@ -13,6 +13,10 @@ const QUESTIONS = [
   {
     q: "¿Cómo puedo pagar?",
     a: `En línea con tarjeta al momento de reservar, o en recepción (efectivo o tarjeta) al llegar al club. El precio depende del horario: $${DAY_RATE} MXN/hora antes de las ${SWITCH_HOUR}:00 y $${EVENING_RATE} MXN/hora después.`,
+  },
+  {
+    q: "¿Necesito llevar mi propia pala?",
+    a: `No es obligatorio. Si no tienes, puedes rentar una pala en el club por $${PADDLE_RENTAL_PRICE} MXN, o comprar pala y pelotas nuevas — para eso pregunta los precios directamente en recepción.`,
   },
   {
     q: "¿Necesito crear una cuenta para reservar?",
