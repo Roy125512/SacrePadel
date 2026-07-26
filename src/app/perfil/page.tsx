@@ -60,12 +60,13 @@ export default function ProfilePage() {
   const sexOk = Boolean(sex.trim());
   const canSave = dobOk && sexOk && !saving && !syncing;
 
-  // Purely a friendly "you're almost done" nudge — not tied to canSave, just
-  // counts how many of the six fields have something in them.
-  const filledCount = [fullName, phone, birthDate, sex, division, playerNotes].filter(
+  // Purely a friendly "you're almost done" nudge — not tied to canSave.
+  // Notes son opcionales y no cuentan para el %, así que llenar todo lo
+  // demás (hasta división) ya se siente como 100%.
+  const filledCount = [fullName, phone, birthDate, sex, division].filter(
     (v) => v.trim() !== ""
   ).length;
-  const completionPct = Math.round((filledCount / 6) * 100);
+  const completionPct = Math.round((filledCount / 5) * 100);
 
   async function load() {
     setLoading(true);

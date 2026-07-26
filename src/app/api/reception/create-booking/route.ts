@@ -7,6 +7,9 @@ import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
 import { normalizePhoneToE164 } from "@/lib/phone";
 import { dbErrorResponse } from "@/lib/apiError";
 
+// WHATSAPP se acepta por compatibilidad con el modal viejo, pero ya no se
+// ofrece como opción separada — ver origenLabel() en reception/utils.ts,
+// donde PHONE y WHATSAPP se agrupan en una sola categoría "Teléfono / WhatsApp".
 const ORIGINS = new Set(["PHONE", "WHATSAPP", "WALK_IN"]);
 
 export async function POST(req: Request) {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export function KpiCard(props: { title: string; value: string; valueClass?: string }) {
@@ -94,6 +94,37 @@ export function Menu({
     const r = el.getBoundingClientRect();
     setPos({ top: r.bottom + 8, left: r.left });
   }, [open, anchorRef]);
+
+  // Recorre el menú para que quepa en la pantalla — sin esto, botones cerca
+  // del borde derecho o de abajo (como "Cancelar", casi siempre la columna
+  // más a la derecha de la tabla) abren el menú parcialmente fuera de vista.
+  // Corre después de montar (useLayoutEffect, antes del pintado) para medir
+  // el tamaño real del menú y no causar parpadeo.
+  useLayoutEffect(() => {
+    if (!open || !pos) return;
+    const menuEl = menuRef.current;
+    const anchorEl = anchorRef.current;
+    if (!menuEl || !anchorEl) return;
+
+    const margin = 8;
+    const menuRect = menuEl.getBoundingClientRect();
+    const anchorRect = anchorEl.getBoundingClientRect();
+
+    let left = Math.min(pos.left, window.innerWidth - menuRect.width - margin);
+    left = Math.max(margin, left);
+
+    let top = pos.top;
+    const fitsBelow = anchorRect.bottom + margin + menuRect.height <= window.innerHeight - margin;
+    if (!fitsBelow) {
+      const above = anchorRect.top - margin - menuRect.height;
+      top = above >= margin ? above : margin;
+    }
+
+    if (left !== pos.left || top !== pos.top) {
+      setPos({ top, left });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, pos?.top, pos?.left]);
 
   if (!open || !pos) return null;
 

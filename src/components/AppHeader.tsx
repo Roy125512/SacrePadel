@@ -240,8 +240,8 @@ export default function AppHeader() {
                     Reservar
                   </Link>
 
-                  <Link 
-                    href="/perfil" 
+                  <Link
+                    href="/perfil"
                     className="w-full text-sm rounded-md border px-3 py-2 text-center
                       transition active:scale-[0.99]
                       active:bg-[rgba(253,238,232,0.95)]

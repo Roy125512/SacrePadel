@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Banknote,
   CalendarCheck2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Gauge,
   Minus,
@@ -18,14 +20,29 @@ import {
   buildDailySummary,
   computeAggregateStats,
   currencyMXN,
+  CLOSE_HOUR,
+  DEFAULT_COURTS,
   daysInclusive,
   enrichBooking,
+  OPEN_HOUR,
   origenLabel,
-  tipoLabel,
   toYMDLocal,
 } from "@/lib/reception/utils";
-import { AreaTrendChart, DonutChart, HBarList, HourlyBarChart } from "@/components/reception/charts";
+import { AreaTrendChart, CategoryBarChart, DonutChart, HBarList, HourlyBarChart } from "@/components/reception/charts";
 import { IconButton } from "@/components/reception/ui";
+
+const WEEKDAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+// Lunes primero — así se lee como una semana normal, no empezando en domingo.
+const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+type MonthlySummaryRow = {
+  month: number;
+  label: string;
+  reservas: number;
+  ingresos: number;
+  horasVendidas: number;
+  ocupacion: number;
+};
 
 type Mode = "DAY" | "RANGE";
 
@@ -193,6 +210,39 @@ export default function ReceptionDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Línea de tiempo anual — independiente del selector de día/rango de
+  // arriba (un año completo no cabe en esos controles), con su propio
+  // selector de año.
+  const [summaryYear, setSummaryYear] = useState(() => new Date().getFullYear());
+  const [monthlySummary, setMonthlySummary] = useState<MonthlySummaryRow[]>([]);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
+  const [monthlyError, setMonthlyError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setMonthlyLoading(true);
+    setMonthlyError(null);
+    fetch(`/api/reception/monthly-summary?year=${summaryYear}`, { cache: "no-store" })
+      .then(async (r) => {
+        const text = await r.text();
+        const body = text ? JSON.parse(text) : null;
+        if (!r.ok) throw new Error(body?.error ?? `Error ${r.status}`);
+        if (!cancelled) setMonthlySummary(body?.months ?? []);
+      })
+      .catch((e: any) => {
+        if (!cancelled) {
+          setMonthlyError(e?.message ?? "No se pudo cargar la línea de tiempo anual");
+          setMonthlySummary([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setMonthlyLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [summaryYear]);
+
   const compareLabel = mode === "DAY" ? "día anterior" : "periodo anterior";
 
   const days = daysInclusive(range.start, range.end);
@@ -204,6 +254,38 @@ export default function ReceptionDashboard() {
   const occupancyTrend = useMemo(
     () => daily.map((d) => ({ label: shortDay(d.ymd), value: Math.round(d.ocupacion) })),
     [daily]
+  );
+
+  // Ocupación por día de la semana, sobre el periodo seleccionado arriba
+  // (7/30/90 días o rango a la medida) — para ver qué días conviene meter
+  // promos. Cada día de la semana compara sus horas vendidas contra su
+  // propia capacidad (cuántas veces cayó ese día dentro del periodo), no
+  // contra el total, para que un rango con más lunes que domingos no sesgue
+  // la comparación.
+  const weekdayOccupancy = useMemo(() => {
+    const occurrences = new Array(7).fill(0);
+    for (let i = 0; i < days; i++) {
+      const d = new Date(`${addDaysYMD(range.start, i)}T00:00:00`);
+      occurrences[d.getDay()] += 1;
+    }
+
+    const horas = new Array(7).fill(0);
+    for (const b of rows) {
+      if (b.status !== "CONFIRMED" && b.status !== "COMPLETED") continue;
+      const wd = new Date(b.start_at).getDay();
+      horas[wd] += b.duration_hours ?? 0;
+    }
+
+    return WEEKDAY_ORDER.map((wd) => {
+      const capacity = DEFAULT_COURTS * (CLOSE_HOUR - OPEN_HOUR) * occurrences[wd];
+      const ocupacion = capacity > 0 ? (horas[wd] / capacity) * 100 : 0;
+      return { label: WEEKDAY_LABELS[wd], value: Math.round(ocupacion) };
+    });
+  }, [rows, range, days]);
+
+  const monthlyOccupancy = useMemo(
+    () => monthlySummary.map((m) => ({ label: m.label, value: m.ocupacion })),
+    [monthlySummary]
   );
 
   const paymentDonut = useMemo(
@@ -263,14 +345,6 @@ export default function ReceptionDashboard() {
       .sort((a, b) => b.ingresos - a.ingresos)
       .slice(0, 6)
       .map((c) => ({ label: c.name, value: c.ingresos, sublabel: `${c.visitas} visita${c.visitas === 1 ? "" : "s"}` }));
-  }, [rows]);
-
-  const tipoBreakdown = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const b of rows) map.set(tipoLabel(b), (map.get(tipoLabel(b)) ?? 0) + 1);
-    return Array.from(map.entries())
-      .map(([label, value]) => ({ label, value }))
-      .sort((a, b) => b.value - a.value);
   }, [rows]);
 
   const origenBreakdown = useMemo(() => {
@@ -546,19 +620,70 @@ export default function ReceptionDashboard() {
         </Section>
       </div>
 
-      {/* Top clients + tipo/origen */}
+      {/* Top clients + origen */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Section title="Top clientes del periodo" subtitle="Por monto pagado">
           <HBarList items={topClientes} formatValue={(v) => currencyMXN(v)} color="var(--brand-highlight)" />
         </Section>
 
-        <div className="grid grid-cols-1 gap-4">
-          <Section title="Tipo de reserva">
-            <HBarList items={tipoBreakdown} color="var(--court-700)" />
-          </Section>
-          <Section title="Origen">
-            <HBarList items={origenBreakdown} color="var(--brand)" />
-          </Section>
+        <Section title="Origen" subtitle="Cómo llegó cada reserva">
+          <HBarList items={origenBreakdown} color="var(--brand)" />
+        </Section>
+      </div>
+
+      {/* Para promociones: qué días de la semana y qué meses conviene reforzar */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Section title="Ocupación por día de la semana" subtitle="Sobre el periodo seleccionado arriba — para ver dónde meter promos">
+          <CategoryBarChart data={weekdayOccupancy} color="var(--court-700)" formatValue={(v) => `${v}%`} />
+        </Section>
+
+        <div className="card p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                Línea de tiempo anual
+              </div>
+              <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
+                Ocupación por mes de {summaryYear} — para planear promos de temporada
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className="btn-secondary flex h-8 w-8 items-center justify-center p-0"
+                onClick={() => setSummaryYear((y) => y - 1)}
+                aria-label="Año anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="min-w-[3.5rem] text-center text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                {summaryYear}
+              </span>
+              <button
+                type="button"
+                className="btn-secondary flex h-8 w-8 items-center justify-center p-0 disabled:opacity-40"
+                onClick={() => setSummaryYear((y) => y + 1)}
+                disabled={summaryYear >= new Date().getFullYear()}
+                aria-label="Año siguiente"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            {monthlyError ? (
+              <div className="text-sm" style={{ color: "rgb(153,27,27)" }}>
+                {monthlyError}
+              </div>
+            ) : monthlyLoading ? (
+              <div className="flex h-[140px] items-center justify-center text-sm" style={{ color: "var(--muted)" }}>
+                Cargando…
+              </div>
+            ) : (
+              <CategoryBarChart data={monthlyOccupancy} color="var(--brand)" formatValue={(v) => `${v}%`} />
+            )}
+          </div>
         </div>
       </div>
     </div>

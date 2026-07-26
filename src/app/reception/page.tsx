@@ -29,6 +29,7 @@ import {
   canCharge,
   canEditCustomer,
   canMarkAttendance,
+  canMarkNoShow,
   computeAggregateStats,
   currencyMXN,
   daysInclusive,
@@ -141,6 +142,11 @@ export default function ReceptionPage() {
     asistencia: null,
   });
 
+  // Popover de "Cancelar" por fila — agrupa asistió / no asistió / canceló
+  // en un solo botón con motivo, en vez de 4 botones sueltos.
+  const [outcomeMenuFor, setOutcomeMenuFor] = useState<string | null>(null);
+  const outcomeAnchorRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
   // Solo el thead de la tabla queda fijo (sticky) al hacer scroll — así se
   // ve siempre qué columna es cada dato (fecha, cancha, horario, tipo…) sin
   // sacrificar tanto espacio vertical como antes, cuando KPIs/caja/búsqueda
@@ -176,11 +182,43 @@ export default function ReceptionPage() {
     return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
   });
   const [nbDuration, setNbDuration] = useState(60);
-  const [nbOrigin, setNbOrigin] = useState<"PHONE" | "WHATSAPP" | "WALK_IN">("WALK_IN");
+  const [nbOrigin, setNbOrigin] = useState<"PHONE" | "WALK_IN">("WALK_IN");
   const [nbName, setNbName] = useState("");
   const [nbPhone, setNbPhone] = useState("");
   const [nbSaving, setNbSaving] = useState(false);
   const [nbError, setNbError] = useState<string | null>(null);
+
+  // Disponibilidad del día para pintar la hora como una grilla de horarios
+  // libres/ocupados por cancha, en vez de un input de texto a ciegas — así
+  // recepción ve de un vistazo si la cancha ya está apartada a esa hora.
+  type NbSlot = { start_at: string; end_at: string; available: boolean };
+  const [nbAvailability, setNbAvailability] = useState<{ court_id: string; slots: NbSlot[] }[]>([]);
+  const [nbAvailLoading, setNbAvailLoading] = useState(false);
+
+  useEffect(() => {
+    if (!newBookingOpen || !nbDate) return;
+    let cancelled = false;
+    setNbAvailLoading(true);
+    fetch(`/api/web/availability?date=${nbDate}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!cancelled) setNbAvailability(j?.availability ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setNbAvailability([]);
+      })
+      .finally(() => {
+        if (!cancelled) setNbAvailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [newBookingOpen, nbDate]);
+
+  const nbCourtSlots = useMemo(
+    () => nbAvailability.find((c) => c.court_id === nbCourtId)?.slots ?? [],
+    [nbAvailability, nbCourtId]
+  );
 
   useEffect(() => {
     fetch("/api/reception/courts")
@@ -474,6 +512,16 @@ function statusES(s: string) {
     return s;
   }
 
+  // Excel (compu o celular) trata un CSV con puros dígitos/"+" como número y
+  // le recorta el "+"/ceros a la izquierda o lo muestra en notación
+  // científica. Envolverlo en ="..." fuerza a que se abra como texto tal cual.
+  function csvPhoneCell(v: any) {
+    if (v === null || v === undefined) return "";
+    const s = String(v);
+    if (!s) return "";
+    return `="${s}"`;
+  }
+
   async function exportCsv() {
     // Exporta la vista actual (respeta filtros + búsqueda)
     const bks = filteredRows;
@@ -524,7 +572,7 @@ function statusES(s: string) {
             paidAmount,
             b.payment_method ?? "",
             b.customer_name ?? "",
-            b.customer_phone ?? "",
+            csvPhoneCell(b.customer_phone),
             origenLabel(b.source),
             b.id,
           ]
@@ -1434,55 +1482,83 @@ function statusES(s: string) {
                       <td className="px-4 py-4">{asistenciaLabel(b)}</td>
 
                       <td className="px-4 py-4">
-                        <div className="grid grid-cols-2 gap-1.5 min-w-[150px]">
-                          <button
-                            className="btn-primary w-full px-2 py-1.5 text-xs"
-                            disabled={!canCharge(b) || loading}
-                            onClick={() => payBooking(b)}
-                            style={{ opacity: !canCharge(b) || loading ? 0.5 : 1 }}
-                          >
-                            Cobrar
-                          </button>
+                        {(() => {
+                          const hasAnyOutcome = canCancelBooking(b) || canMarkNoShow(b) || canMarkAttendance(b);
+                          return (
+                            <div className="grid grid-cols-2 gap-1.5 min-w-[150px]">
+                              <button
+                                className="btn-primary w-full px-2 py-1.5 text-xs"
+                                disabled={!canCharge(b) || loading}
+                                onClick={() => payBooking(b)}
+                                style={{ opacity: !canCharge(b) || loading ? 0.5 : 1 }}
+                              >
+                                Cobrar
+                              </button>
 
-                          <button
-                            className="btn-secondary w-full px-2 py-1.5 text-xs"
-                            disabled={!canCancelBooking(b) || loading}
-                            onClick={() => {
-                              if (canCancelBooking(b) && !loading)
-                                setBookingStatus(b.id, "CANCELLED");
-                            }}
-                            style={{ opacity: !canCancelBooking(b) || loading ? 0.5 : 1 }}
-                            title={isPaid(b) ? "No se puede cancelar una reserva pagada" : undefined}
-                          >
-                            Cancelar
-                          </button>
+                              <button
+                                ref={(el) => {
+                                  outcomeAnchorRefs.current[b.id] = el;
+                                }}
+                                className="btn-secondary w-full px-2 py-1.5 text-xs"
+                                disabled={!hasAnyOutcome || loading}
+                                onClick={() => setOutcomeMenuFor(outcomeMenuFor === b.id ? null : b.id)}
+                                style={{ opacity: !hasAnyOutcome || loading ? 0.5 : 1 }}
+                              >
+                                Cancelar
+                              </button>
 
-                          <button
-                            className="btn-secondary w-full px-2 py-1.5 text-xs"
-                            disabled={!canMarkAttendance(b) || loading}
-                            onClick={() => {
-                              if (canMarkAttendance(b) && !loading)
-                                setBookingStatus(b.id, "NO_SHOW");
-                            }}
-                            style={{ opacity: !canMarkAttendance(b) || loading ? 0.5 : 1 }}
-                            title={!isPaid(b) ? "Primero debes cobrar" : undefined}
-                          >
-                            No asistió
-                          </button>
+                              <Menu
+                                open={outcomeMenuFor === b.id}
+                                anchorRef={{ current: outcomeAnchorRefs.current[b.id] as unknown as HTMLElement }}
+                                onClose={() => setOutcomeMenuFor(null)}
+                              >
+                                <div className="min-w-[210px]">
+                                  <div className="px-2 pb-2 text-xs font-semibold" style={{ color: "rgba(30,27,24,0.60)" }}>
+                                    ¿Qué pasó con esta reserva?
+                                  </div>
 
-                          <button
-                            className="btn-secondary w-full px-2 py-1.5 text-xs"
-                            disabled={!canMarkAttendance(b) || loading}
-                            onClick={() => {
-                              if (canMarkAttendance(b) && !loading)
-                                setBookingStatus(b.id, "COMPLETED");
-                            }}
-                            style={{ opacity: !canMarkAttendance(b) || loading ? 0.5 : 1 }}
-                            title={!isPaid(b) ? "Primero debes cobrar" : undefined}
-                          >
-                            Asistió
-                          </button>
-                        </div>
+                                  <button
+                                    type="button"
+                                    className="w-full rounded-md px-2 py-2 text-left text-sm transition hover:bg-[rgba(253,238,232,0.7)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                                    disabled={!canMarkAttendance(b)}
+                                    title={!canMarkAttendance(b) ? "Primero debes cobrar" : undefined}
+                                    onClick={() => {
+                                      setOutcomeMenuFor(null);
+                                      setBookingStatus(b.id, "COMPLETED");
+                                    }}
+                                  >
+                                    ✅ Asistió
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className="w-full rounded-md px-2 py-2 text-left text-sm transition hover:bg-[rgba(253,238,232,0.7)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                                    disabled={!canMarkNoShow(b)}
+                                    onClick={() => {
+                                      setOutcomeMenuFor(null);
+                                      setBookingStatus(b.id, "NO_SHOW");
+                                    }}
+                                  >
+                                    🚫 No asistió
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className="w-full rounded-md px-2 py-2 text-left text-sm transition hover:bg-[rgba(253,238,232,0.7)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                                    disabled={!canCancelBooking(b)}
+                                    title={isPaid(b) ? "No se puede cancelar una reserva pagada" : undefined}
+                                    onClick={() => {
+                                      setOutcomeMenuFor(null);
+                                      setBookingStatus(b.id, "CANCELLED");
+                                    }}
+                                  >
+                                    📅 Canceló con anticipación
+                                  </button>
+                                </div>
+                              </Menu>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                     </tr>
@@ -1517,11 +1593,10 @@ function statusES(s: string) {
               <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
                 Origen
               </label>
-              <div className="mt-1 grid grid-cols-3 gap-2">
+              <div className="mt-1 grid grid-cols-2 gap-2">
                 {([
                   { key: "WALK_IN", label: "🚶 Presencial" },
-                  { key: "PHONE", label: "📞 Teléfono" },
-                  { key: "WHATSAPP", label: "💬 WhatsApp" },
+                  { key: "PHONE", label: "📞💬 Teléfono / WhatsApp" },
                 ] as Array<{ key: typeof nbOrigin; label: string }>).map((o) => (
                   <button
                     key={o.key}
@@ -1560,19 +1635,70 @@ function statusES(s: string) {
               </div>
             </div>
 
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
-                  Fecha
-                </label>
-                <input className="input" type="date" value={nbDate} onChange={(e) => setNbDate(e.target.value)} />
-              </div>
-              <div>
+            <div className="mt-3">
+              <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
+                Fecha
+              </label>
+              <input className="input" type="date" value={nbDate} onChange={(e) => setNbDate(e.target.value)} />
+            </div>
+
+            <div className="mt-3">
+              <div className="flex items-baseline justify-between">
                 <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
                   Hora de inicio
                 </label>
-                <input className="input" type="time" value={nbTime} onChange={(e) => setNbTime(e.target.value)} />
+                <span className="text-[11px]" style={{ color: "rgba(30,27,24,0.45)" }}>
+                  🟢 libre · <span className="line-through">gris</span> ocupada
+                </span>
               </div>
+
+              {nbAvailLoading ? (
+                <div className="mt-1.5 text-xs" style={{ color: "rgba(30,27,24,0.50)" }}>
+                  Cargando horarios…
+                </div>
+              ) : nbCourtSlots.length === 0 ? (
+                <input
+                  className="input mt-1.5"
+                  type="time"
+                  value={nbTime}
+                  onChange={(e) => setNbTime(e.target.value)}
+                />
+              ) : (
+                <div
+                  className="mt-1.5 grid max-h-40 grid-cols-5 gap-1.5 overflow-y-auto rounded-lg border p-2"
+                  style={{ borderColor: "rgba(120,46,21,0.12)" }}
+                >
+                  {nbCourtSlots.map((s) => {
+                    const hhmm = s.start_at.slice(11, 16);
+                    const isSelected = nbTime === hhmm;
+                    const isBooked = !s.available;
+                    return (
+                      <button
+                        key={s.start_at}
+                        type="button"
+                        onClick={() => setNbTime(hhmm)}
+                        title={isBooked ? "Ya hay una reserva a esta hora en esta cancha" : "Disponible"}
+                        className={
+                          isBooked
+                            ? "rounded-md border px-1.5 py-1.5 text-xs font-medium line-through opacity-50"
+                            : isSelected
+                            ? "btn-primary rounded-md px-1.5 py-1.5 text-xs font-medium"
+                            : "rounded-md border px-1.5 py-1.5 text-xs font-medium bg-white hover:bg-[rgba(253,238,232,0.7)]"
+                        }
+                        style={
+                          isBooked
+                            ? { borderColor: "rgba(120,46,21,0.10)", background: "rgba(120,46,21,0.05)", color: "rgba(30,27,24,0.55)" }
+                            : !isSelected
+                            ? { borderColor: "rgba(120,46,21,0.14)", color: "var(--foreground)" }
+                            : undefined
+                        }
+                      >
+                        {hhmm}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="mt-3">

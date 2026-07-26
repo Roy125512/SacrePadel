@@ -351,6 +351,67 @@ export function HBarList({
   );
 }
 
+/* ===================== BARRAS VERTICALES POR CATEGORÍA ===================== */
+/* Como HourlyBarChart pero con etiquetas/valores genéricos (no horas del
+   día) — se reutiliza para "ocupación por día de la semana" y "línea de
+   tiempo anual", donde el orden de las barras importa y no debe reordenarse
+   por tamaño (a diferencia de HBarList). */
+
+export type CategoryPoint = { label: string; value: number };
+
+export function CategoryBarChart({
+  data,
+  color = "var(--brand)",
+  formatValue = (v: number) => String(Math.round(v)),
+  emptyLabel = "Sin datos en este periodo",
+}: {
+  data: CategoryPoint[];
+  color?: string;
+  formatValue?: (v: number) => string;
+  emptyLabel?: string;
+}) {
+  const rawMax = Math.max(1, ...data.map((d) => d.value));
+  const scaleMax = niceMax(rawMax);
+  const CHART_H = 118;
+
+  if (data.length === 0) {
+    return (
+      <div className="flex h-[140px] items-center justify-center text-sm" style={{ color: "var(--muted)" }}>
+        {emptyLabel}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-end gap-1.5" style={{ height: CHART_H + 22 }}>
+        {data.map((d, i) => {
+          const h = d.value > 0 ? Math.max(4, (d.value / scaleMax) * CHART_H) : 0;
+          return (
+            <div key={i} className="flex flex-1 flex-col items-center justify-end gap-1" style={{ height: CHART_H + 22 }}>
+              <span className="text-[10px] font-medium" style={{ color: d.value > 0 ? "var(--foreground)" : "transparent" }}>
+                {d.value > 0 ? formatValue(d.value) : "0"}
+              </span>
+              <div
+                className="w-full rounded-t-sm transition-all duration-500"
+                style={{ height: h, background: d.value > 0 ? color : "rgba(120,46,21,0.08)" }}
+                title={`${d.label} · ${formatValue(d.value)}`}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-1.5 flex items-center gap-1.5 border-t pt-1.5" style={{ borderColor: "rgba(120,46,21,0.10)" }}>
+        {data.map((d, i) => (
+          <span key={i} className="flex-1 text-center text-[10px]" style={{ color: "var(--muted)" }}>
+            {d.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ===================== HORAS PICO ===================== */
 
 export function HourlyBarChart({

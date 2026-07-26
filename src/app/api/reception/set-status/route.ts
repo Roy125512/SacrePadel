@@ -35,8 +35,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No se puede cancelar después de capturar asistencia." }, { status: 409 });
     }
 
-    // Prioridad a cobrar: no permitir marcar asistencia si no está pagado
-    if ((status === "COMPLETED" || status === "NO_SHOW") && !paid) {
+    // Prioridad a cobrar: no permitir marcar "Asistió" si no está pagado.
+    // NO_SHOW es la excepción — un cliente que nunca llegó tampoco pagó, y
+    // aun así debe poder quedar registrado como no-show (no solo cancelado).
+    if (status === "COMPLETED" && !paid) {
       return NextResponse.json({ error: "Primero debes cobrar antes de marcar asistencia." }, { status: 409 });
     }
 

@@ -69,8 +69,10 @@ export function origenLabel(src?: string) {
   if (!src) return "—";
   const s = String(src).toUpperCase();
   if (s === "WEB") return "Web";
-  if (s === "WHATSAPP") return "WhatsApp";
-  if (s === "PHONE") return "Teléfono";
+  // Teléfono y WhatsApp se muestran como una sola categoría: para el
+  // negocio no aporta distinguirlas, y así también se agrupan reservas
+  // viejas guardadas con cualquiera de los dos valores.
+  if (s === "WHATSAPP" || s === "PHONE") return "Teléfono / WhatsApp";
   if (s === "WALK_IN") return "Presencial";
   if (s === "RECEPTION") return "Recepción";
   return src;
@@ -114,6 +116,16 @@ export function canCancelBooking(b: Booking) {
 export function canMarkAttendance(b: Booking) {
   if (b.status !== "CONFIRMED") return false;
   if (!isPaid(b)) return false;
+  return true;
+}
+
+// A diferencia de canMarkAttendance, marcar "no asistió" no debe depender de
+// que ya se haya cobrado — un cliente que nunca llegó y nunca pagó también
+// necesita poder quedar registrado como no-show (no solo como "cancelada",
+// para no perder esa distinción en los reportes).
+export function canMarkNoShow(b: Booking) {
+  if (b.status !== "CONFIRMED") return false;
+  if (isAttendanceFinal(b)) return false;
   return true;
 }
 
