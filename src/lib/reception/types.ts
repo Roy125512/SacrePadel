@@ -24,6 +24,8 @@ export type Booking = {
   customer_name?: string | null;
   customer_phone?: string | null;
 
+  created_by_name?: string | null;
+
   session_type?: "CLASS" | "MATCH" | null;
 
   duration_hours?: number;
@@ -49,6 +51,7 @@ export type FilterKey =
   | "pago"
   | "monto"
   | "origen"
+  | "registradoPor"
   | "cliente"
   | "asistencia";
 

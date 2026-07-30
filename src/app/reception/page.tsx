@@ -43,6 +43,7 @@ import {
   isPaid,
   normalizeRange,
   origenLabel,
+  registradoPorLabel,
   parseISOToLocalTime,
   parseISOToLocalTime24,
   statusLabelES,
@@ -54,6 +55,11 @@ import { useDebounce } from "@/lib/reception/hooks";
 import { IconButton, KpiCard, Menu, MiniStat, Pill } from "@/components/reception/ui";
 import ReceptionDashboard from "@/components/reception/Dashboard";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
+
+// Cuánto tiempo después de la hora de inicio se sigue dejando elegir ese
+// horario en "Nueva reserva" — un cliente que llega unos minutos tarde no
+// debería quedar sin poder registrarse en ese horario.
+const RECEPTION_START_GRACE_MINUTES = 10;
 
 /* ===================== PÁGINA ===================== */
 
@@ -119,6 +125,7 @@ export default function ReceptionPage() {
     pago: new Set(),
     monto: new Set(),
     origen: new Set(),
+    registradoPor: new Set(),
     cliente: new Set(),
     asistencia: new Set(),
   }));
@@ -138,6 +145,7 @@ export default function ReceptionPage() {
     pago: null,
     monto: null,
     origen: null,
+    registradoPor: null,
     cliente: null,
     asistencia: null,
   });
@@ -432,11 +440,12 @@ function statusES(s: string) {
     const pago = uniq(rows.map((b) => ((b.payment_status ?? "UNPAID") === "PAID" ? "Pagado" : "Pendiente")));
     const monto = uniq(rows.map((b) => currencyMXN(b.amount ?? 0)));
     const origen = uniq(rows.map((b) => origenLabel(b.source)));
+    const registradoPor = uniq(rows.map((b) => registradoPorLabel(b)));
     const cliente = uniq(rows.map((b) => (b.customer_name && b.customer_name.trim().length > 0 ? b.customer_name.trim() : "Sin asignar")));
     const asistencia = uniq(rows.map((b) => asistenciaLabel(b)));
     const fecha = uniq(rows.map((b) => formatDateMX(b.start_at)));
 
-    return { fecha, cancha, horario, tipo, estatus, pago, monto, origen, cliente, asistencia };
+    return { fecha, cancha, horario, tipo, estatus, pago, monto, origen, registradoPor, cliente, asistencia };
   }, [rows]);
 
   
@@ -458,6 +467,7 @@ function statusES(s: string) {
       const vPago = (b.payment_status ?? "UNPAID") === "PAID" ? "Pagado" : "Pendiente";
       const vMonto = currencyMXN(b.amount ?? 0);
       const vOrigen = origenLabel(b.source);
+      const vRegistradoPor = registradoPorLabel(b);
       const vCliente = b.customer_name && b.customer_name.trim().length > 0 ? b.customer_name.trim() : "Sin asignar";
       const vAsistencia = asistenciaLabel(b);
 
@@ -477,6 +487,7 @@ function statusES(s: string) {
         pass("pago", vPago) &&
         pass("monto", vMonto) &&
         pass("origen", vOrigen) &&
+        pass("registradoPor", vRegistradoPor) &&
         pass("cliente", vCliente) &&
         pass("asistencia", vAsistencia)
       );
@@ -499,6 +510,7 @@ function statusES(s: string) {
       pago: new Set(),
       monto: new Set(),
       origen: new Set(),
+      registradoPor: new Set(),
       cliente: new Set(),
       asistencia: new Set(),
     });
@@ -549,6 +561,7 @@ function statusES(s: string) {
           "Cliente",
           "Teléfono",
           "Origen",
+          "Registrado por",
           "Booking ID",
         ]
           .map(csvEscape)
@@ -574,6 +587,7 @@ function statusES(s: string) {
             b.customer_name ?? "",
             csvPhoneCell(b.customer_phone),
             origenLabel(b.source),
+            registradoPorLabel(b),
             b.id,
           ]
             .map(csvEscape)
@@ -1344,6 +1358,7 @@ function statusES(s: string) {
                   { label: "Pago", k: "pago", opts: filterOptions.pago, sel: filters.pago },
                   { label: "Monto", k: "monto", opts: filterOptions.monto, sel: filters.monto },
                   { label: "Origen", k: "origen", opts: filterOptions.origen, sel: filters.origen },
+                  { label: "Registrado por", k: "registradoPor", opts: filterOptions.registradoPor, sel: filters.registradoPor },
                   { label: "Cliente", k: "cliente", opts: filterOptions.cliente, sel: filters.cliente },
                   { label: "Asistencia", k: "asistencia", opts: filterOptions.asistencia, sel: filters.asistencia },
                 ].map((h) => (
@@ -1379,7 +1394,7 @@ function statusES(s: string) {
 
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6" style={{ color: "rgba(30,27,24,0.60)" }} colSpan={11}>
+                  <td className="px-4 py-6" style={{ color: "rgba(30,27,24,0.60)" }} colSpan={12}>
                     No hay reservas para mostrar.
                   </td>
                 </tr>
@@ -1425,6 +1440,7 @@ function statusES(s: string) {
 
                       <td className="px-4 py-4">{currencyMXN(b.amount ?? 0)}</td>
                       <td className="px-4 py-4">{origenLabel(b.source)}</td>
+                      <td className="px-4 py-4" style={{ color: "rgba(30,27,24,0.75)" }}>{registradoPorLabel(b)}</td>
 
                       <td className="px-4 py-4">
                         {clienteLabel === "Sin asignar" ? (
@@ -1648,7 +1664,7 @@ function statusES(s: string) {
                   Hora de inicio
                 </label>
                 <span className="text-[11px]" style={{ color: "rgba(30,27,24,0.45)" }}>
-                  🟢 libre · <span className="line-through">gris</span> ocupada
+                  🟢 libre · <span className="line-through">gris</span> ocupada/pasada
                 </span>
               </div>
 
@@ -1672,21 +1688,33 @@ function statusES(s: string) {
                     const hhmm = s.start_at.slice(11, 16);
                     const isSelected = nbTime === hhmm;
                     const isBooked = !s.available;
+                    // Pasada = ya lleva más de RECEPTION_START_GRACE_MINUTES desde su
+                    // inicio. El margen es a propósito para no bloquear a alguien que
+                    // llega unos minutos tarde y aún se le puede registrar esa hora.
+                    const isPast = new Date(s.start_at).getTime() + RECEPTION_START_GRACE_MINUTES * 60_000 < Date.now();
+                    const isDisabled = isBooked || isPast;
                     return (
                       <button
                         key={s.start_at}
                         type="button"
-                        onClick={() => setNbTime(hhmm)}
-                        title={isBooked ? "Ya hay una reserva a esta hora en esta cancha" : "Disponible"}
-                        className={
+                        onClick={() => !isDisabled && setNbTime(hhmm)}
+                        disabled={isDisabled}
+                        title={
                           isBooked
-                            ? "rounded-md border px-1.5 py-1.5 text-xs font-medium line-through opacity-50"
+                            ? "Ya hay una reserva a esta hora en esta cancha"
+                            : isPast
+                            ? "Ese horario ya pasó"
+                            : "Disponible"
+                        }
+                        className={
+                          isDisabled
+                            ? "cursor-not-allowed rounded-md border px-1.5 py-1.5 text-xs font-medium line-through opacity-50"
                             : isSelected
                             ? "btn-primary rounded-md px-1.5 py-1.5 text-xs font-medium"
                             : "rounded-md border px-1.5 py-1.5 text-xs font-medium bg-white hover:bg-[rgba(253,238,232,0.7)]"
                         }
                         style={
-                          isBooked
+                          isDisabled
                             ? { borderColor: "rgba(120,46,21,0.10)", background: "rgba(120,46,21,0.05)", color: "rgba(30,27,24,0.55)" }
                             : !isSelected
                             ? { borderColor: "rgba(120,46,21,0.14)", color: "var(--foreground)" }

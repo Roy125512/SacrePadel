@@ -85,20 +85,48 @@ export async function POST(req: Request) {
 
     const amount = computeExpectedAmountMXN(start_at, end_at);
 
-    const { data: booking, error: insErr } = await supabaseAdmin
+    // Quién hizo la reserva (no el cliente): distintas cuentas comparten el
+    // acceso a /reception, así que se guarda un nombre para el reporte.
+    // Prioridad: nombre de perfil > correo de la cuenta (siempre disponible).
+    let created_by_name: string | null = null;
+    const { data: creatorProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", gate.userId)
+      .maybeSingle();
+    created_by_name = creatorProfile?.full_name?.trim() || null;
+    if (!created_by_name) {
+      const { data: creatorAuth } = await supabaseAdmin.auth.admin.getUserById(gate.userId);
+      created_by_name = creatorAuth?.user?.email ?? null;
+    }
+
+    const insertPayload: Record<string, any> = {
+      court_id,
+      start_at,
+      end_at,
+      status: "CONFIRMED",
+      source: origin,
+      kind: "STANDARD",
+      payment_status: "UNPAID",
+      customer_id,
+      created_by_name,
+    };
+
+    let { data: booking, error: insErr } = await supabaseAdmin
       .from("bookings")
-      .insert({
-        court_id,
-        start_at,
-        end_at,
-        status: "CONFIRMED",
-        source: origin,
-        kind: "STANDARD",
-        payment_status: "UNPAID",
-        customer_id,
-      })
+      .insert(insertPayload)
       .select("id, court_id, start_at, end_at, status, source, customer_id")
       .single();
+
+    // Fallback si la migración de created_by_name aún no corrió en la BD.
+    if (insErr && String(insErr.message).toLowerCase().includes("created_by_name")) {
+      delete insertPayload.created_by_name;
+      ({ data: booking, error: insErr } = await supabaseAdmin
+        .from("bookings")
+        .insert(insertPayload)
+        .select("id, court_id, start_at, end_at, status, source, customer_id")
+        .single());
+    }
 
     if (insErr) {
       const friendly = insErr.message.includes("bookings_no_overlap")

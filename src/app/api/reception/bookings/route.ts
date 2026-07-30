@@ -49,7 +49,7 @@ export async function GET(req: Request) {
   const dayStartIso = `${windowStart}T00:00:00${BUSINESS_TZ_OFFSET}`;
   const dayEndIso = `${windowEnd}T23:59:59${BUSINESS_TZ_OFFSET}`;
 
-  const selectWithCancelledBy = `
+  const selectFull = `
     id,
     court_id,
     start_at,
@@ -63,17 +63,48 @@ export async function GET(req: Request) {
     paid_at,
     customer_id,
     cancelled_by,
+    created_by_name,
     courts ( name ),
     customers:customer_id ( id, full_name, phone_e164 )
   `;
 
   let res: any = await supabaseAdmin
     .from("bookings")
-    .select(selectWithCancelledBy)
+    .select(selectFull)
     .lt("start_at", dayEndIso)
     .gt("end_at", dayStartIso)
     .or("status.neq.CANCELLED,and(status.eq.CANCELLED,cancelled_by.eq.RECEPTION)")
     .order("start_at", { ascending: true });
+
+  // Fallback si created_by_name y/o cancelled_by aún no existen en la BD
+  // (migración no corrida todavía) — se van quitando una por una del select.
+  if (res.error && String(res.error.message).toLowerCase().includes("created_by_name")) {
+    const selectNoCreatedBy = `
+      id,
+      court_id,
+      start_at,
+      end_at,
+      status,
+      source,
+      kind,
+      payment_status,
+      paid_amount,
+      payment_method,
+      paid_at,
+      customer_id,
+      cancelled_by,
+      courts ( name ),
+      customers:customer_id ( id, full_name, phone_e164 )
+    `;
+
+    res = await supabaseAdmin
+      .from("bookings")
+      .select(selectNoCreatedBy)
+      .lt("start_at", dayEndIso)
+      .gt("end_at", dayStartIso)
+      .or("status.neq.CANCELLED,and(status.eq.CANCELLED,cancelled_by.eq.RECEPTION)")
+      .order("start_at", { ascending: true });
+  }
 
   if (res.error && String(res.error.message).toLowerCase().includes("cancelled_by")) {
     const selectNoCancelledBy = `
@@ -125,6 +156,7 @@ export async function GET(req: Request) {
       customer_name: b.customers?.full_name ?? null,
       customer_phone: b.customers?.phone_e164 ?? null,
       cancelled_by: b.cancelled_by ?? null,
+      created_by_name: b.created_by_name ?? null,
     };
   });
 

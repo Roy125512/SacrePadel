@@ -78,6 +78,13 @@ export function origenLabel(src?: string) {
   return src;
 }
 
+// Quién dio de alta la reserva desde el mostrador (no aplica a reservas
+// hechas por el propio cliente en el sitio web, esas quedan sin dueño).
+export function registradoPorLabel(b: Booking) {
+  const name = b.created_by_name?.trim();
+  return name && name.length > 0 ? name : "—";
+}
+
 export function asistenciaLabel(b: Booking) {
   if (b.status === "NO_SHOW") return "No asistió";
   if (b.status === "COMPLETED") return "Asistió";

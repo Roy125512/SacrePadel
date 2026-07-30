@@ -986,9 +986,13 @@ export default function ReservarClient() {
                             </div>
                         </button>
 
-                        {/* Reception payment card */}
+                        {/* Reception payment card — solo cambia de vista a un paso de
+                            confirmacion explicito (ver paymentMode === "reception" abajo);
+                            NO reserva todavia. Antes reservaba en este mismo click, lo
+                            cual confundia a la gente porque no habia ningun aviso claro
+                            de que ya se habia hecho la reserva. */}
                         <button
-                            onClick={() => { setPaymentMode("reception"); confirmBooking("RECEPTION"); }}
+                            onClick={() => setPaymentMode("reception")}
                             disabled={saving || mpLoading || allowedDurations.length === 0}
                             className="group rounded-md border p-4 text-left transition-all duration-200 hover:shadow-sm disabled:opacity-50"
                             style={{
@@ -1025,6 +1029,39 @@ export default function ReservarClient() {
                             {mpError}
                         </div>
                         )}
+                    </div>
+                    )}
+
+                    {/* ===== PAYMENT: RECEPTION CONFIRM ===== */}
+                    {paymentMode === "reception" && (
+                    <div>
+                        <div
+                        className="rounded-lg border px-4 py-3 text-sm animate-slide-down"
+                        style={{ borderColor: "var(--brand-200)", background: "var(--brand-50)", color: "var(--brand-800)" }}
+                        >
+                        Vas a reservar <strong>{selected.court_name}</strong> el {formatDateES(dateYMD)} de{" "}
+                        {parseISOToLocalTime(selected.start_at)}
+                        {selectedEndAt && <> a {parseISOToLocalTime(selectedEndAt)}</>}. El pago se hace en recepcion al llegar.
+                        </div>
+
+                        <div className="mt-3 flex gap-3">
+                        <button
+                            type="button"
+                            className="btn-secondary flex-1"
+                            onClick={() => setPaymentMode("choose")}
+                            disabled={saving}
+                        >
+                            Volver
+                        </button>
+                        <button
+                            type="button"
+                            className="btn-primary flex-1"
+                            onClick={() => confirmBooking("RECEPTION")}
+                            disabled={saving}
+                        >
+                            {saving ? "Confirmando..." : "Confirmar reserva"}
+                        </button>
+                        </div>
                     </div>
                     )}
                 </div>
