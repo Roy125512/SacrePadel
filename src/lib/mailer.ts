@@ -27,6 +27,13 @@ export async function sendEmail(
       host,
       port,
       secure,
+      // Sin esto, un downgrade de red (que quite el anuncio STARTTLS) haría
+      // que nodemailer mande credenciales y el correo en texto plano sin
+      // avisar. requireTLS fuerza a que falle en vez de degradar en
+      // silencio. Solo aplica cuando secure=false (STARTTLS, típico puerto
+      // 587) — con secure=true (TLS implícito, puerto 465) ya es TLS desde
+      // el saludo inicial.
+      requireTLS: !secure,
       auth: { user, pass },
     });
 

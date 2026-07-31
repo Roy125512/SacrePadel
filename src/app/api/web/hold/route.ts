@@ -4,6 +4,7 @@ import { mpPayment } from "@/lib/mercadopago";
 import { DEMO } from "@/lib/demo/flag";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { dbErrorResponse } from "@/lib/apiError";
+import { MAX_BOOKING_MINUTES } from "@/lib/config";
 
 export async function POST(req: Request) {
   try {
@@ -31,6 +32,18 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Ese horario ya pasó. Elige uno disponible." },
         { status: 409 }
+      );
+    }
+
+    // Límite de duración: sin esto, un caller directo a la API (no la UI,
+    // que solo ofrece hasta 180 min) podría pedir un end_at arbitrariamente
+    // lejano y bloquear la disponibilidad de una cancha para todos mientras
+    // el HOLD siga vivo (hasta 10 min).
+    const durationMinutes = (new Date(end_at).getTime() - new Date(start_at).getTime()) / 60_000;
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0 || durationMinutes > MAX_BOOKING_MINUTES) {
+      return NextResponse.json(
+        { error: `La duración debe ser de máximo ${MAX_BOOKING_MINUTES} minutos.` },
+        { status: 400 }
       );
     }
 

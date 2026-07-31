@@ -15,3 +15,10 @@ export const STEP_MINUTES = 30 as const;
 
 // Minimum booking duration (used by /api/web/availability)
 export const MIN_BOOKING_MINUTES = 60 as const;
+
+// Maximum booking duration — mirrors the longest option offered in
+// ReservarClient's duration picker (60/90/120/150/180 min). Enforced
+// server-side in /api/web/hold and /api/web/update-hold so a raw API call
+// can't request an absurdly long end_at to block a court's availability
+// for other customers while the HOLD is alive.
+export const MAX_BOOKING_MINUTES = 180 as const;

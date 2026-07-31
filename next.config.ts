@@ -3,6 +3,10 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.resolve(__dirname),
+  // No revelar en cada respuesta que el sitio corre en Next.js — no es un
+  // hueco por sí solo, pero le regala a un atacante una pista gratis de qué
+  // familia de CVEs/técnicas probar primero.
+  poweredByHeader: false,
   async headers() {
     return [
       {

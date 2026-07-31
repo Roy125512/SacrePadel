@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { dbErrorResponse } from "@/lib/apiError";
+import { MAX_BOOKING_MINUTES } from "@/lib/config";
 
 // Actualiza el rango de un HOLD (principalmente end_at) y renueva su expiración.
 // Si hay conflicto por overlap (exclusion constraint), debe regresar 409.
@@ -21,6 +22,25 @@ export async function POST(req: Request) {
 
   if (!booking_id || !end_at) {
     return NextResponse.json({ error: "booking_id y end_at son obligatorios." }, { status: 400 });
+  }
+
+  // Mismo límite de duración que /api/web/hold — ver comentario ahí.
+  const { data: current } = await supabaseAdmin
+    .from("bookings")
+    .select("start_at")
+    .eq("id", booking_id)
+    .eq("status", "HOLD")
+    .eq("source", "WEB")
+    .maybeSingle();
+
+  if (current) {
+    const durationMinutes = (new Date(end_at).getTime() - new Date(current.start_at).getTime()) / 60_000;
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0 || durationMinutes > MAX_BOOKING_MINUTES) {
+      return NextResponse.json(
+        { error: `La duración debe ser de máximo ${MAX_BOOKING_MINUTES} minutos.` },
+        { status: 400 }
+      );
+    }
   }
 
   const holdMinutes = 10;
