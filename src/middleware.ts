@@ -14,21 +14,28 @@ function supabaseOrigin(): string {
   }
 }
 
-// CSP estricta basada en nonce (patrón oficial de Next.js para App Router:
-// https://nextjs.org/docs/app/guides/content-security-policy). El nonce va
-// en el header de request Y de response — Next.js detecta el nonce en el
-// CSP del response y lo aplica solo a los <script> inline que él mismo
-// genera (RSC/hydration payload), así que no hay que tocar layout.tsx.
-// style-src necesita 'unsafe-inline' porque toda la UI usa style={{...}}
-// (se renderiza como atributo style="" en el HTML, que CSP style-src SÍ
-// regula) — quitarlo rompería el diseño completo. Es un trade-off
-// consciente: sigue bloqueando la inyección de <script>, que es el vector
-// más peligroso (robo de sesión/credenciales), aunque no un <style> suelto.
-function buildCsp(nonce: string) {
+// CSP. El patrón oficial de Next.js con nonce + 'strict-dynamic'
+// (https://nextjs.org/docs/app/guides/content-security-policy) requiere que
+// el HTML se genere en cada request, porque el nonce va embebido tanto en
+// el header como en los <script> del propio HTML y ambos deben coincidir.
+// Este sitio sirve páginas estáticas cacheadas (ISR/full route cache) para
+// el marketing (/inicio, etc.) — ese HTML se genera una sola vez y se
+// reutiliza en cada visita, mientras el nonce del header cambiaría en cada
+// request. Un nonce que nunca coincide con 'strict-dynamic' bloquea TODO el
+// JS del sitio en esas páginas (se probó y rompía la hidratación/animaciones
+// en producción). Por eso usamos 'self' 'unsafe-inline' en vez de nonce:
+// sigue bloqueando la carga de <script src> de dominios externos/atacantes
+// (el vector más común), aunque no protege contra un <script> inline
+// inyectado. Ese riesgo se cubre en la capa de entrada: no hay
+// dangerouslySetInnerHTML en el código, así que React escapa todo output
+// por default. style-src necesita el mismo 'unsafe-inline' porque toda la
+// UI usa style={{...}} (se renderiza como atributo style="" en el HTML,
+// que CSP style-src regula) — quitarlo rompería el diseño completo.
+function buildCsp() {
   const isDev = process.env.NODE_ENV !== "production";
   const scriptSrc = isDev
-    ? `'self' 'nonce-${nonce}' 'unsafe-eval'` // 'unsafe-eval' solo en dev: lo necesita Fast Refresh/HMR
-    : `'self' 'nonce-${nonce}' 'strict-dynamic'`;
+    ? `'self' 'unsafe-inline' 'unsafe-eval'` // 'unsafe-eval' solo en dev: lo necesita Fast Refresh/HMR
+    : `'self' 'unsafe-inline'`;
 
   return [
     `default-src 'self'`,
@@ -48,14 +55,9 @@ function buildCsp(nonce: string) {
 }
 
 export async function middleware(req: NextRequest) {
-  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
-  const csp = buildCsp(nonce);
+  const csp = buildCsp();
 
-  // El nonce se reenvía también como request header para que, si algún día
-  // se agrega un <script>/<Script> propio, pueda leerse con
-  // (await headers()).get("x-nonce") y pasarse como prop nonce.
   const requestHeaders = new Headers(req.headers);
-  requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
 
   const res = NextResponse.next({
