@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import { normalizePhone as normalizePhoneLib } from "@/lib/phone";
 import { User, Phone, Cake, Users, Trophy, MessageSquare, Check } from "lucide-react";
+import LoadingRacket from "@/components/LoadingRacket";
 
 type ProfileRow = {
   id: string;
@@ -172,7 +173,11 @@ export default function ProfilePage() {
   }, []);
 
   if (loading) {
-    return <div className="page page-gradient p-10">Cargando…</div>;
+    return (
+      <div className="page page-gradient flex min-h-[60vh] items-center justify-center">
+        <LoadingRacket size="lg" />
+      </div>
+    );
   }
 
   const labelClass =

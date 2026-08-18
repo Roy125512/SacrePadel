@@ -400,6 +400,106 @@ textarea {
   animation: checkmark 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
 }
 
+/* =========================
+   RACKET LOADER — pala golpeando la pelota, usada como indicador
+   de carga en vez de un spinner genérico.
+   ========================= */
+@keyframes racketBall {
+  0%   { left: 4px;  top: 36px; transform: scale(1); }
+  38%  { left: 32px; top: 20px; transform: scale(1); }
+  47%  { left: 44px; top: 33px; transform: scale(0.8, 1.2); }
+  53%  { left: 44px; top: 33px; transform: scale(1.25, 0.75); }
+  64%  { left: 32px; top: 50px; transform: scale(1); }
+  100% { left: 4px;  top: 36px; transform: scale(1); }
+}
+
+@keyframes racketSwing {
+  0%   { transform: rotate(20deg); }
+  44%  { transform: rotate(20deg); }
+  50%  { transform: rotate(-24deg); }
+  66%  { transform: rotate(-12deg); }
+  100% { transform: rotate(20deg); }
+}
+
+@keyframes racketShadow {
+  0%, 100% { transform: scaleX(1); opacity: 0.45; }
+  50%      { transform: scaleX(0.65); opacity: 0.25; }
+}
+
+@keyframes racketLabelPulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+.racket-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+}
+
+.racket-loader__scene {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  transform-origin: center;
+}
+
+.racket-loader--sm .racket-loader__scene {
+  transform: scale(0.5);
+  margin: -21px;
+}
+
+.racket-loader--lg .racket-loader__scene {
+  transform: scale(1.35);
+  margin: 14px;
+}
+
+.racket-loader__shadow {
+  position: absolute;
+  bottom: 8px;
+  left: 12px;
+  width: 40px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(30, 27, 24, 0.16);
+  animation: racketShadow 1.5s ease-in-out infinite;
+}
+
+.racket-loader__ball {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #edff8f, #c3df1f 65%, #94ac00);
+  box-shadow: 0 0 5px rgba(163, 196, 0, 0.55);
+  animation: racketBall 1.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.racket-loader__paddle {
+  position: absolute;
+  right: 6px;
+  top: 4px;
+  width: 44px;
+  height: 70px;
+  transform-origin: 50% 90%;
+  animation: racketSwing 1.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  filter: drop-shadow(0 2px 3px rgba(30, 27, 24, 0.18));
+}
+
+.racket-loader__label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+  animation: racketLabelPulse 1.5s ease-in-out infinite;
+}
+
+/* Para usarse sobre fondos oscuros (Hero, /reservar/entrada, etc.) */
+.racket-loader--on-dark .racket-loader__label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
 /* Scroll-reveal: paired with the useScrollReveal hook, which toggles
    .is-visible when the element enters the viewport. Reuses the existing
    slideUp keyframe instead of defining a new one. */

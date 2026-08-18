@@ -5,6 +5,7 @@ import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BUSINESS_TZ_OFFSET } from "@/lib/config";
 import { computeExpectedAmountMXN, priceLabelForRange } from "@/lib/pricing-shared";
+import { WHATSAPP_PHONE } from "@/components/WhatsAppButton";
 
 // Checkout Pro redirects the browser away to Mercado Pago and back, so
 // there's no embedded payment form/component to lazy-load here anymore
@@ -103,6 +104,16 @@ export default function ReservarClient() {
     const [email, setEmail] = useState("");
     const [toleranceOpen, setToleranceOpen] = useState(false);
     const [emailInfo, setEmailInfo] = useState<{ sent: boolean; to: string | null; error: string | null } | null>(null);
+    // Snapshot taken right when a booking succeeds — `selected`/`fullName`
+    // get cleared (or, after the Mercado Pago redirect, never repopulated:
+    // it's a full page reload) before the tolerance modal renders, so the
+    // modal can't read them live.
+    const [confirmedBooking, setConfirmedBooking] = useState<{
+        fullName: string;
+        courtName: string | null;
+        dateYMD: string | null;
+        startAt: string | null;
+    } | null>(null);
 
 
 
@@ -171,7 +182,14 @@ export default function ReservarClient() {
     async function finishMercadoPagoReturn(
         bookingId: string,
         mpPaymentId: string,
-        pending: { full_name: string; phone: string; email?: string }
+        pending: {
+            full_name: string;
+            phone: string;
+            email?: string;
+            court_name?: string;
+            start_at?: string;
+            date_ymd?: string;
+        }
     ) {
         setSaving(true);
         setError(null);
@@ -201,6 +219,12 @@ export default function ReservarClient() {
             sent: !!json?.email_sent,
             to: (json?.email_to ?? null) as any,
             error: (json?.email_error ?? null) as any,
+        });
+        setConfirmedBooking({
+            fullName: pending.full_name,
+            courtName: pending.court_name ?? null,
+            dateYMD: pending.date_ymd ?? null,
+            startAt: pending.start_at ?? null,
         });
         setToleranceOpen(true);
         setSuccessMsg("Reserva confirmada y pagada en línea.");
@@ -496,6 +520,13 @@ export default function ReservarClient() {
         }
 
 
+        setConfirmedBooking({
+            fullName: v.full_name,
+            courtName: selected.court_name,
+            dateYMD,
+            startAt: selected.start_at,
+        });
+
         setModalOpen(false);
         setSelected(null);
         setHoldId(null);
@@ -536,6 +567,9 @@ export default function ReservarClient() {
             full_name: v.full_name,
             phone: v.phone_input,
             email: isGuest ? email.trim() : email.trim() || undefined,
+            court_name: selected?.court_name ?? undefined,
+            start_at: selected?.start_at ?? undefined,
+            date_ymd: dateYMD,
             })
         );
 
@@ -1172,6 +1206,49 @@ export default function ReservarClient() {
                     </div>
                 </div>
 
+                {/* Compromiso: hospitalidad, no política de cancelación */}
+                <div className="px-6 pb-2">
+                    <div
+                    className="rounded-xl p-4 text-sm"
+                    style={{
+                        background: "var(--brand-50)",
+                        border: "1px solid var(--brand-100)",
+                        color: "var(--foreground)",
+                    }}
+                    >
+                    <p className="font-display text-[0.95rem] font-semibold" style={{ color: "var(--brand)" }}>
+                        Un compromiso, no solo una reserva
+                    </p>
+                    <p className="mt-1.5 leading-relaxed" style={{ color: "var(--muted)" }}>
+                        {confirmedBooking?.fullName.trim().split(" ")[0]
+                        ? `${confirmedBooking.fullName.trim().split(" ")[0]}, tu`
+                        : "Tu"}{" "}
+                        cancha queda apartada solo para ti — nadie más la va a tomar. Si al final no
+                        puedes venir, un mensaje con un poco de anticipación es todo lo que necesitamos
+                        para dársela a alguien que sí la está esperando. Gracias por cuidar tu lugar.
+                    </p>
+                    <a
+                        href={`https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(
+                        confirmedBooking?.courtName && confirmedBooking?.dateYMD && confirmedBooking?.startAt
+                            ? `Hola, soy ${confirmedBooking.fullName.trim() || "un cliente"}. Reservé ${
+                                confirmedBooking.courtName
+                            } el ${formatDateES(confirmedBooking.dateYMD)} a las ${parseISOToLocalTime(
+                                confirmedBooking.startAt
+                            )} y no voy a poder llegar. ¿Podrían liberar el horario? ¡Gracias!`
+                            : `Hola, soy ${
+                                confirmedBooking?.fullName.trim() || "un cliente"
+                            }. Reservé una cancha y no voy a poder llegar. ¿Podrían liberar el horario? ¡Gracias!`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold underline underline-offset-2"
+                        style={{ color: "var(--brand)" }}
+                    >
+                        Avisar que no podré llegar
+                    </a>
+                    </div>
+                </div>
+
                 {/* CTA button */}
                 <div className="px-6 pt-2 pb-6">
                     <button
@@ -1179,6 +1256,7 @@ export default function ReservarClient() {
                     onClick={() => {
                         setToleranceOpen(false);
                         setEmailInfo(null);
+                        setConfirmedBooking(null);
                     }}
                     >
                     Entendido

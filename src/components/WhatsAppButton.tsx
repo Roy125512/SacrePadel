@@ -1,6 +1,7 @@
 "use client";
 
-const PHONE = "5214341168095";
+export const WHATSAPP_PHONE = "5214341168095";
+const PHONE = WHATSAPP_PHONE;
 const MESSAGE = "Hola, tengo una duda sobre mi reserva en Sacré Pádel";
 
 export default function WhatsAppButton() {

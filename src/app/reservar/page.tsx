@@ -1,12 +1,11 @@
 import { Suspense } from "react";
 import ReservarClient from "./ReservarClient";
+import LoadingRacket from "@/components/LoadingRacket";
 
 function ReservarFallback() {
   return (
-    <div className="page page-gradient">
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="card p-4" style={{ color: "var(--muted)" }}>Cargando...</div>
-      </div>
+    <div className="page page-gradient flex min-h-[60vh] items-center justify-center">
+      <LoadingRacket size="lg" />
     </div>
   );
 }

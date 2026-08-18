@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { useRouter } from "next/navigation";
 import { friendlyAuthError } from "@/lib/authErrors";
+import LoadingRacket from "@/components/LoadingRacket";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -79,7 +80,7 @@ export default function ResetPasswordPage() {
   if (checking) {
     return (
       <div className="min-h-[calc(100vh-56px)] flex items-center justify-center page-gradient">
-        <div className="text-sm" style={{ color: "var(--muted)" }}>Cargando…</div>
+        <LoadingRacket size="lg" />
       </div>
     );
   }

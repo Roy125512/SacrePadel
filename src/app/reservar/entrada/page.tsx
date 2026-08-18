@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { useRouter } from "next/navigation";
+import LoadingRacket from "@/components/LoadingRacket";
 
 export default function ReservarEntradaPage() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function ReservarEntradaPage() {
   if (checking) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-sm text-white/70">Cargando…</div>
+        <LoadingRacket size="lg" className="racket-loader--on-dark" />
       </div>
     );
   }
