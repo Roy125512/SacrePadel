@@ -86,12 +86,12 @@ export default function Hero() {
             <Image
               src="/logo-sacre.png"
               alt="Sacré Pádel"
-              width={40}
-              height={40}
+              width={56}
+              height={56}
               priority
-              className="drop-shadow-md"
+              className="h-12 w-12 drop-shadow-md sm:h-14 sm:w-14"
             />
-            <span className="text-xs font-semibold tracking-[0.28em] text-[var(--dark-foreground)]">
+            <span className="text-sm font-semibold tracking-[0.24em] text-[var(--dark-foreground)] sm:text-base">
               SACRÉ PÁDEL
             </span>
           </Link>
@@ -146,7 +146,7 @@ export default function Hero() {
             </span>
             <span className="mt-1 block">
               <span className="font-light italic tracking-tight text-[rgba(246,240,230,0.92)]">
-                se hace{" "}
+                se vuelve{" "}
               </span>
               <span className="font-black tracking-[-0.02em] text-[var(--brand-highlight)]">
                 sagrado
@@ -155,8 +155,7 @@ export default function Hero() {
           </h1>
 
           <p className="mt-7 max-w-xl text-lg leading-relaxed text-[rgba(246,240,230,0.85)] sm:text-xl">
-            Una cancha panorámica frente a las montañas de Pátzcuaro. Reserva de
-            día o de noche, con luz de torneo, y entra a la comunidad Sacré.
+            De día o de noche, conecta, convive y crece con la comunidad Sacré.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">

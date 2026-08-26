@@ -14,28 +14,54 @@ export default function CommunitySection() {
         ref={revealRef}
         className="reveal mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-6 lg:grid-cols-2"
       >
-        {/* Photos — two overlapping shots instead of one, so it reads as a
-            real moment (candid laugh) plus a second beat (the greeting),
-            not a single posed stock-style photo. */}
-        <div className="relative order-last aspect-[4/3] lg:order-first">
-          <div className="absolute inset-0 right-10 overflow-hidden rounded-3xl shadow-2xl">
-            <Image
-              src="/images/community-players-laughing.jpg"
-              alt="Jugadores de la comunidad Sacré riendo junto a la red"
-              fill
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              className="object-cover"
-            />
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-[rgba(30,20,14,0.35)] to-transparent" />
-          </div>
-          <div className="absolute bottom-[-1.5rem] right-0 h-2/5 w-1/2 overflow-hidden rounded-2xl border-4 border-[var(--dark)] shadow-2xl">
-            <Image
-              src="/images/community-players-fistbump.jpg"
-              alt="Jugadores saludándose después de un partido"
-              fill
-              sizes="(max-width: 1024px) 50vw, 25vw"
-              className="object-cover"
-            />
+        {/* Photos — one wide hero moment on top, three supporting shots in an
+            even row underneath. Fixed pixel heights per breakpoint (not
+            aspect-ratio/grid-row tricks) so every crop stays a safe,
+            predictable landscape/near-square — nothing gets squeezed into an
+            extreme sliver. */}
+        <div className="order-last lg:order-first">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+            <div className="relative col-span-2 h-64 overflow-hidden rounded-3xl shadow-2xl sm:h-80 lg:col-span-3 lg:h-80">
+              <Image
+                src="/images/community-players-laughing.jpg"
+                alt="Jugadores de la comunidad Sacré riendo junto a la red"
+                fill
+                sizes="(max-width: 1024px) 100vw, 900px"
+                className="object-cover"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-[rgba(30,20,14,0.35)] to-transparent" />
+            </div>
+
+            <div className="relative h-40 overflow-hidden rounded-2xl border-4 border-[var(--dark)] shadow-2xl sm:h-48 lg:h-48">
+              <Image
+                src="/images/community-players-net.jpg"
+                alt="Jugadores conviviendo junto a la red después de un partido"
+                fill
+                sizes="(max-width: 1024px) 50vw, 300px"
+                className="object-cover"
+                style={{ objectPosition: "50% 30%" }}
+              />
+            </div>
+
+            <div className="relative h-40 overflow-hidden rounded-2xl border-4 border-[var(--dark)] shadow-2xl sm:h-48 lg:h-48">
+              <Image
+                src="/images/community-players-fistbump.jpg"
+                alt="Jugadores saludándose después de un partido"
+                fill
+                sizes="(max-width: 1024px) 50vw, 300px"
+                className="object-cover"
+              />
+            </div>
+
+            <div className="relative col-span-2 h-44 overflow-hidden rounded-2xl border-4 border-[var(--dark)] shadow-2xl sm:h-48 lg:col-span-1 lg:h-48">
+              <Image
+                src="/images/community-players-duo.jpg"
+                alt="Dos jugadores de la comunidad Sacré conviviendo en la cancha"
+                fill
+                sizes="(max-width: 1024px) 100vw, 300px"
+                className="object-cover"
+              />
+            </div>
           </div>
         </div>
 
@@ -53,7 +79,7 @@ export default function CommunitySection() {
           <p className="mt-6 text-lg leading-relaxed text-[rgba(246,240,230,0.82)]">
             En Sacré cada partido es un encuentro. Crea tu cuenta para reservar
             más rápido, guardar tu historial y ser el primero en enterarte de
-            ligas, eventos y promociones. Aquí siempre hay con quién jugar. 🎾
+            ligas, eventos y promociones.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">

@@ -3,11 +3,8 @@
 import ReservarButton from "@/components/ReservarButton";
 
 const LINKS = [
-  { href: "#value-props", label: "Beneficios" },
-  { href: "#como-reservar", label: "Cómo reservar" },
-  { href: "#galeria", label: "Galería" },
-  { href: "#precios", label: "Precios" },
-  { href: "#proximamente", label: "Próximamente" },
+  { href: "#value-props", label: "Experiencia" },
+  { href: "#precios", label: "Tarifas" },
   { href: "#faq", label: "Preguntas" },
   { href: "#ubicacion", label: "Ubicación" },
 ];

@@ -18,9 +18,9 @@ export default function InicioPage() {
       <HowItWorks />
       <PhotoGallery />
       <PricingTeaser />
-      <Offerings />
       <FAQ />
       <LocationSection />
+      <Offerings />
       <CommunitySection />
     </main>
   );

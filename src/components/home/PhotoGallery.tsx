@@ -29,7 +29,6 @@ const IMAGES: GalleryItem[] = [
     alt: "La red al atardecer, minutos antes de jugar",
     span: "col-span-2 row-span-2",
     place: "sm:col-start-1 sm:col-end-3 sm:row-start-1 sm:row-end-3",
-    caption: "El último saque del día",
     focus: "50% 78%",
   },
   {

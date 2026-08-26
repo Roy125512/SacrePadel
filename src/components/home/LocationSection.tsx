@@ -1,8 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { MapPin, Phone, Navigation } from "lucide-react";
+import { MapPin, Phone, Clock, Navigation } from "lucide-react";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
+import { WHATSAPP_PHONE } from "@/components/WhatsAppButton";
+
+const WHATSAPP_LOCATION_LINK = `https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(
+  "Hola, tengo una pregunta sobre Sacré Pádel."
+)}`;
 
 // lucide-react dropped brand marks in recent versions — same inline icon
 // used in Footer.tsx.
@@ -98,6 +103,13 @@ export default function LocationSection() {
               +52 1 434 116 8095
             </a>
 
+            <div className="flex items-start gap-3 text-[rgba(246,240,230,0.92)]">
+              <span className="chip mt-0.5 h-9 w-9 shrink-0">
+                <Clock className="h-4 w-4" color="var(--brand-700)" />
+              </span>
+              <span className="pt-1.5">Lunes a Domingo de 07:00 a 22:00 hrs.</span>
+            </div>
+
             <a
               href="https://instagram.com/sacrepadel.patz"
               target="_blank"
@@ -111,15 +123,25 @@ export default function LocationSection() {
             </a>
           </div>
 
-          <a
-            href={DIRECTIONS_HREF}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-outline-light group mt-9 inline-flex items-center px-6 py-3 text-base"
-          >
-            Cómo llegar
-            <Navigation className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </a>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <a
+              href={DIRECTIONS_HREF}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-outline-light group inline-flex items-center px-6 py-3 text-base"
+            >
+              Cómo llegar
+              <Navigation className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </a>
+            <a
+              href={WHATSAPP_LOCATION_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary inline-flex items-center px-6 py-3 text-base"
+            >
+              Contactar por WhatsApp
+            </a>
+          </div>
         </div>
 
         {/* Mapa */}

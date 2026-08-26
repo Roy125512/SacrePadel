@@ -30,6 +30,9 @@ export default function PricingTeaser() {
             <span className="font-light italic">El precio lo marca</span>{" "}
             <span className="font-black">el reloj.</span>
           </h2>
+          <p className="mt-5 max-w-md text-base leading-relaxed text-[var(--muted)]">
+            Elige tu horario y asegura tu lugar en la cancha.
+          </p>
         </div>
 
         {/* One unified ledger split day / night — not two matching cards */}
@@ -115,7 +118,7 @@ export default function PricingTeaser() {
           </ul>
 
           <ReservarButton className="btn-primary group px-6 py-3 text-base">
-            Ver disponibilidad
+            Ver disponibilidad y reservar
             <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
           </ReservarButton>
         </div>

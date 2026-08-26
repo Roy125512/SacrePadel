@@ -1,23 +1,36 @@
 "use client";
 
+import Image from "next/image";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 
 const FEATURES = [
   {
-    title: "Luz de torneo",
-    body: "Reflectores de alto rendimiento: la noche se juega con la misma visibilidad que el mediodía.",
+    title: "Iluminación de torneo",
+    body: "Reflectores LED profesionales de alta potencia que eliminan sombras y deslumbramiento nocturno.",
+    image: "/images/gallery-sunset-light-pole.jpg",
+    alt: "Reflector de torneo encendido sobre la cancha al atardecer",
+    focus: "70% 30%",
   },
   {
-    title: "Cancha panorámica",
-    body: "Cristales completos y superficie rápida y pareja. Rebote limpio, juego serio.",
+    title: "Cristal panorámico",
+    body: "Módulos de cristal templado sin postes intermedios para una visibilidad completa y un rebote fiel.",
+    image: "/images/gallery-fence-mesh.jpg",
+    alt: "Detalle del cristal y la malla perimetral de la cancha",
+    focus: "50% 50%",
   },
   {
-    title: "El paisaje de fondo",
-    body: "En el corazón de Pátzcuaro, con el cerro y el cielo michoacano detrás de cada punto.",
+    title: "Superficie profesional",
+    body: "Césped sintético de última generación con compactación balanceada para desplazamientos rápidos y seguros.",
+    image: "/images/gallery-racket-balls-top.jpg",
+    alt: "Pala y pelotas sobre el césped sintético de la cancha",
+    focus: "50% 35%",
   },
   {
-    title: "Siempre hay partido",
-    body: "Jugadores de todos los niveles, ligas y eventos. Aquí nunca te falta con quién jugar.",
+    title: "Entorno privado",
+    body: "Una atmósfera reservada y tranquila, ideal para enfocarte en tu rendimiento y el de tu grupo.",
+    image: "/images/gallery-two-courts-mountain.jpg",
+    alt: "Canchas Sacré con los cerros de Pátzcuaro de fondo",
+    focus: "50% 60%",
   },
 ];
 
@@ -34,13 +47,13 @@ export default function ValueProps() {
           {/* Intro column — deliberately off to one side, no eyebrow-then-grid */}
           <div className="lg:col-span-5 lg:sticky lg:top-24 lg:self-start">
             <h2 className="font-display text-4xl leading-[1.02] sm:text-5xl">
-              <span className="font-light italic">No es solo</span>
+              <span className="font-light italic">Diseñada para jugar</span>
               <br />
-              <span className="font-black">una cancha.</span>
+              <span className="font-black">con precisión.</span>
             </h2>
             <p className="mt-6 max-w-sm text-base leading-relaxed text-[var(--muted)]">
-              Cuatro razones por las que Sacré se juega distinto. Sin adornos:
-              esto es lo que encuentras al llegar.
+              Cuatro pilares técnicos pensados para garantizar un juego
+              dinámico, continuo y sin distracciones:
             </p>
             <div
               aria-hidden
@@ -53,9 +66,9 @@ export default function ValueProps() {
             {FEATURES.map((f, i) => (
               <li
                 key={f.title}
-                className="grid grid-cols-[auto_1fr] items-baseline gap-x-5 border-t border-[rgba(120,46,21,0.15)] py-7 first:border-t-0 sm:gap-x-8"
+                className="group grid grid-cols-[auto_1fr] items-center gap-x-5 gap-y-5 border-t border-[rgba(120,46,21,0.15)] py-7 first:border-t-0 sm:grid-cols-[auto_1fr_auto] sm:gap-x-8"
               >
-                <span className="font-display text-5xl font-light leading-none text-[var(--court)] sm:text-6xl">
+                <span className="font-display self-start text-5xl font-light leading-none text-[var(--court)] sm:self-center sm:text-6xl">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <div>
@@ -65,6 +78,16 @@ export default function ValueProps() {
                   <p className="mt-2 max-w-md text-sm leading-relaxed text-[var(--muted)] sm:text-base">
                     {f.body}
                   </p>
+                </div>
+                <div className="relative col-span-2 h-44 w-full overflow-hidden rounded-md shadow-[0_10px_30px_rgba(30,27,24,0.12)] sm:col-span-1 sm:h-28 sm:w-28 sm:shrink-0 lg:h-32 lg:w-32">
+                  <Image
+                    src={f.image}
+                    alt={f.alt}
+                    fill
+                    sizes="(max-width: 640px) 100vw, 128px"
+                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                    style={{ objectPosition: f.focus }}
+                  />
                 </div>
               </li>
             ))}
