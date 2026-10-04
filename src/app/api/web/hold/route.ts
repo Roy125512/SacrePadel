@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { settleMpHold } from "@/lib/mpBookings";
-import { DEMO } from "@/lib/demo/flag";
+import { cleanupExpiredWebHolds } from "@/lib/holdCleanup";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { dbErrorResponse } from "@/lib/apiError";
 import { MAX_BOOKING_MINUTES } from "@/lib/config";
@@ -50,55 +49,15 @@ export async function POST(req: Request) {
     const holdMinutes = 10;
     const hold_expires_at = new Date(Date.now() + holdMinutes * 60_000).toISOString();
 
-    // Limpieza: un solo SELECT de HOLDS expirados, luego se decide por fila
-    // si es seguro borrarla (una sola query en vez de dos round-trips).
-    const nowIso = new Date().toISOString();
-    const { data: expired, error: expiredErr } = await supabaseAdmin
-      .from("bookings")
-      .select("id, mp_preference_id")
-      .eq("status", "HOLD")
-      .eq("source", "WEB")
-      .lt("hold_expires_at", nowIso);
+    // Solo lo indispensable antes de apartar: HOLDs vencidos que chocan con
+    // este horario (la base de datos los sigue contando para el traslape).
+    await cleanupExpiredWebHolds({ courtId: court_id, startIso: start_at, endIso: end_at });
 
-    if (expiredErr) {
-      return dbErrorResponse("POST /api/web/hold fetch expired holds", expiredErr);
-    }
-
-    if (expired && expired.length > 0) {
-      const noPayment = expired.filter((h: any) => !h.mp_preference_id);
-      const withMpPref = expired.filter((h: any) => h.mp_preference_id);
-
-      const deletableIds: string[] = noPayment.map((h: any) => h.id);
-
-      // Safety net for Mercado Pago: a HOLD can expire while the customer
-      // is mid-checkout, or right after paying if they close the browser
-      // before it returns to /reservar. If the webhook hasn't (yet, or
-      // isn't configured) flipped the booking to CONFIRMED/PAID either,
-      // this booking would otherwise sit stuck in HOLD forever — worse,
-      // once hold_expires_at is in the past the availability grid stops
-      // treating it as blocking (see fetchBlockingBookings), so it would
-      // *look* free to other customers while still occupying the slot at
-      // the DB level. So: never delete a booking that actually got paid,
-      // and reconcile it to CONFIRMED/PAID right here if it hasn't been
-      // already — this makes every visitor's browsing traffic double as a
-      // lazy poll, closing the gap even without the webhook configured.
-      // settleMpHold confirma (con correos) los que sí se pagaron y borra
-      // los que no; si no pudo consultar a Mercado Pago, no borra nada.
-      if (withMpPref.length > 0 && !DEMO) {
-        const results = await Promise.allSettled(withMpPref.map((h: any) => settleMpHold(h.id)));
-        results.forEach((r, i) => {
-          if (r.status === "rejected") {
-            console.error("hold cleanup: failed to settle Mercado Pago HOLD", withMpPref[i].id, r.reason);
-          } else if (r.value === "confirmed") {
-            console.warn("Expired HOLD had an approved Mercado Pago payment — confirmed:", withMpPref[i].id);
-          }
-        });
-      }
-
-      if (deletableIds.length > 0) {
-        await supabaseAdmin.from("bookings").delete().in("id", deletableIds);
-      }
-    }
+    // El resto de la limpieza (incluidas consultas a Mercado Pago) corre
+    // después de responder, para que el cliente no la espere.
+    after(() =>
+      cleanupExpiredWebHolds().catch((e) => console.error("POST /api/web/hold background cleanup", e))
+    );
 
     const { data, error } = await supabaseAdmin
       .from("bookings")

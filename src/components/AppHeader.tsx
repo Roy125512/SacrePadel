@@ -5,12 +5,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Menu, X } from "lucide-react";
-import { createClient } from "@/lib/supabaseClient";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 export default function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
-  const supabase = createClient();
+  const supabase = supabaseBrowser;
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Purely presentational "condensing header" effect — shrinks padding/logo

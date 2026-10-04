@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabaseClient";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { normalizePhone as normalizePhoneLib } from "@/lib/phone";
 import { User, Phone, Cake, Users, Trophy, MessageSquare, Check } from "lucide-react";
 import LoadingRacket from "@/components/LoadingRacket";
@@ -35,7 +35,7 @@ function normalizePhoneForProfile(raw: string) {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = supabaseBrowser;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

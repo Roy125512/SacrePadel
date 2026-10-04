@@ -5,6 +5,7 @@ import { BUSINESS_TZ_OFFSET } from "@/lib/config";
 import { dbErrorResponse } from "@/lib/apiError";
 import { fetchAllRows } from "@/lib/fetchAll";
 import { DEFAULT_COURTS, OPEN_HOUR, CLOSE_HOUR, hoursBetween } from "@/lib/reception/utils";
+import { fetchActiveCourts } from "@/lib/availability";
 
 const MONTH_LABELS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
@@ -31,6 +32,9 @@ export async function GET(req: Request) {
   const year = Number.isFinite(yearParam) && yearParam > 2000 ? yearParam : new Date().getFullYear();
 
   try {
+    // Capacidad con las canchas activas reales (no un número fijo).
+    const activeCourts = (await fetchActiveCourts(supabaseAdmin)).length || DEFAULT_COURTS;
+
     const months = await Promise.all(
       Array.from({ length: 12 }, (_, i) => i + 1).map(async (month) => {
         const startIso = `${year}-${String(month).padStart(2, "0")}-01T00:00:00${BUSINESS_TZ_OFFSET}`;
@@ -66,7 +70,7 @@ export async function GET(req: Request) {
           if (b.payment_status === "PAID") ingresos += Number(b.paid_amount ?? 0);
         }
 
-        const capacity = DEFAULT_COURTS * (CLOSE_HOUR - OPEN_HOUR) * daysInMonth(year, month);
+        const capacity = activeCourts * (CLOSE_HOUR - OPEN_HOUR) * daysInMonth(year, month);
         const ocupacion = capacity > 0 ? (horasVendidas / capacity) * 100 : 0;
 
         return {

@@ -2,46 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireReceptionAccess } from "@/lib/guards/reception";
 import { dbErrorResponse } from "@/lib/apiError";
-
-function normalizeMxE164(raw: string) {
-  const s = String(raw ?? "").trim();
-  if (!s) return "";
-  if (/^\+\d{8,15}$/.test(s)) return s;
-
-  const digits = s.replace(/[^\d]/g, "");
-  if (digits.length === 10) return `+52${digits}`;
-  if (digits.length >= 11 && digits.length <= 15) return `+${digits}`;
-  return s;
-}
-
-export async function GET(req: Request) {
-  const gate = await requireReceptionAccess({ asJson: true, nextPath: "/reception" });
-  if (!gate.ok) return gate.res;
-
-  const url = new URL(req.url);
-  const q = (url.searchParams.get("q") ?? "").trim();
-
-  if (q.length < 2) return NextResponse.json({ customers: [] }, { status: 200 });
-
-  // PostgREST usa "," "." "(" ")" como separadores dentro del filtro .or(),
-  // así que se quitan del término de búsqueda para que no se puedan inyectar
-  // condiciones adicionales al filtro.
-  const qSafe = q.replace(/[,()."]/g, "");
-  if (qSafe.length < 2) return NextResponse.json({ customers: [] }, { status: 200 });
-
-  const qLike = `%${qSafe}%`;
-
-  const { data, error } = await supabaseAdmin
-    .from("customers")
-    .select("id, full_name, phone_e164")
-    .or(`full_name.ilike.${qLike},phone_e164.ilike.${qLike}`)
-    .order("created_at", { ascending: false })
-    .limit(30);
-
-  if (error) return dbErrorResponse("GET /api/customers search", error);
-
-  return NextResponse.json({ customers: data ?? [] }, { status: 200 });
-}
+import { normalizePhoneToE164 } from "@/lib/phone";
 
 export async function POST(req: Request) {
   const gate = await requireReceptionAccess({ asJson: true, nextPath: "/reception" });
@@ -50,7 +11,11 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
 
   const full_name = String(body.full_name ?? "").trim();
-  const phone_e164 = normalizeMxE164(String(body.phone_e164 ?? ""));
+  const phoneRaw = String(body.phone_e164 ?? "").trim();
+  const phone_e164 = phoneRaw ? normalizePhoneToE164(phoneRaw) : null;
+  if (phoneRaw && !phone_e164) {
+    return NextResponse.json({ error: "Teléfono inválido. Usa 10 dígitos, p. ej. 443 123 4567." }, { status: 400 });
+  }
   const email = String(body.email ?? "").trim();
 
   // notas recepción (si llega)

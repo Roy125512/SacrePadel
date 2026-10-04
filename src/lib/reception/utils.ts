@@ -1,21 +1,22 @@
 import type { Booking, BookingStatus } from "./types";
-import { computeExpectedAmountMXN } from "./pricing";
+import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
 
-// Real court count in the DB (Cancha 1–4). Used for occupancy-capacity
-// math — keep in sync if a court is added/retired.
+import { OPEN_HOUR, CLOSE_HOUR } from "@/lib/config";
+import { addDaysToYMD, BUSINESS_TZ, ymdInBusinessTZ } from "@/lib/businessTime";
+
+export { OPEN_HOUR, CLOSE_HOUR };
+
+// Solo respaldo mientras carga (o si falla) el conteo real de canchas
+// activas — ver useActiveCourtCount en ./hooks y monthly-summary.
 export const DEFAULT_COURTS = 4;
-export const OPEN_HOUR = 7;
-export const CLOSE_HOUR = 22;
 
+/** "YYYY-MM-DD" en la hora del club (no la de la computadora). */
 export function toYMDLocal(d: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return ymdInBusinessTZ(d);
 }
 
 export function addDaysYMD(ymd: string, deltaDays: number) {
-  const d = new Date(`${ymd}T00:00:00`);
-  d.setDate(d.getDate() + deltaDays);
-  return toYMDLocal(d);
+  return addDaysToYMD(ymd, deltaDays);
 }
 
 export function normalizeRange(a: string, b: string) {
@@ -23,16 +24,16 @@ export function normalizeRange(a: string, b: string) {
 }
 
 export function daysInclusive(startYmd: string, endYmd: string) {
-  const s = new Date(`${startYmd}T00:00:00`);
-  const e = new Date(`${endYmd}T00:00:00`);
+  const s = new Date(`${startYmd}T00:00:00Z`);
+  const e = new Date(`${endYmd}T00:00:00Z`);
   const ms = e.getTime() - s.getTime();
   const days = Math.floor(ms / (24 * 60 * 60 * 1000)) + 1;
   return Number.isFinite(days) && days > 0 ? days : 1;
 }
 
 export function formatDateES(ymd: string) {
-  const d = new Date(`${ymd}T00:00:00`);
-  return d.toLocaleDateString("es-MX", { year: "numeric", month: "2-digit", day: "2-digit" });
+  const [y, m, d] = ymd.split("-");
+  return `${d}/${m}/${y}`;
 }
 
 export function formatRangeES(startYmd: string, endYmd: string) {
@@ -42,7 +43,7 @@ export function formatRangeES(startYmd: string, endYmd: string) {
 
 export function parseISOToLocalTime(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: BUSINESS_TZ });
 }
 
 export function hoursBetween(startISO: string, endISO: string) {
@@ -144,12 +145,12 @@ export function canCharge(b: Booking) {
 
 export function formatDateMX(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: BUSINESS_TZ });
 }
 
 export function parseISOToLocalTime24(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: BUSINESS_TZ });
 }
 
 // ===== Cálculos compartidos (operación + dashboard) =====

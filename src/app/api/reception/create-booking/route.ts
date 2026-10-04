@@ -124,7 +124,7 @@ export async function POST(req: Request) {
       created_by_name = creatorAuth?.user?.email ?? null;
     }
 
-    const insertPayload: Record<string, any> = {
+    const insertPayload = {
       court_id,
       start_at,
       end_at,
@@ -136,21 +136,11 @@ export async function POST(req: Request) {
       created_by_name,
     };
 
-    let { data: booking, error: insErr } = await supabaseAdmin
+    const { data: booking, error: insErr } = await supabaseAdmin
       .from("bookings")
       .insert(insertPayload)
       .select("id, court_id, start_at, end_at, status, source, customer_id")
       .single();
-
-    // Fallback si la migración de created_by_name aún no corrió en la BD.
-    if (insErr && String(insErr.message).toLowerCase().includes("created_by_name")) {
-      delete insertPayload.created_by_name;
-      ({ data: booking, error: insErr } = await supabaseAdmin
-        .from("bookings")
-        .insert(insertPayload)
-        .select("id, court_id, start_at, end_at, status, source, customer_id")
-        .single());
-    }
 
     if (insErr) {
       const friendly = insErr.message.includes("bookings_no_overlap")

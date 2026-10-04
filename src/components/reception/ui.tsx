@@ -65,7 +65,7 @@ export function Menu({
   onClose,
 }: {
   open: boolean;
-  anchorRef: React.RefObject<HTMLElement>;
+  anchorRef: React.RefObject<HTMLElement | null>;
   children: React.ReactNode;
   onClose: () => void;
 }) {

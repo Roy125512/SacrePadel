@@ -66,8 +66,6 @@ export default function ReservarButton({
   useEffect(() => {
     if (!open) return;
 
-    updateCoords();
-
     function onClickOutside(e: MouseEvent) {
       const target = e.target as Node;
       if (
@@ -110,7 +108,12 @@ export default function ReservarButton({
         ref={triggerRef}
         type="button"
         className={className}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          // Se mide la posición al abrir (en el clic, no en un efecto) para
+          // que el popover salga ya en su lugar.
+          if (!open) updateCoords();
+          setOpen((v) => !v);
+        }}
       >
         {children}
       </button>

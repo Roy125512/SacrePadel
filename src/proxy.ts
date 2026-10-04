@@ -54,7 +54,8 @@ function buildCsp() {
   ].join("; ");
 }
 
-export async function middleware(req: NextRequest) {
+// Next 16 renombró la convención `middleware` a `proxy` (mismo comportamiento).
+export async function proxy(req: NextRequest) {
   const csp = buildCsp();
 
   const requestHeaders = new Headers(req.headers);
@@ -94,7 +95,11 @@ export async function middleware(req: NextRequest) {
   return res;
 }
 
-// Ajusta tu matcher como lo tenías (esto es un ejemplo común)
+// No corre en archivos estáticos (imágenes de public/, íconos, etc.): ahí no
+// hace falta CSP ni refrescar la sesión, y cada ejecución cuesta una llamada
+// a Supabase Auth.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|images/|email/|.*\\.(?:png|jpe?g|gif|webp|avif|svg|ico|txt|xml|webmanifest)$).*)",
+  ],
 };

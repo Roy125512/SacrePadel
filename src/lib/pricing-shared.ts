@@ -1,6 +1,8 @@
 // Single source of truth for pricing logic.
 // Pure functions, no Node.js deps — safe for both client and server.
 
+import { hourInBusinessTZ } from "@/lib/businessTime";
+
 export const DAY_RATE = 350; // 07:00 - 17:59
 export const EVENING_RATE = 400; // 18:00 - 21:59
 export const SWITCH_HOUR = 18;
@@ -9,23 +11,9 @@ export const SWITCH_HOUR = 18;
 // pero esos precios se dan directamente en recepción (no están fijos aquí).
 export const PADDLE_RENTAL_PRICE = 50;
 
-// Business is in Pátzcuaro, Michoacán — pricing must always be evaluated in
-// this timezone, never the server's local time. A server deployed in UTC
-// (the common case for cloud hosting) would otherwise silently swap the
-// day/evening rate for every booking.
-const BUSINESS_TZ = "America/Mexico_City";
-
-function hourInBusinessTZ(d: Date): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: BUSINESS_TZ,
-    hour: "numeric",
-    hour12: false,
-  }).formatToParts(d);
-  const hourPart = parts.find((p) => p.type === "hour");
-  const h = hourPart ? Number(hourPart.value) : d.getHours();
-  return h % 24; // some engines report midnight as "24" with hour12:false
-}
-
+// La tarifa se evalúa siempre en la hora del club (ver lib/businessTime),
+// nunca en la del servidor: en la nube suele estar en UTC y cambiaría la
+// tarifa de día/noche de todas las reservas.
 /** Rate per hour for a given ISO timestamp. */
 export function rateAtISO(iso: string): number {
   return rateAtDate(new Date(iso));

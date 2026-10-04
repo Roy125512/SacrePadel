@@ -9,17 +9,9 @@ import type {
   DateMode,
   FiltersState,
   FilterKey,
-  PaymentMethod,
-  PaymentStatus,
 } from "@/lib/reception/types";
 
-import {
-  DAY_RATE,
-  NIGHT_RATE,
-  NIGHT_START_HOUR,
-  NIGHT_END_HOUR,
-  TARIFF_PER_HOUR,
-} from "@/lib/reception/pricing";
+import { DAY_RATE, EVENING_RATE } from "@/lib/pricing-shared";
 
 import {
   addDaysYMD,
@@ -38,10 +30,7 @@ import {
   formatDateES,
   formatDateMX,
   formatRangeES,
-  hoursBetween,
-  isAttendanceFinal,
   isPaid,
-  normalizeRange,
   origenLabel,
   registradoPorLabel,
   parseISOToLocalTime,
@@ -54,12 +43,11 @@ import {
 import { useDebounce } from "@/lib/reception/hooks";
 import { IconButton, KpiCard, Menu, MiniStat, Pill } from "@/components/reception/ui";
 import ReceptionDashboard from "@/components/reception/Dashboard";
+import NewBookingModal from "@/components/reception/NewBookingModal";
+import ChargeModal from "@/components/reception/ChargeModal";
+import AssignCustomerModal from "@/components/reception/AssignCustomerModal";
+import PlayerCardModal from "@/components/reception/PlayerCardModal";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
-
-// Cuánto tiempo después de la hora de inicio se sigue dejando elegir ese
-// horario en "Nueva reserva" — un cliente que llega unos minutos tarde no
-// debería quedar sin poder registrarse en ese horario.
-const RECEPTION_START_GRACE_MINUTES = 10;
 
 /* ===================== PÁGINA ===================== */
 
@@ -159,194 +147,25 @@ export default function ReceptionPage() {
   // ve siempre qué columna es cada dato (fecha, cancha, horario, tipo…) sin
   // sacrificar tanto espacio vertical como antes, cuando KPIs/caja/búsqueda
   // también se anclaban uno debajo del otro. Ver el thead más abajo.
-    // Scroll sync (para que el header y el body se muevan juntos en horizontal)
-  const headScrollRef = useRef<HTMLDivElement | null>(null);
-  const bodyScrollRef = useRef<HTMLDivElement | null>(null);
-  const syncingScrollRef = useRef(false);
 
 
 
 
 
-  const [chargeOpen, setChargeOpen] = useState(false);
+  // Modales: cada uno vive en su propio componente con su estado; aquí solo
+  // se guarda cuál está abierto y para qué reserva/cliente.
   const [chargeBooking, setChargeBooking] = useState<Booking | null>(null);
-  const [chargeMethod, setChargeMethod] = useState<PaymentMethod>("CASH");
-  const [chargeAmount, setChargeAmount] = useState<number>(0);
-  const [chargeSaving, setChargeSaving] = useState(false);
-
-  const [assignOpen, setAssignOpen] = useState(false);
   const [assignBooking, setAssignBooking] = useState<Booking | null>(null);
-  const [assignName, setAssignName] = useState("");
-  const [assignPhone, setAssignPhone] = useState("");
-  const [assignSaving, setAssignSaving] = useState(false);
-
-  // Nueva reserva manual (walk-in / teléfono / WhatsApp)
-  const [courts, setCourts] = useState<{ id: string; name: string }[]>([]);
   const [newBookingOpen, setNewBookingOpen] = useState(false);
-  const [nbCourtId, setNbCourtId] = useState("");
-  const [nbDate, setNbDate] = useState<string>(() => toYMDLocal(new Date()));
-  const [nbTime, setNbTime] = useState<string>(() => {
-    const now = new Date();
-    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  });
-  const [nbDuration, setNbDuration] = useState(60);
-  const [nbOrigin, setNbOrigin] = useState<"PHONE" | "WALK_IN">("WALK_IN");
-  const [nbName, setNbName] = useState("");
-  const [nbPhone, setNbPhone] = useState("");
-  const [nbSaving, setNbSaving] = useState(false);
-  const [nbError, setNbError] = useState<string | null>(null);
+  const [playerCustomerId, setPlayerCustomerId] = useState<string | null>(null);
 
-  // Disponibilidad del día para pintar la hora como una grilla de horarios
-  // libres/ocupados por cancha, en vez de un input de texto a ciegas — así
-  // recepción ve de un vistazo si la cancha ya está apartada a esa hora.
-  type NbSlot = { start_at: string; end_at: string; available: boolean };
-  const [nbAvailability, setNbAvailability] = useState<{ court_id: string; slots: NbSlot[] }[]>([]);
-  const [nbAvailLoading, setNbAvailLoading] = useState(false);
-
-  useEffect(() => {
-    if (!newBookingOpen || !nbDate) return;
-    let cancelled = false;
-    setNbAvailLoading(true);
-    fetch(`/api/web/availability?date=${nbDate}`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => {
-        if (!cancelled) setNbAvailability(j?.availability ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setNbAvailability([]);
-      })
-      .finally(() => {
-        if (!cancelled) setNbAvailLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [newBookingOpen, nbDate]);
-
-  const nbCourtSlots = useMemo(
-    () => nbAvailability.find((c) => c.court_id === nbCourtId)?.slots ?? [],
-    [nbAvailability, nbCourtId]
-  );
-
+  const [courts, setCourts] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => {
     fetch("/api/reception/courts")
       .then((r) => r.json())
-      .then((j) => {
-        const list = j?.courts ?? [];
-        setCourts(list);
-        if (list.length > 0) setNbCourtId((prev) => prev || list[0].id);
-      })
+      .then((j) => setCourts(j?.courts ?? []))
       .catch(() => {});
   }, []);
-
-  function openNewBooking() {
-    setNbCourtId((prev) => prev || courts[0]?.id || "");
-    setNbDate(dateMode === "DAY" ? dateYMD : toYMDLocal(new Date()));
-    const now = new Date();
-    setNbTime(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`);
-    setNbDuration(60);
-    setNbOrigin("WALK_IN");
-    setNbName("");
-    setNbPhone("");
-    setNbError(null);
-    setNewBookingOpen(true);
-  }
-
-  async function submitNewBooking() {
-    if (!nbCourtId || !nbDate || !nbTime || !nbName.trim()) {
-      setNbError("Cancha, fecha, hora y nombre del cliente son obligatorios.");
-      return;
-    }
-    setNbSaving(true);
-    setNbError(null);
-    try {
-      const r = await fetch("/api/reception/create-booking", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          court_id: nbCourtId,
-          date: nbDate,
-          start_time: nbTime,
-          duration_minutes: nbDuration,
-          origin: nbOrigin,
-          full_name: nbName.trim(),
-          phone: nbPhone.trim(),
-        }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j?.error ?? "No se pudo crear la reserva.");
-
-      setNewBookingOpen(false);
-      await refreshCurrent();
-    } catch (e: any) {
-      setNbError(e?.message ?? "No se pudo crear la reserva.");
-    } finally {
-      setNbSaving(false);
-    }
-  }
-
-  type PlayerApiResponse = {
-    customer: {
-      id: string;
-      full_name: string | null;
-      phone_e164: string | null;
-      email: string | null;
-      notes: string | null;
-      birthday: string | null;
-      player_notes: string | null;
-      sex: string | null;
-      division: string | null;
-      is_active: boolean | null;
-      created_at: string | null;
-    };
-    stats: {
-      total_visits: number;
-      total_paid: number;
-      last_visit_at: string | null;
-    };
-    recent_bookings: Array<{
-      id: string;
-      start_at: string;
-      end_at: string;
-      status: string;
-      payment_status: string;
-      paid_amount: number;
-      expected_amount: number;
-      paid_at: string | null;
-      payment_method: string | null;
-      court_name: string;
-      source: string | null;
-      kind: string | null;
-    }>;
-    pagination?: {
-      limit: number;
-      offset: number;
-      total: number;
-      has_more: boolean;
-    };
-    error?: string;
-  };
-
-  const [playerOpen, setPlayerOpen] = useState(false);
-  const [playerLoading, setPlayerLoading] = useState(false);
-  const [playerError, setPlayerError] = useState<string | null>(null);
-  const [playerData, setPlayerData] = useState<PlayerApiResponse | null>(null);
-
-  const [receptionNotes, setReceptionNotes] = useState("");
-const [notesSaving, setNotesSaving] = useState(false);
-const [notesOk, setNotesOk] = useState<string | null>(null);
-const [activeSaving, setActiveSaving] = useState(false);
-
-function statusES(s: string) {
-  const v = String(s || "").toUpperCase();
-  if (v === "HOLD") return "Apartada";
-  if (v === "CONFIRMED") return "Confirmada";
-  if (v === "COMPLETED") return "Completada";
-  if (v === "CANCELLED") return "Cancelada";
-  if (v === "NO_SHOW") return "No asistió";
-  return s; // fallback por si hay nuevos estados
-}
-
 
   async function refreshData(next?: { mode: DateMode; date?: string; start?: string; end?: string }) {
     setLoading(true);
@@ -425,8 +244,8 @@ function statusES(s: string) {
           )
         : 1;
 
-    return computeAggregateStats(rows, days);
-  }, [rows, dateMode, rangeStartYMD, rangeEndYMD]);
+    return computeAggregateStats(rows, days, { courts: courts.length || DEFAULT_COURTS });
+  }, [rows, dateMode, rangeStartYMD, rangeEndYMD, courts.length]);
 
   /* ===================== FILTROS ===================== */
 
@@ -497,8 +316,8 @@ function statusES(s: string) {
 
   const dailySummary = useMemo(() => {
     if (dateMode !== "RANGE") return [];
-    return buildDailySummary(rows, rangeStartYMD, rangeEndYMD);
-  }, [dateMode, rangeStartYMD, rangeEndYMD, rows]);
+    return buildDailySummary(rows, rangeStartYMD, rangeEndYMD, { courts: courts.length || DEFAULT_COURTS });
+  }, [dateMode, rangeStartYMD, rangeEndYMD, rows, courts.length]);
 
   function clearAllFilters() {
     setFilters({
@@ -699,180 +518,21 @@ function statusES(s: string) {
     }
   }
 
-  async function payBooking(b: Booking) {
+  function payBooking(b: Booking) {
     setChargeBooking(b);
-    setChargeMethod("CASH");
-    setChargeAmount(b.amount ?? 0);
-    setChargeOpen(true);
-  }
-
-  async function confirmPay() {
-    if (!chargeBooking) return;
-    setChargeSaving(true);
-    setError(null);
-
-    try {
-      const r = await fetch("/api/reception/pay", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          booking_id: chargeBooking.id,
-          payment_method: chargeMethod,
-          paid_amount: chargeAmount,
-        }),
-      });
-      const body = await r.json();
-      if (!r.ok) throw new Error(body?.error ?? "Error al cobrar");
-      setChargeOpen(false);
-      setChargeBooking(null);
-      await refreshCurrent();
-    } catch (e: any) {
-      setError(e?.message ?? "Error");
-    } finally {
-      setChargeSaving(false);
-    }
   }
 
   function openAssign(b: Booking) {
     setAssignBooking(b);
-    setAssignName(b.customer_name ?? "");
-    setAssignPhone(b.customer_phone ?? "");
-    setAssignOpen(true);
   }
 
-  async function confirmAssign() {
-    if (!assignBooking) return;
-    setAssignSaving(true);
-    setError(null);
-
-    try {
-      const r1 = await fetch("/api/customers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          full_name: assignName,
-          phone_e164: assignPhone,
-        }),
-      });
-      const body1 = await r1.json();
-      if (!r1.ok) throw new Error(body1?.error ?? "Error al crear/obtener cliente");
-
-      const customerId = body1?.customer?.id;
-      if (!customerId) throw new Error("No se obtuvo customer.id");
-
-      const r2 = await fetch("/api/reception/attach-customer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          booking_id: assignBooking.id,
-          customer_id: customerId,
-        }),
-      });
-      const body2 = await r2.json();
-      if (!r2.ok) throw new Error(body2?.error ?? "Error al asignar cliente");
-
-      setAssignOpen(false);
-      setAssignBooking(null);
-      await refreshCurrent();
-    } catch (e: any) {
-      setError(e?.message ?? "Error");
-    } finally {
-      setAssignSaving(false);
-    }
+  function openPlayerCard(customerId: string) {
+    setPlayerCustomerId(customerId);
   }
 
-  async function openPlayerCard(customerId: string) {
-    setPlayerOpen(true);
-    setPlayerLoading(true);
-    setPlayerError(null);
-    setPlayerData(null);
-
-    try {
-      const r = await fetch(`/api/customers/${customerId}?limit=10&offset=0`, { cache: "no-store" });
-      const body = (await r.json()) as PlayerApiResponse;
-
-      if (!r.ok) {
-        setPlayerError((body as any)?.error ?? `Error ${r.status}`);
-        return;
-      }
-
-      setPlayerData(body);
-      setReceptionNotes(body?.customer?.notes ?? "");
-      setNotesOk(null);
-    } catch (e: any) {
-      setPlayerError(e?.message ?? "Error al cargar ficha");
-    } finally {
-      setPlayerLoading(false);
-    }
+  function openNewBooking() {
+    setNewBookingOpen(true);
   }
-
-  function closePlayerCard() {
-    setPlayerOpen(false);
-    setPlayerError(null);
-    setPlayerData(null);
-  }
-
-  async function saveReceptionNotes() {
-    if (!playerData?.customer?.id) return;
-
-    setNotesSaving(true);
-    setNotesOk(null);
-    setPlayerError(null);
-
-    try {
-      const r = await fetch(`/api/customers/${playerData.customer.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: receptionNotes }),
-      });
-
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j?.error ?? `Error ${r.status}`);
-
-      // reflejar en pantalla sin recargar
-      setPlayerData((prev) =>
-        prev
-          ? { ...prev, customer: { ...prev.customer, notes: j?.customer?.notes ?? receptionNotes } }
-          : prev
-      );
-
-      setNotesOk("Notas guardadas");
-    } catch (e: any) {
-      setPlayerError(e?.message ?? "No se pudieron guardar las notas.");
-    } finally {
-      setNotesSaving(false);
-    }
-  }
-
-  async function toggleCustomerActive() {
-    if (!playerData?.customer?.id) return;
-
-    const nextActive = playerData.customer.is_active === false;
-    setActiveSaving(true);
-    setPlayerError(null);
-
-    try {
-      const r = await fetch(`/api/customers/${playerData.customer.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_active: nextActive }),
-      });
-
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j?.error ?? `Error ${r.status}`);
-
-      setPlayerData((prev) =>
-        prev
-          ? { ...prev, customer: { ...prev.customer, is_active: j?.customer?.is_active ?? nextActive } }
-          : prev
-      );
-    } catch (e: any) {
-      setPlayerError(e?.message ?? "No se pudo cambiar el estado del cliente.");
-    } finally {
-      setActiveSaving(false);
-    }
-  }
-
 
   /* ===================== RENDER ===================== */
 
@@ -1267,7 +927,9 @@ function statusES(s: string) {
               Reservas: <span style={{ color: "var(--foreground)", fontWeight: 600 }}>{filteredRows.length}</span> · Totales:{" "}
               <span style={{ color: "var(--foreground)", fontWeight: 600 }}>{stats.totalReservas}</span> · Pendientes de cobro:{" "}
               <span style={{ color: "var(--foreground)", fontWeight: 600 }}>{stats.pendientesCount}</span> · Tarifa/hora:{" "}
-              <span style={{ color: "var(--foreground)", fontWeight: 600 }}>{currencyMXN(TARIFF_PER_HOUR)}</span>
+              <span style={{ color: "var(--foreground)", fontWeight: 600 }}>
+                {currencyMXN(DAY_RATE)} día · {currencyMXN(EVENING_RATE)} noche
+              </span>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -1372,7 +1034,9 @@ function statusES(s: string) {
                       k={h.k as FilterKey}
                       openMenu={openMenu}
                       setOpenMenu={setOpenMenu}
-                      anchorRefs={anchorRefs}
+                      setAnchor={(k, el) => {
+                        anchorRefs.current[k] = el;
+                      }}
                       options={h.opts}
                       selected={h.sel}
                       onToggle={(v) => toggleFilter(h.k as FilterKey, v)}
@@ -1588,475 +1252,42 @@ function statusES(s: string) {
         )}
       </div>
 
-      {/* MODAL: NUEVA RESERVA (walk-in / teléfono / WhatsApp) */}
       {newBookingOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md card p-5">
-            <div className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
-              Nueva reserva
-            </div>
-            <div className="mt-1 text-sm" style={{ color: "rgba(30,27,24,0.60)" }}>
-              Para clientes que llaman, escriben o llegan directo a la cancha.
-            </div>
-
-            {nbError && (
-              <div className="mt-3 rounded-md border px-3 py-2 text-sm" style={{ borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.08)", color: "rgb(153,27,27)" }}>
-                {nbError}
-              </div>
-            )}
-
-            <div className="mt-4">
-              <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
-                Origen
-              </label>
-              <div className="mt-1 grid grid-cols-2 gap-2">
-                {([
-                  { key: "WALK_IN", label: "🚶 Presencial" },
-                  { key: "PHONE", label: "📞💬 Teléfono / WhatsApp" },
-                ] as Array<{ key: typeof nbOrigin; label: string }>).map((o) => (
-                  <button
-                    key={o.key}
-                    type="button"
-                    className={nbOrigin === o.key ? "btn-primary text-xs px-2 py-2" : "btn-secondary text-xs px-2 py-2"}
-                    onClick={() => setNbOrigin(o.key)}
-                  >
-                    {o.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
-                  Cancha
-                </label>
-                <select className="input" value={nbCourtId} onChange={(e) => setNbCourtId(e.target.value)}>
-                  {courts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
-                  Duración
-                </label>
-                <select className="input" value={nbDuration} onChange={(e) => setNbDuration(Number(e.target.value))}>
-                  <option value={60}>60 min</option>
-                  <option value={90}>90 min</option>
-                  <option value={120}>120 min</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="mt-3">
-              <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
-                Fecha
-              </label>
-              <input className="input" type="date" value={nbDate} onChange={(e) => setNbDate(e.target.value)} />
-            </div>
-
-            <div className="mt-3">
-              <div className="flex items-baseline justify-between">
-                <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
-                  Hora de inicio
-                </label>
-                <span className="text-[11px]" style={{ color: "rgba(30,27,24,0.45)" }}>
-                  🟢 libre · <span className="line-through">gris</span> ocupada/pasada
-                </span>
-              </div>
-
-              {nbAvailLoading ? (
-                <div className="mt-1.5 text-xs" style={{ color: "rgba(30,27,24,0.50)" }}>
-                  Cargando horarios…
-                </div>
-              ) : nbCourtSlots.length === 0 ? (
-                <input
-                  className="input mt-1.5"
-                  type="time"
-                  value={nbTime}
-                  onChange={(e) => setNbTime(e.target.value)}
-                />
-              ) : (
-                <div
-                  className="mt-1.5 grid max-h-40 grid-cols-5 gap-1.5 overflow-y-auto rounded-lg border p-2"
-                  style={{ borderColor: "rgba(120,46,21,0.12)" }}
-                >
-                  {nbCourtSlots.map((s) => {
-                    const hhmm = s.start_at.slice(11, 16);
-                    const isSelected = nbTime === hhmm;
-                    const isBooked = !s.available;
-                    // Pasada = ya lleva más de RECEPTION_START_GRACE_MINUTES desde su
-                    // inicio. El margen es a propósito para no bloquear a alguien que
-                    // llega unos minutos tarde y aún se le puede registrar esa hora.
-                    const isPast = new Date(s.start_at).getTime() + RECEPTION_START_GRACE_MINUTES * 60_000 < Date.now();
-                    const isDisabled = isBooked || isPast;
-                    return (
-                      <button
-                        key={s.start_at}
-                        type="button"
-                        onClick={() => !isDisabled && setNbTime(hhmm)}
-                        disabled={isDisabled}
-                        title={
-                          isBooked
-                            ? "Ya hay una reserva a esta hora en esta cancha"
-                            : isPast
-                            ? "Ese horario ya pasó"
-                            : "Disponible"
-                        }
-                        className={
-                          isDisabled
-                            ? "cursor-not-allowed rounded-md border px-1.5 py-1.5 text-xs font-medium line-through opacity-50"
-                            : isSelected
-                            ? "btn-primary rounded-md px-1.5 py-1.5 text-xs font-medium"
-                            : "rounded-md border px-1.5 py-1.5 text-xs font-medium bg-white hover:bg-[rgba(253,238,232,0.7)]"
-                        }
-                        style={
-                          isDisabled
-                            ? { borderColor: "rgba(120,46,21,0.10)", background: "rgba(120,46,21,0.05)", color: "rgba(30,27,24,0.55)" }
-                            : !isSelected
-                            ? { borderColor: "rgba(120,46,21,0.14)", color: "var(--foreground)" }
-                            : undefined
-                        }
-                      >
-                        {hhmm}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-3">
-              <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
-                Nombre del cliente
-              </label>
-              <input
-                className="input"
-                value={nbName}
-                onChange={(e) => setNbName(e.target.value)}
-                placeholder="Nombre completo"
-                autoFocus
-              />
-            </div>
-
-            <div className="mt-3">
-              <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
-                Teléfono (opcional)
-              </label>
-              <input
-                className="input"
-                value={nbPhone}
-                onChange={(e) => setNbPhone(e.target.value)}
-                placeholder="Si ya es cliente, lo reconoce por el número"
-              />
-            </div>
-
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button className="btn-secondary" onClick={() => setNewBookingOpen(false)} disabled={nbSaving}>
-                Cancelar
-              </button>
-              <button className="btn-primary" disabled={nbSaving} onClick={submitNewBooking}>
-                {nbSaving ? "Creando…" : "Crear reserva"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <NewBookingModal
+          courts={courts}
+          defaultDate={dateMode === "DAY" ? dateYMD : toYMDLocal(new Date())}
+          onClose={() => setNewBookingOpen(false)}
+          onCreated={async () => {
+            setNewBookingOpen(false);
+            await refreshCurrent();
+          }}
+        />
       )}
 
-      {/* MODAL: COBRO */}
-      {chargeOpen && chargeBooking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md card p-5">
-            <div className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
-              Cobrar
-            </div>
-            <div className="mt-1 text-sm" style={{ color: "rgba(30,27,24,0.60)" }}>
-              {chargeBooking.court_name} · {parseISOToLocalTime(chargeBooking.start_at)} – {parseISOToLocalTime(chargeBooking.end_at)}
-            </div>
-
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {([
-                { key: "CASH", label: "Efectivo" },
-                { key: "CARD", label: "Tarjeta" },
-                { key: "TRANSFER", label: "Transfer" },
-              ] as Array<{ key: PaymentMethod; label: string }>).map((m) => {
-                const active = chargeMethod === m.key;
-                return (
-                  <button
-                    key={m.key}
-                    className={active ? "btn-primary" : "btn-secondary"}
-                    onClick={() => setChargeMethod(m.key)}
-                  >
-                    {m.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-4">
-              <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
-                Monto
-              </label>
-              <input
-                className="input"
-                type="number"
-                value={chargeAmount}
-                onChange={(e) => setChargeAmount(Number(e.target.value))}
-              />
-            </div>
-
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button
-                className="btn-secondary"
-                onClick={() => {
-                  setChargeOpen(false);
-                  setChargeBooking(null);
-                }}
-              >
-                Cancelar
-              </button>
-              <button className="btn-primary" disabled={chargeSaving} onClick={confirmPay}>
-                {chargeSaving ? "Guardando…" : "Confirmar cobro"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {chargeBooking && (
+        <ChargeModal
+          booking={chargeBooking}
+          onClose={() => setChargeBooking(null)}
+          onPaid={async () => {
+            setChargeBooking(null);
+            await refreshCurrent();
+          }}
+        />
       )}
 
-      {/* MODAL: ASIGNAR CLIENTE */}
-      {assignOpen && assignBooking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md card p-5">
-            <div className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
-              Asignar cliente
-            </div>
-            <div className="mt-1 text-sm" style={{ color: "rgba(30,27,24,0.60)" }}>
-              {assignBooking.court_name} · {parseISOToLocalTime(assignBooking.start_at)} – {parseISOToLocalTime(assignBooking.end_at)}
-            </div>
-
-            <div className="mt-4">
-              <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
-                Nombre
-              </label>
-              <input
-                className="input"
-                value={assignName}
-                onChange={(e) => setAssignName(e.target.value)}
-                placeholder="Nombre completo"
-              />
-            </div>
-
-            <div className="mt-3">
-              <label className="block text-xs" style={{ color: "rgba(30,27,24,0.65)" }}>
-                Teléfono
-              </label>
-              <input
-                className="input"
-                value={assignPhone}
-                onChange={(e) => setAssignPhone(e.target.value)}
-                placeholder="+52..."
-              />
-            </div>
-
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button
-                className="btn-secondary"
-                onClick={() => {
-                  setAssignOpen(false);
-                  setAssignBooking(null);
-                }}
-              >
-                Cancelar
-              </button>
-              <button className="btn-primary" disabled={assignSaving} onClick={confirmAssign}>
-                {assignSaving ? "Guardando…" : "Guardar"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {assignBooking && (
+        <AssignCustomerModal
+          booking={assignBooking}
+          onClose={() => setAssignBooking(null)}
+          onAssigned={async () => {
+            setAssignBooking(null);
+            await refreshCurrent();
+          }}
+        />
       )}
 
-      {/* MODAL: FICHA JUGADOR */}
-      {playerOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8"
-          onClick={() => closePlayerCard()}
-        >
-          <div
-            className="flex w-full max-w-2xl max-h-[85vh] flex-col card p-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex shrink-0 items-start justify-between gap-3">
-              <div>
-                <div className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
-                  Ficha de jugador
-                </div>
-                <div className="text-xs" style={{ color: "rgba(30,27,24,0.60)" }}>
-                  Información y últimas reservas
-                </div>
-              </div>
-
-              <button className="btn-secondary shrink-0" onClick={() => closePlayerCard()}>
-                Cerrar
-              </button>
-            </div>
-
-            <div className="mt-4 overflow-y-auto">
-              {playerLoading && <div className="text-sm" style={{ color: "rgba(30,27,24,0.70)" }}>Cargando…</div>}
-
-              {!playerLoading && playerError && (
-                <div
-                  className="rounded-md border p-3 text-sm"
-                  style={{ borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.08)", color: "rgb(153,27,27)" }}
-                >
-                  {playerError}
-                </div>
-              )}
-
-              {!playerLoading && !playerError && playerData && (
-                <div className="space-y-4">
-                  <div className="rounded-xl border bg-white p-4" style={{ borderColor: "rgba(120,46,21,0.10)" }}>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <div className="text-base font-semibold" style={{ color: "var(--foreground)" }}>
-                          {playerData.customer.full_name ?? "Sin nombre"}
-                        </div>
-                        <div className="mt-1 text-xs" style={{ color: "rgba(30,27,24,0.60)" }}>
-                          {playerData.customer.email ?? "—"} • {playerData.customer.phone_e164 ?? "—"}
-                        </div>
-                        <div className="mt-1 flex items-center gap-2 text-xs" style={{ color: "rgba(30,27,24,0.60)" }}>
-                          <span>
-                            Cumpleaños: {playerData.customer.birthday ?? "—"} • Estado:{" "}
-                            {playerData.customer.is_active === false ? "Inactivo" : "Activo"}
-                          </span>
-                          <button
-                            type="button"
-                            className="btn-secondary px-2 py-0.5 text-[11px]"
-                            onClick={toggleCustomerActive}
-                            disabled={activeSaving}
-                          >
-                            {activeSaving
-                              ? "Guardando…"
-                              : playerData.customer.is_active === false
-                              ? "Reactivar"
-                              : "Desactivar"}
-                          </button>
-                        </div>
-                        <div className="mt-1 text-xs" style={{ color: "rgba(30,27,24,0.60)" }}>
-                          Sexo: {playerData.customer.sex ?? "—"} • División: {playerData.customer.division ?? "—"}
-                        </div>
-
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="rounded-md border bg-white px-3 py-2" style={{ borderColor: "rgba(120,46,21,0.10)" }}>
-                          <div className="text-[11px]" style={{ color: "rgba(30,27,24,0.60)" }}>Visitas</div>
-                          <div className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{playerData.stats.total_visits ?? 0}</div>
-                        </div>
-                        <div className="rounded-md border bg-white px-3 py-2" style={{ borderColor: "rgba(120,46,21,0.10)" }}>
-                          <div className="text-[11px]" style={{ color: "rgba(30,27,24,0.60)" }}>Total pagado</div>
-                          <div className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{currencyMXN(playerData.stats.total_paid ?? 0)}</div>
-                        </div>
-                        <div className="rounded-md border bg-white px-3 py-2" style={{ borderColor: "rgba(120,46,21,0.10)" }}>
-                          <div className="text-[11px]" style={{ color: "rgba(30,27,24,0.60)" }}>Última visita</div>
-                          <div className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-                            {playerData.stats.last_visit_at ? new Date(playerData.stats.last_visit_at).toLocaleDateString("es-MX") : "—"}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                      <div className="rounded-md border bg-white p-3" style={{ borderColor: "rgba(120,46,21,0.10)" }}>
-                        <div className="text-xs font-semibold" style={{ color: "rgba(30,27,24,0.80)" }}>Notas de recepción</div>
-
-                        <textarea
-                          className="input mt-2 min-h-[90px] w-full"
-                          placeholder="Escribe aquí notas internas (ej. nivel, preferencias, puntualidad, etc.)"
-                          value={receptionNotes}
-                          onChange={(e) => setReceptionNotes(e.target.value)}
-                        />
-
-                        <div className="mt-2 flex items-center justify-between gap-2">
-                          <div className="text-xs" style={{ color: "#0f9d6e" }}>{notesOk ?? ""}</div>
-
-                          <button
-                            type="button"
-                            onClick={saveReceptionNotes}
-                            disabled={notesSaving}
-                            className="btn-secondary px-3 py-1.5 text-xs"
-                          >
-                            {notesSaving ? "Guardando…" : "Guardar notas"}
-                          </button>
-                        </div>
-
-                      </div>
-                      <div className="rounded-md border bg-white p-3" style={{ borderColor: "rgba(120,46,21,0.10)" }}>
-                        <div className="text-xs font-semibold" style={{ color: "rgba(30,27,24,0.80)" }}>Nota jugador</div>
-                        <div className="mt-1 whitespace-pre-wrap text-sm" style={{ color: "rgba(30,27,24,0.70)" }}>
-                          {playerData.customer.player_notes?.trim() ? playerData.customer.player_notes : "—"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border bg-white p-4" style={{ borderColor: "rgba(120,46,21,0.10)" }}>
-                    <div className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-                      Últimas reservas
-                    </div>
-
-                    <div className="mt-3 rounded-lg border bg-white" style={{ borderColor: "rgba(120,46,21,0.10)" }}>
-                      <div className="max-h-[420px] overflow-auto">
-                      <table className="w-full text-sm">
-                        <thead
-                          style={{
-                            background: "linear-gradient(180deg, rgba(253,238,232,0.9), rgba(255,255,255,0.9))",
-                            borderBottom: "1px solid rgba(120,46,21,0.10)",
-                          }}
-                        >
-                          <tr>
-                            {["Fecha", "Cancha", "Inicio", "Fin", "Estatus", "Pago", "Monto"].map((h) => (
-                              <th key={h} className="px-3 py-2 text-xs font-semibold" style={{ color: "rgba(30,27,24,0.70)", letterSpacing: "0.06em" }}>
-                                {h}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(playerData.recent_bookings ?? []).length === 0 ? (
-                            <tr>
-                              <td className="px-3 py-3" style={{ color: "rgba(30,27,24,0.60)" }} colSpan={7}>
-                                Sin reservas recientes
-                              </td>
-                            </tr>
-                          ) : (
-                            playerData.recent_bookings.map((rb) => (
-                              <tr key={rb.id} style={{ borderTop: "1px solid rgba(120,46,21,0.08)" }}>
-                                <td className="px-3 py-3 whitespace-nowrap">
-                                  {new Date(rb.start_at).toLocaleDateString("es-MX")}
-                                </td>
-                                <td className="px-3 py-3">{rb.court_name}</td>
-                                <td className="px-3 py-3">{parseISOToLocalTime(rb.start_at)}</td>
-                                <td className="px-3 py-3">{parseISOToLocalTime(rb.end_at)}</td>
-                                <td className="px-3 py-3">{statusES(String(rb.status))}</td>
-                                <td className="px-3 py-3">{(rb.payment_status ?? "UNPAID") === "PAID" ? "Pagado" : "Pendiente"}</td>
-                                <td className="px-3 py-3">{currencyMXN(rb.paid_amount ?? 0)}</td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+      {playerCustomerId && (
+        <PlayerCardModal customerId={playerCustomerId} onClose={() => setPlayerCustomerId(null)} />
       )}
     </div>
   );
@@ -2069,14 +1300,16 @@ function FilterHeader(props: {
   k: FilterKey;
   openMenu: FilterKey | null;
   setOpenMenu: (k: FilterKey | null) => void;
-  anchorRefs: React.MutableRefObject<Record<FilterKey, HTMLButtonElement | null>>;
+  setAnchor: (k: FilterKey, el: HTMLButtonElement | null) => void;
   options: string[];
   selected: Set<string>;
   onToggle: (value: string) => void;
 }) {
   const isOpen = props.openMenu === props.k;
+  const ownRef = useRef<HTMLButtonElement | null>(null);
   const buttonRef = (el: HTMLButtonElement | null) => {
-    props.anchorRefs.current[props.k] = el;
+    ownRef.current = el;
+    props.setAnchor(props.k, el);
   };
 
   return (
@@ -2099,9 +1332,7 @@ function FilterHeader(props: {
 
       <Menu
         open={isOpen}
-        anchorRef={{
-          current: props.anchorRefs.current[props.k] as unknown as HTMLElement,
-        }}
+        anchorRef={ownRef}
         onClose={() => props.setOpenMenu(null)}
       >
         <div className="max-h-[280px] overflow-auto">

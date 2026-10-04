@@ -21,7 +21,7 @@ import {
   computeAggregateStats,
   currencyMXN,
   CLOSE_HOUR,
-  DEFAULT_COURTS,
+
   daysInclusive,
   enrichBooking,
   OPEN_HOUR,
@@ -30,6 +30,8 @@ import {
 } from "@/lib/reception/utils";
 import { AreaTrendChart, CategoryBarChart, DonutChart, HBarList, HourlyBarChart } from "@/components/reception/charts";
 import { IconButton } from "@/components/reception/ui";
+import { useActiveCourtCount } from "@/lib/reception/hooks";
+import { hourInBusinessTZ, weekdayInBusinessTZ, weekdayOfYMD } from "@/lib/businessTime";
 
 const WEEKDAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 // Lunes primero — así se lee como una semana normal, no empezando en domingo.
@@ -246,9 +248,10 @@ export default function ReceptionDashboard() {
   const compareLabel = mode === "DAY" ? "día anterior" : "periodo anterior";
 
   const days = daysInclusive(range.start, range.end);
-  const stats = useMemo(() => computeAggregateStats(rows, days), [rows, days]);
-  const prevStats = useMemo(() => computeAggregateStats(prevRows, days), [prevRows, days]);
-  const daily = useMemo(() => buildDailySummary(rows, range.start, range.end), [rows, range]);
+  const courtCount = useActiveCourtCount();
+  const stats = useMemo(() => computeAggregateStats(rows, days, { courts: courtCount }), [rows, days, courtCount]);
+  const prevStats = useMemo(() => computeAggregateStats(prevRows, days, { courts: courtCount }), [prevRows, days, courtCount]);
+  const daily = useMemo(() => buildDailySummary(rows, range.start, range.end, { courts: courtCount }), [rows, range, courtCount]);
 
   const revenueTrend = useMemo(() => daily.map((d) => ({ label: shortDay(d.ymd), value: d.ingresos })), [daily]);
   const occupancyTrend = useMemo(
@@ -265,23 +268,22 @@ export default function ReceptionDashboard() {
   const weekdayOccupancy = useMemo(() => {
     const occurrences = new Array(7).fill(0);
     for (let i = 0; i < days; i++) {
-      const d = new Date(`${addDaysYMD(range.start, i)}T00:00:00`);
-      occurrences[d.getDay()] += 1;
+      occurrences[weekdayOfYMD(addDaysYMD(range.start, i))] += 1;
     }
 
     const horas = new Array(7).fill(0);
     for (const b of rows) {
       if (b.status !== "CONFIRMED" && b.status !== "COMPLETED") continue;
-      const wd = new Date(b.start_at).getDay();
+      const wd = weekdayInBusinessTZ(b.start_at);
       horas[wd] += b.duration_hours ?? 0;
     }
 
     return WEEKDAY_ORDER.map((wd) => {
-      const capacity = DEFAULT_COURTS * (CLOSE_HOUR - OPEN_HOUR) * occurrences[wd];
+      const capacity = courtCount * (CLOSE_HOUR - OPEN_HOUR) * occurrences[wd];
       const ocupacion = capacity > 0 ? (horas[wd] / capacity) * 100 : 0;
       return { label: WEEKDAY_LABELS[wd], value: Math.round(ocupacion) };
     });
-  }, [rows, range, days]);
+  }, [rows, range, days, courtCount]);
 
   const monthlyOccupancy = useMemo(
     () => monthlySummary.map((m) => ({ label: m.label, value: m.ocupacion })),
@@ -326,7 +328,7 @@ export default function ReceptionDashboard() {
     for (let h = 7; h <= 21; h++) counts.set(h, 0);
     for (const b of rows) {
       if (b.status === "CANCELLED") continue;
-      const h = new Date(b.start_at).getHours();
+      const h = hourInBusinessTZ(b.start_at);
       if (counts.has(h)) counts.set(h, (counts.get(h) ?? 0) + 1);
     }
     return Array.from(counts.entries()).map(([hour, count]) => ({ hour, count }));

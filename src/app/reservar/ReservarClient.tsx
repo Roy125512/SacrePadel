@@ -6,23 +6,22 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { BUSINESS_TZ_OFFSET } from "@/lib/config";
 import { computeExpectedAmountMXN, priceLabelForRange } from "@/lib/pricing-shared";
 import { WHATSAPP_PHONE } from "@/components/WhatsAppButton";
+import { hhmmInBusinessTZ, ymdInBusinessTZ } from "@/lib/businessTime";
 
 // Checkout Pro redirects the browser away to Mercado Pago and back, so
 // there's no embedded payment form/component to lazy-load here anymore
 // (unlike the old Stripe Elements flow) — see startMercadoPagoPayment().
 const MP_PENDING_KEY = "mp_pending_booking";
 
-const TZ = "-06:00";
-
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
+// Fecha/hora en la hora del club, no la del navegador del cliente.
 function toYMDLocal(d: Date) {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  return ymdInBusinessTZ(d);
 }
 function parseISOToLocalTime(iso: string) {
-  const dt = new Date(iso);
-  return `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+  return hhmmInBusinessTZ(iso);
 }
 function formatDateES(ymd: string) {
   const [y, m, d] = ymd.split("-");
@@ -59,11 +58,6 @@ type AvailabilityResponse = {
   availability: CourtAvailability[];
 };
 
-type CustomerSuggestion = {
-  id: string;
-  full_name: string | null;
-  phone_e164: string;
-};
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -752,7 +746,7 @@ export default function ReservarClient() {
                 {formatDateES(dateYMD)}
             </span>
             <span className="text-xs" style={{ color: "var(--muted)" }}>
-                Intervalos de 30 min &middot; Hora local
+                Intervalos de 30 min &middot; Hora de Pátzcuaro
             </span>
             </div>
 

@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { createClient } from "@/lib/supabaseClient";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { ValidationError, friendlyAuthError } from "@/lib/authErrors";
 
 export default function LoginClient() {
@@ -21,7 +21,7 @@ export default function LoginClient() {
   const next =
     rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : defaultNext;
 
-  const supabase = createClient();
+  const supabase = supabaseBrowser;
 
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
