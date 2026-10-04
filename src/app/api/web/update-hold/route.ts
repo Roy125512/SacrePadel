@@ -25,22 +25,38 @@ export async function POST(req: Request) {
   }
 
   // Mismo límite de duración que /api/web/hold — ver comentario ahí.
-  const { data: current } = await supabaseAdmin
+  const { data: current, error: readErr } = await supabaseAdmin
     .from("bookings")
-    .select("start_at")
+    .select("start_at, mp_preference_id")
     .eq("id", booking_id)
     .eq("status", "HOLD")
     .eq("source", "WEB")
     .maybeSingle();
 
-  if (current) {
-    const durationMinutes = (new Date(end_at).getTime() - new Date(current.start_at).getTime()) / 60_000;
-    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0 || durationMinutes > MAX_BOOKING_MINUTES) {
-      return NextResponse.json(
-        { error: `La duración debe ser de máximo ${MAX_BOOKING_MINUTES} minutos.` },
-        { status: 400 }
-      );
-    }
+  if (readErr) return dbErrorResponse("POST /api/web/update-hold fetch", readErr);
+  if (!current) {
+    return NextResponse.json(
+      { error: "Tu apartado ya no está activo. Vuelve a seleccionar el horario." },
+      { status: 409 }
+    );
+  }
+
+  // Una vez creado el link de pago de Mercado Pago, su monto quedó fijo:
+  // si aquí se pudiera alargar la reserva, alguien pagaría 1 hora y se
+  // quedaría con 3 (el webhook confirma sin volver a calcular el horario).
+  if (current.mp_preference_id) {
+    return NextResponse.json(
+      { error: "Ya iniciaste el pago; no se puede cambiar la duración. Cancela y vuelve a elegir el horario." },
+      { status: 409 }
+    );
+  }
+
+  const durationMinutes = (new Date(end_at).getTime() - new Date(current.start_at).getTime()) / 60_000;
+  if (!Number.isFinite(durationMinutes) || durationMinutes <= 0 || durationMinutes > MAX_BOOKING_MINUTES) {
+    return NextResponse.json(
+      { error: `La duración debe ser de máximo ${MAX_BOOKING_MINUTES} minutos.` },
+      { status: 400 }
+    );
   }
 
   const holdMinutes = 10;
@@ -52,6 +68,7 @@ export async function POST(req: Request) {
     .eq("id", booking_id)
     .eq("status", "HOLD")
     .eq("source", "WEB")
+    .is("mp_preference_id", null)
     .select("id, court_id, start_at, end_at, status, hold_expires_at")
     .single();
 

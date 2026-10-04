@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { mpPayment } from "@/lib/mercadopago";
+import { settleMpHold } from "@/lib/mpBookings";
 import { DEMO } from "@/lib/demo/flag";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { dbErrorResponse } from "@/lib/apiError";
@@ -82,45 +82,17 @@ export async function POST(req: Request) {
       // and reconcile it to CONFIRMED/PAID right here if it hasn't been
       // already — this makes every visitor's browsing traffic double as a
       // lazy poll, closing the gap even without the webhook configured.
+      // settleMpHold confirma (con correos) los que sí se pagaron y borra
+      // los que no; si no pudo consultar a Mercado Pago, no borra nada.
       if (withMpPref.length > 0 && !DEMO) {
-        const results = await Promise.allSettled(
-          withMpPref.map(async (h: any) => {
-            const search = await mpPayment.search({ options: { external_reference: h.id } });
-            const approved = (search.results ?? []).find((p) => p.status === "approved");
-
-            if (approved) {
-              await supabaseAdmin
-                .from("bookings")
-                .update({
-                  status: "CONFIRMED",
-                  payment_status: "PAID",
-                  payment_method: "MERCADOPAGO",
-                  paid_amount: approved.transaction_amount ?? null,
-                  paid_at: approved.date_approved ?? new Date().toISOString(),
-                  mp_payment_id: String(approved.id),
-                  hold_expires_at: null,
-                })
-                .eq("id", h.id)
-                .eq("status", "HOLD");
-
-              console.warn(
-                "Expired HOLD had an approved Mercado Pago payment — reconciled to CONFIRMED/PAID:",
-                h.id
-              );
-              return null;
-            }
-
-            return h.id as string;
-          })
-        );
-
-        for (const r of results) {
-          if (r.status === "fulfilled" && r.value) {
-            deletableIds.push(r.value);
-          } else if (r.status === "rejected") {
-            console.error("hold cleanup: failed to check Mercado Pago payment status", r.reason);
+        const results = await Promise.allSettled(withMpPref.map((h: any) => settleMpHold(h.id)));
+        results.forEach((r, i) => {
+          if (r.status === "rejected") {
+            console.error("hold cleanup: failed to settle Mercado Pago HOLD", withMpPref[i].id, r.reason);
+          } else if (r.value === "confirmed") {
+            console.warn("Expired HOLD had an approved Mercado Pago payment — confirmed:", withMpPref[i].id);
           }
-        }
+        });
       }
 
       if (deletableIds.length > 0) {

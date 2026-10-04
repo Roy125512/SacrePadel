@@ -164,13 +164,27 @@ export default function ReservarClient() {
             setError("Tu pago quedó pendiente de aprobación. Te confirmaremos en cuanto se acredite.");
         } else {
             setError("El pago no se completó. Puedes intentar de nuevo.");
+            // Suelta el horario en vez de dejarlo bloqueado hasta que venza.
+            // El servidor revisa con Mercado Pago antes de borrar, así que
+            // un pago que sí entró nunca se pierde.
+            const holdToRelease = externalRef ?? pending?.booking_id;
+            if (holdToRelease) {
+            void fetch("/api/web/release-hold", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ booking_id: holdToRelease }),
+            }).catch(() => {});
+            }
         }
         return;
         }
 
         if (!externalRef || !paymentId || !pending || pending.booking_id !== externalRef) {
-        setError(
-            "Tu pago fue aprobado, pero no pudimos completar la reserva automáticamente. Escríbenos con tu comprobante de pago y lo resolvemos."
+        // Regresó en otro navegador/dispositivo (sin los datos guardados de
+        // esta pestaña). El webhook de Mercado Pago confirma la reserva y
+        // manda el correo con los datos que ya se guardaron al iniciar el pago.
+        setSuccessMsg(
+            "Tu pago fue aprobado. Tu reserva se confirmará en unos momentos y te llegará el correo de confirmación."
         );
         return;
         }
@@ -234,13 +248,15 @@ export default function ReservarClient() {
         }
     }
 
-    async function loadAvailability(nextDate = dateYMD, opts?: { silent?: boolean }) {
+    async function loadAvailability(nextDate = dateYMD, opts?: { silent?: boolean; keepMessages?: boolean }) {
         const silent = !!opts?.silent;
 
         if (!silent) {
         setLoading(true);
-        setError(null);
-        setSuccessMsg(null);
+        if (!opts?.keepMessages) {
+            setError(null);
+            setSuccessMsg(null);
+        }
         }
 
         try {
@@ -261,7 +277,9 @@ export default function ReservarClient() {
     }
 
     useEffect(() => {
-        loadAvailability(dateYMD);
+        // keepMessages: el efecto de regreso de Mercado Pago (arriba) puede
+        // haber puesto un aviso en este mismo render — no borrarlo.
+        loadAvailability(dateYMD, { keepMessages: true });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -573,10 +591,19 @@ export default function ReservarClient() {
             })
         );
 
+        // Los datos del cliente viajan con el link de pago para que el
+        // servidor los ligue a la reserva antes del checkout — así el
+        // webhook puede confirmar y mandar el correo aunque el cliente no
+        // regrese a esta página.
         const r = await fetch("/api/web/create-mp-preference", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ booking_id: holdId }),
+            body: JSON.stringify({
+            booking_id: holdId,
+            full_name: v.full_name,
+            phone: v.phone_input,
+            email: email.trim() || undefined,
+            }),
         });
 
         const json = await r.json().catch(() => ({}));

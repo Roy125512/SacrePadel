@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { WebhookSignatureValidator, InvalidWebhookSignatureError } from "mercadopago";
 import { mpPayment } from "@/lib/mercadopago";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
+import { finalizeMpBooking } from "@/lib/mpBookings";
 
 export async function POST(req: Request) {
   const url = new URL(req.url);
@@ -36,7 +35,8 @@ export async function POST(req: Request) {
   // Solo nos interesan notificaciones de pagos (la única suscripción que
   // pedimos configurar en el panel de Mercado Pago).
   const body = await req.json().catch(() => null);
-  if (body?.type && body.type !== "payment") {
+  const topic = body?.type ?? url.searchParams.get("type") ?? url.searchParams.get("topic");
+  if (topic && topic !== "payment") {
     return NextResponse.json({ received: true }, { status: 200 });
   }
 
@@ -44,8 +44,10 @@ export async function POST(req: Request) {
   try {
     payment = await mpPayment.get({ id: dataId });
   } catch (err) {
+    // 500 para que Mercado Pago reintente: si se contesta 200 aquí, un pago
+    // aprobado durante una falla momentánea nunca se confirmaría.
     console.error("MP webhook: no se pudo obtener el pago", dataId, err);
-    return NextResponse.json({ received: true }, { status: 200 });
+    return NextResponse.json({ error: "Temporary error" }, { status: 500 });
   }
 
   if (payment.status !== "approved") {
@@ -58,47 +60,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true }, { status: 200 });
   }
 
-  const { data: booking } = await supabaseAdmin
-    .from("bookings")
-    .select("id, status, payment_status, start_at, end_at")
-    .eq("id", booking_id)
-    .maybeSingle();
+  // Confirma, registra el monto realmente cobrado y manda los correos
+  // (una sola vez) — también cuando el cliente cerró el navegador y nunca
+  // regresó al sitio. Idempotente frente a reintentos de Mercado Pago.
+  const result = await finalizeMpBooking(booking_id, payment);
 
-  if (!booking) {
-    console.warn("MP webhook: reserva no encontrada para", booking_id);
-    return NextResponse.json({ received: true }, { status: 200 });
+  // Un error de base de datos sí se reporta como fallo para que Mercado
+  // Pago reintente más tarde; todo lo demás ya quedó resuelto o avisado.
+  if (!result.ok && result.reason === "db_error") {
+    return NextResponse.json({ error: "Temporary error" }, { status: 500 });
   }
 
-  // Idempotente: si ya está pagada (p. ej. la confirmó primero el propio
-  // navegador al regresar del checkout), no hay nada que hacer.
-  if (booking.payment_status === "PAID") {
-    return NextResponse.json({ received: true }, { status: 200 });
-  }
-
-  // No resucitar una reserva que recepción ya canceló — Mercado Pago puede
-  // reintentar esta notificación por varios días.
-  if (booking.status === "CANCELLED") {
-    console.warn("MP webhook: la reserva fue cancelada después del pago aprobado, se deja cancelada:", booking_id);
-    return NextResponse.json({ received: true }, { status: 200 });
-  }
-
-  const amount_mxn = computeExpectedAmountMXN(booking.start_at, booking.end_at);
-  const nowIso = new Date().toISOString();
-
-  await supabaseAdmin
-    .from("bookings")
-    .update({
-      status: "CONFIRMED",
-      payment_status: "PAID",
-      payment_method: "MERCADOPAGO",
-      paid_amount: amount_mxn,
-      paid_at: nowIso,
-      hold_expires_at: null,
-      mp_payment_id: String(payment.id),
-    })
-    .eq("id", booking_id)
-    .neq("status", "CANCELLED");
-
-  // Siempre 200 para confirmar recepción.
   return NextResponse.json({ received: true }, { status: 200 });
 }

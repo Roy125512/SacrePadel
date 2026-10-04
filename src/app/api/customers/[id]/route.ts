@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireReceptionAccess } from "@/lib/guards/reception";
 import { dbErrorResponse } from "@/lib/apiError";
-
-const TARIFF_PER_HOUR = 350;
+import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
 
 function clampInt(v: any, def: number, min: number, max: number) {
   const n = Number(v);
@@ -75,10 +74,9 @@ export async function GET(
   if (bErr) return dbErrorResponse("GET /api/customers/[id] fetch bookings", bErr);
 
   const rows = (bookings ?? []).map((b: any) => {
-    const startMs = new Date(b.start_at).getTime();
-    const endMs = new Date(b.end_at).getTime();
-    const hours = Math.max(0, (endMs - startMs) / (1000 * 60 * 60));
-    const expected_amount = Math.round(hours * TARIFF_PER_HOUR * 100) / 100;
+    // Misma tarifa que el resto del sitio (día $350 / noche $400), no un
+    // precio fijo por hora.
+    const expected_amount = computeExpectedAmountMXN(b.start_at, b.end_at);
 
     return {
       id: b.id,

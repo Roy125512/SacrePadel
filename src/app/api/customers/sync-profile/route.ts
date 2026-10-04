@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizePhone } from "@/lib/phone";
 import { dbErrorResponse } from "@/lib/apiError";
+import { resolveWebCustomer } from "@/lib/customers";
 
 
 function getBearerToken(req: NextRequest) {
@@ -58,77 +59,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { data: lastBooking, error: bErr } = await supabaseAdmin
-      .from("bookings")
-      .select("customer_id")
-      .eq("user_id", user.id)
-      .not("customer_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (bErr) return dbErrorResponse("POST /api/customers/sync-profile fetch last booking", bErr);
-
-    if (lastBooking?.customer_id) {
-      const customer_id = lastBooking.customer_id as string;
-
-      const { data: updated, error: upErr } = await supabaseAdmin
-        .from("customers")
-        .update({ full_name, birthday, player_notes, sex, division })
-        .eq("id", customer_id)
-        .select("id, full_name, phone_e164, birthday, player_notes, sex, division")
-        .single();
-
-      if (upErr) return dbErrorResponse("POST /api/customers/sync-profile update by booking", upErr);
-
-      return NextResponse.json({ ok: true, action: "updated_by_booking", customer: updated });
-    }
-
-    if (!phone_e164) {
-      return NextResponse.json(
-        { error: "No hay reserva ligada al usuario y el perfil no tiene teléfono." },
-        { status: 400 }
-      );
-    }
-
-    const { data: existing, error: cErr } = await supabaseAdmin
+    // Antes se tomaba el cliente de la última reserva del usuario o el que
+    // tuviera ese teléfono y se le sobrescribían los datos — como el
+    // teléfono del perfil no se verifica, eso permitía cambiar el nombre y
+    // datos de otra persona. resolveWebCustomer solo sobrescribe el
+    // registro propio de la cuenta; uno encontrado por teléfono solo se
+    // completa en campos vacíos.
+    const { data: owned } = await supabaseAdmin
       .from("customers")
       .select("id")
-      .eq("phone_e164", phone_e164)
+      .eq("user_id", user.id)
       .maybeSingle();
 
-    if (cErr) return dbErrorResponse("POST /api/customers/sync-profile find by phone", cErr);
-
-    if (existing?.id) {
-      const { data: updated, error: upErr } = await supabaseAdmin
-        .from("customers")
-        .update({ full_name, birthday, player_notes, sex, division })
-        .eq("id", existing.id)
-        .select("id, full_name, phone_e164, birthday, player_notes, sex, division")
-        .single();
-
-      if (upErr) return dbErrorResponse("POST /api/customers/sync-profile update by phone", upErr);
-
-      return NextResponse.json({ ok: true, action: "updated_by_phone", customer: updated });
+    if (!owned && !phone_e164) {
+      return NextResponse.json({ ok: true, action: "skipped_no_phone" }, { status: 200 });
     }
 
-    const { data: created, error: insErr } = await supabaseAdmin
-      .from("customers")
-      .insert({
-        full_name,
-        phone_e164, // ✅ ya normalizado a E.164
-        birthday,
-        player_notes,
-        sex,
-        division,
-        is_active: true,
-      })
-      .select("id, full_name, phone_e164, birthday, player_notes, sex, division")
-      .single();
+    const resolved = await resolveWebCustomer(
+      { full_name, phone_e164: phone_e164 || null, email: user.email ?? null, birthday, player_notes, sex, division },
+      user.id
+    );
+    if ("error" in resolved) return dbErrorResponse("POST /api/customers/sync-profile resolve", resolved.error);
 
-    if (insErr) return dbErrorResponse("POST /api/customers/sync-profile insert", insErr);
-
-    return NextResponse.json({ ok: true, action: "inserted", customer: created }, { status: 201 });
+    return NextResponse.json({ ok: true, action: owned ? "updated" : "linked_or_created", customer: { id: resolved.id } });
   } catch (e: any) {
     return dbErrorResponse("POST /api/customers/sync-profile", e);
   }
