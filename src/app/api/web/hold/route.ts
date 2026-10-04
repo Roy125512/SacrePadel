@@ -8,7 +8,7 @@ import { MAX_BOOKING_MINUTES } from "@/lib/config";
 
 export async function POST(req: Request) {
   try {
-    const rl = rateLimit(`hold:${clientIp(req)}`, 20, 60_000);
+    const rl = await rateLimit(`hold:${clientIp(req)}`, 20, 60_000);
     if (!rl.ok) {
       return NextResponse.json(
         { error: "Demasiadas solicitudes. Espera unos segundos e intenta de nuevo." },

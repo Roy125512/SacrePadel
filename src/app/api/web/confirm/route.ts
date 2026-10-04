@@ -19,6 +19,8 @@ type ConfirmBody = {
   mp_payment_id?: string; // requerido cuando payment_method === "MERCADOPAGO"
 };
 
+const MAX_UNPAID_WEB_BOOKINGS_PER_CUSTOMER = 2;
+
 function isValidEmail(e: string) {
   const s = (e ?? "").trim();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
@@ -26,7 +28,7 @@ function isValidEmail(e: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const rl = rateLimit(`confirm:${clientIp(req)}`, 10, 60_000);
+    const rl = await rateLimit(`confirm:${clientIp(req)}`, 10, 60_000);
     if (!rl.ok) {
       return NextResponse.json(
         { error: "Demasiadas solicitudes. Espera unos segundos e intenta de nuevo." },
@@ -146,6 +148,16 @@ export async function POST(req: NextRequest) {
     }
 
     // ===== Pago en recepción =====
+    // Además del tope por teléfono (abajo), un límite por IP más largo: sin
+    // él, se podría llenar la agenda cambiando de número en cada reserva.
+    const rlHour = await rateLimit(`confirm-reception:${clientIp(req)}`, 6, 60 * 60_000);
+    if (!rlHour.ok) {
+      return NextResponse.json(
+        { error: "Hiciste muchas reservas seguidas. Si necesitas más, escríbenos por WhatsApp." },
+        { status: 429 }
+      );
+    }
+
     if (!booking) return NextResponse.json({ error: "HOLD no encontrado" }, { status: 404 });
     if (booking.source !== "WEB") return NextResponse.json({ error: "Esta reserva no es de WEB" }, { status: 409 });
     if (booking.status !== "HOLD") {
@@ -175,6 +187,28 @@ export async function POST(req: NextRequest) {
       user?.id ?? null
     );
     if ("error" in customer) return dbErrorResponse("POST /api/web/confirm resolve customer", customer.error);
+
+    // Tope anti-abuso: "pagar en recepción" no requiere cuenta ni pago, así
+    // que un mismo teléfono solo puede tener unas cuantas reservas web
+    // futuras sin pagar. Quien necesite más, paga en línea o llama al club.
+    const { count: unpaidUpcoming, error: capErr } = await supabaseAdmin
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", customer.id)
+      .eq("source", "WEB")
+      .eq("status", "CONFIRMED")
+      .eq("payment_status", "UNPAID")
+      .gt("start_at", new Date().toISOString());
+
+    if (capErr) return dbErrorResponse("POST /api/web/confirm unpaid cap", capErr);
+    if ((unpaidUpcoming ?? 0) >= MAX_UNPAID_WEB_BOOKINGS_PER_CUSTOMER) {
+      return NextResponse.json(
+        {
+          error: `Ya tienes ${unpaidUpcoming} reservas pendientes de pago en recepción. Para apartar otra, paga en línea o escríbenos por WhatsApp.`,
+        },
+        { status: 409 }
+      );
+    }
 
     const { data: confirmed, error: confirmErr } = await supabaseAdmin
       .from("bookings")

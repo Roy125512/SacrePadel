@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BUSINESS_TZ_OFFSET } from "@/lib/config";
@@ -458,6 +458,23 @@ export default function ReservarClient() {
     }, [durationMin, modalOpen, holdId, selected?.start_at]);
 
 
+    // Si el cliente cierra la pestaña (o navega a otro lado) con el modal
+    // abierto, se suelta el apartado en vez de dejar la cancha bloqueada
+    // hasta que venza. sendBeacon sí alcanza a salir mientras la página se
+    // descarga. Excepción: la redirección al checkout de Mercado Pago, donde
+    // el apartado debe seguir vivo.
+    const leavingForPaymentRef = useRef(false);
+    useEffect(() => {
+        if (!modalOpen || !holdId) return;
+        const onPageHide = () => {
+        if (leavingForPaymentRef.current) return;
+        const blob = new Blob([JSON.stringify({ booking_id: holdId })], { type: "application/json" });
+        navigator.sendBeacon?.("/api/web/release-hold", blob);
+        };
+        window.addEventListener("pagehide", onPageHide);
+        return () => window.removeEventListener("pagehide", onPageHide);
+    }, [modalOpen, holdId]);
+
     async function cancelHoldAndClose() {
         setSaving(true);
         setError(null);
@@ -613,6 +630,7 @@ export default function ReservarClient() {
             return;
         }
 
+        leavingForPaymentRef.current = true;
         window.location.href = json.init_point;
         } catch (e: any) {
         setMpError(e?.message ?? "Error al iniciar el pago.");

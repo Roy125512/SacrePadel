@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireReceptionAccess } from "@/lib/guards/reception";
 import { BUSINESS_TZ_OFFSET } from "@/lib/config";
 import { dbErrorResponse } from "@/lib/apiError";
+import { fetchAllRows } from "@/lib/fetchAll";
 
 
 export async function GET(req: Request) {
@@ -34,6 +35,11 @@ export async function GET(req: Request) {
 
   const windowStart = isRange ? start! : date!;
   const windowEnd = isRange ? end! : date!;
+
+  const YMD = /^\d{4}-\d{2}-\d{2}$/;
+  if (!YMD.test(windowStart) || !YMD.test(windowEnd)) {
+    return NextResponse.json({ error: "Las fechas deben tener formato YYYY-MM-DD." }, { status: 400 });
+  }
 
   // El rol "reception" (recepcionista, acceso restringido) solo puede
   // consultar un día a la vez — nunca un rango — para no exponer
@@ -68,70 +74,19 @@ export async function GET(req: Request) {
     customers:customer_id ( id, full_name, phone_e164 )
   `;
 
-  let res: any = await supabaseAdmin
-    .from("bookings")
-    .select(selectFull)
-    .lt("start_at", dayEndIso)
-    .gt("end_at", dayStartIso)
-    .or("status.neq.CANCELLED,and(status.eq.CANCELLED,cancelled_by.eq.RECEPTION)")
-    .order("start_at", { ascending: true });
-
-  // Fallback si created_by_name y/o cancelled_by aún no existen en la BD
-  // (migración no corrida todavía) — se van quitando una por una del select.
-  if (res.error && String(res.error.message).toLowerCase().includes("created_by_name")) {
-    const selectNoCreatedBy = `
-      id,
-      court_id,
-      start_at,
-      end_at,
-      status,
-      source,
-      kind,
-      payment_status,
-      paid_amount,
-      payment_method,
-      paid_at,
-      customer_id,
-      cancelled_by,
-      courts ( name ),
-      customers:customer_id ( id, full_name, phone_e164 )
-    `;
-
-    res = await supabaseAdmin
+  // Paginado: con rangos largos (dashboard del dueño) hay más de las 1000
+  // filas que Supabase regresa por consulta, y el resto se perdía sin aviso.
+  const res = await fetchAllRows<any>((from, to) =>
+    supabaseAdmin
       .from("bookings")
-      .select(selectNoCreatedBy)
+      .select(selectFull)
       .lt("start_at", dayEndIso)
       .gt("end_at", dayStartIso)
       .or("status.neq.CANCELLED,and(status.eq.CANCELLED,cancelled_by.eq.RECEPTION)")
-      .order("start_at", { ascending: true });
-  }
-
-  if (res.error && String(res.error.message).toLowerCase().includes("cancelled_by")) {
-    const selectNoCancelledBy = `
-      id,
-      court_id,
-      start_at,
-      end_at,
-      status,
-      source,
-      kind,
-      payment_status,
-      paid_amount,
-      payment_method,
-      paid_at,
-      customer_id,
-      courts ( name ),
-      customers:customer_id ( id, full_name, phone_e164 )
-    `;
-
-    res = await supabaseAdmin
-      .from("bookings")
-      .select(selectNoCancelledBy)
-      .lt("start_at", dayEndIso)
-      .gt("end_at", dayStartIso)
-      .neq("status", "CANCELLED")
-      .order("start_at", { ascending: true });
-  }
+      .order("start_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
   if (res.error) {
     return dbErrorResponse("GET /api/reception/bookings", res.error);

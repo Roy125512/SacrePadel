@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireReceptionAccess } from "@/lib/guards/reception";
+import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
 
 
 const BodySchema = z.object({
@@ -26,6 +27,31 @@ export async function POST(req: Request) {
 
   const { booking_id, paid_amount, payment_method } = parsed.data;
   const nowIso = new Date().toISOString();
+
+  // Tope contra errores de dedo (p. ej. 35000 en vez de 350), que inflaban
+  // los ingresos del reporte. Se permite hasta el doble del precio para
+  // cubrir extras cobrados junto con la cancha (renta de palas, etc.).
+  const { data: priced, error: priceErr } = await supabaseAdmin
+    .from("bookings")
+    .select("start_at, end_at")
+    .eq("id", booking_id)
+    .maybeSingle();
+  if (priceErr) {
+    console.error("POST /api/reception/pay fetch booking", priceErr);
+    return NextResponse.json({ error: "No se pudo registrar el pago." }, { status: 500 });
+  }
+  if (!priced) return NextResponse.json({ error: "Reserva no encontrada." }, { status: 404 });
+
+  const expected = computeExpectedAmountMXN(priced.start_at, priced.end_at);
+  const maxAllowed = expected * 2;
+  if (paid_amount > maxAllowed) {
+    return NextResponse.json(
+      {
+        error: `El monto ($${paid_amount}) es mucho mayor al precio de la reserva ($${expected}). Revisa la cantidad; el máximo permitido es $${maxAllowed}.`,
+      },
+      { status: 400 }
+    );
+  }
 
   // ✅ UPDATE atómico: solo cobra si está CONFIRMED/COMPLETED + UNPAID
   const { data: updated, error: updErr } = await supabaseAdmin

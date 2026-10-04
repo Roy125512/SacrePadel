@@ -368,6 +368,10 @@ class FakeQuery {
     return this;
   }
   order(c: string, opts?: { ascending?: boolean }) {
+    // El fake solo soporta una columna de orden: se queda con la primera
+    // (la principal), igual que supabase-js usa las siguientes solo para
+    // desempatar.
+    if (this.orderSpec) return this;
     this.orderSpec = { c, asc: opts?.ascending !== false };
     return this;
   }

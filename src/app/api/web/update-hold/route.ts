@@ -8,7 +8,7 @@ import { MAX_BOOKING_MINUTES } from "@/lib/config";
 // Si hay conflicto por overlap (exclusion constraint), debe regresar 409.
 
 export async function POST(req: Request) {
-  const rl = rateLimit(`update-hold:${clientIp(req)}`, 20, 60_000);
+  const rl = await rateLimit(`update-hold:${clientIp(req)}`, 20, 60_000);
   if (!rl.ok) {
     return NextResponse.json(
       { error: "Demasiadas solicitudes. Espera unos segundos e intenta de nuevo." },

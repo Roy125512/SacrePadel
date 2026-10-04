@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireReceptionAccess } from "@/lib/guards/reception";
 import { BUSINESS_TZ_OFFSET } from "@/lib/config";
 import { dbErrorResponse } from "@/lib/apiError";
+import { fetchAllRows } from "@/lib/fetchAll";
 import { DEFAULT_COURTS, OPEN_HOUR, CLOSE_HOUR, hoursBetween } from "@/lib/reception/utils";
 
 const MONTH_LABELS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -37,12 +38,19 @@ export async function GET(req: Request) {
         const nextYear = month === 12 ? year + 1 : year;
         const endIso = `${nextYear}-${String(nextMonth).padStart(2, "0")}-01T00:00:00${BUSINESS_TZ_OFFSET}`;
 
-        const { data, error } = await supabaseAdmin
-          .from("bookings")
-          .select("start_at, end_at, status, payment_status, paid_amount")
-          .gte("start_at", startIso)
-          .lt("start_at", endIso)
-          .neq("status", "CANCELLED");
+        // Paginado: un mes lleno puede pasar de las 1000 filas que regresa
+        // Supabase por consulta (antes el resto se perdía sin aviso).
+        const { data, error } = await fetchAllRows<any>((from, to) =>
+          supabaseAdmin
+            .from("bookings")
+            .select("id, start_at, end_at, status, payment_status, paid_amount")
+            .gte("start_at", startIso)
+            .lt("start_at", endIso)
+            .neq("status", "CANCELLED")
+            .order("start_at", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to)
+        );
 
         if (error) throw error;
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireReceptionAccess } from "@/lib/guards/reception";
-import { BUSINESS_TZ_OFFSET } from "@/lib/config";
+import { BUSINESS_TZ_OFFSET, MAX_BOOKING_MINUTES } from "@/lib/config";
 import { toIsoAt } from "@/lib/availability";
 import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
 import { normalizePhoneToE164 } from "@/lib/phone";
@@ -39,12 +39,36 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "El nombre del cliente es obligatorio." }, { status: 400 });
   }
 
-  const [hh, mm] = start_time.split(":").map((x) => Number(x));
-  if (!Number.isFinite(hh) || !Number.isFinite(mm)) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return NextResponse.json({ error: "Fecha inválida." }, { status: 400 });
+  }
+
+  const timeMatch = /^(\d{2}):(\d{2})$/.exec(start_time);
+  const hh = timeMatch ? Number(timeMatch[1]) : NaN;
+  const mm = timeMatch ? Number(timeMatch[2]) : NaN;
+  if (!timeMatch || hh > 23 || mm > 59) {
     return NextResponse.json({ error: "Hora inválida." }, { status: 400 });
   }
 
+  // Misma duración máxima que el sitio público; múltiplos de 30 min como
+  // la cuadrícula de horarios. Antes se aceptaba cualquier número (p. ej.
+  // una reserva de 10 horas por un error de captura).
+  if (
+    !Number.isInteger(duration_minutes) ||
+    duration_minutes < 30 ||
+    duration_minutes > MAX_BOOKING_MINUTES ||
+    duration_minutes % 30 !== 0
+  ) {
+    return NextResponse.json(
+      { error: `La duración debe ser de 30 a ${MAX_BOOKING_MINUTES} minutos, en bloques de 30.` },
+      { status: 400 }
+    );
+  }
+
   const startMinutes = hh * 60 + mm;
+  if (startMinutes + duration_minutes > 24 * 60) {
+    return NextResponse.json({ error: "La reserva no puede pasar de la medianoche." }, { status: 400 });
+  }
   // A propósito SIN validar que la hora ya haya pasado — a diferencia del
   // sitio público, recepción registra reservas de clientes que están ahí
   // mismo (llamando o presentes), incluido "ahora mismo" o unos minutos
