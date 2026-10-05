@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ booking: data }, { status: 201 });
-  } catch (e: any) {
+  } catch (e) {
     return dbErrorResponse("POST /api/web/hold", e);
   }
 }

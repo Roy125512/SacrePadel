@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
       { booking: confirmed, tolerance_minutes: TOLERANCE_MINUTES, ...emails },
       { status: 200 }
     );
-  } catch (e: any) {
+  } catch (e) {
     return dbErrorResponse("POST /api/web/confirm", e);
   }
 }

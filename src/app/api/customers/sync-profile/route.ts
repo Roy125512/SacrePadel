@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     if ("error" in resolved) return dbErrorResponse("POST /api/customers/sync-profile resolve", resolved.error);
 
     return NextResponse.json({ ok: true, action: owned ? "updated" : "linked_or_created", customer: { id: resolved.id } });
-  } catch (e: any) {
+  } catch (e) {
     return dbErrorResponse("POST /api/customers/sync-profile", e);
   }
 }

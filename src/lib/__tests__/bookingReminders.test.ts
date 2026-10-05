@@ -3,6 +3,8 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 // Base de datos en memoria del modo demo + envío de correo simulado.
 vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
 
+// El parámetro solo tipa las llamadas que se revisan en los tests.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const sendEmail = vi.fn(async (_args: { to: string; subject: string }) => ({ ok: true as const }));
 vi.mock("@/lib/mailer", () => ({ sendEmail: (args: any) => sendEmail(args) }));
 

@@ -6,6 +6,7 @@ import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { normalizePhone as normalizePhoneLib } from "@/lib/phone";
 import { User, Phone, Cake, Users, Trophy, MessageSquare, Check } from "lucide-react";
 import LoadingRacket from "@/components/LoadingRacket";
+import { errorMessage } from "@/lib/errors";
 
 type ProfileRow = {
   id: string;
@@ -159,8 +160,8 @@ export default function ProfilePage() {
       setSyncing(true);
       await syncCustomerFromProfile();
       setOkMsg("¡Listo! Tu perfil está guardado y sincronizado.");
-    } catch (e: any) {
-      setError(e?.message ?? "Error guardando");
+    } catch (e) {
+      setError(errorMessage(e, "Error guardando"));
     } finally {
       setSyncing(false);
       setSaving(false);

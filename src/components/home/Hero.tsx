@@ -42,7 +42,7 @@ export default function Hero() {
       if (user) void loadProfile(user.id, user.email ?? null);
     })();
 
-    const { data: sub } = supabaseBrowser.auth.onAuthStateChange((_event: string, session: any) => {
+    const { data: sub } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
       setHasSession(!!session?.user);
       if (session?.user) void loadProfile(session.user.id, session.user.email ?? null);
       else {

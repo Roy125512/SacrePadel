@@ -29,7 +29,7 @@ export default function ForgotPasswordPage() {
 
       if (error) throw error;
       setDone(true);
-    } catch (err: any) {
+    } catch (err) {
       setError(friendlyAuthError(err));
     } finally {
       setSending(false);

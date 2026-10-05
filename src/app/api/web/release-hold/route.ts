@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     if (!data) return NextResponse.json({ ok: true, released: false }, { status: 200 });
 
     return NextResponse.json({ ok: true, released: true }, { status: 200 });
-  } catch (e: any) {
+  } catch (e) {
     return dbErrorResponse("POST /api/web/release-hold", e);
   }
 }

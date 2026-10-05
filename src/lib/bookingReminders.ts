@@ -32,7 +32,7 @@ export async function sendTomorrowReminders(now = new Date()): Promise<ReminderS
   const dayStart = `${date}T00:00:00${BUSINESS_TZ_OFFSET}`;
   const dayEnd = `${addDaysToYMD(date, 1)}T00:00:00${BUSINESS_TZ_OFFSET}`;
 
-  const { data, error } = await fetchAllRows<any>((from, to) =>
+  const { data, error } = await fetchAllRows((from, to) =>
     supabaseAdmin
       .from("bookings")
       .select(

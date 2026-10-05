@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Booking, PaymentMethod } from "@/lib/reception/types";
 import { parseISOToLocalTime } from "@/lib/reception/utils";
+import { errorMessage } from "@/lib/errors";
 
 /** Registrar el cobro de una reserva en recepción. */
 export default function ChargeModal({
@@ -35,8 +36,8 @@ export default function ChargeModal({
       const body = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(body?.error ?? "Error al cobrar");
       await onPaid();
-    } catch (e: any) {
-      setError(e?.message ?? "Error");
+    } catch (e) {
+      setError(errorMessage(e, "Error"));
     } finally {
       setChargeSaving(false);
     }

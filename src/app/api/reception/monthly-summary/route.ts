@@ -44,7 +44,7 @@ export async function GET(req: Request) {
 
         // Paginado: un mes lleno puede pasar de las 1000 filas que regresa
         // Supabase por consulta (antes el resto se perdía sin aviso).
-        const { data, error } = await fetchAllRows<any>((from, to) =>
+        const { data, error } = await fetchAllRows((from, to) =>
           supabaseAdmin
             .from("bookings")
             .select("id, start_at, end_at, status, payment_status, paid_amount")
@@ -85,7 +85,7 @@ export async function GET(req: Request) {
     );
 
     return NextResponse.json({ year, months }, { status: 200 });
-  } catch (e: any) {
+  } catch (e) {
     return dbErrorResponse("GET /api/reception/monthly-summary", e);
   }
 }

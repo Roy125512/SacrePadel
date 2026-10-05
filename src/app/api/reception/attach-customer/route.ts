@@ -36,8 +36,8 @@ export async function POST(req: Request) {
       booking: {
         id: data.id,
         customer_id: data.customer_id,
-        customer_name: (data as any).customers?.full_name ?? null,
-        customer_phone: (data as any).customers?.phone_e164 ?? null,
+        customer_name: data.customers?.full_name ?? null,
+        customer_phone: data.customers?.phone_e164 ?? null,
       },
     },
     { status: 200 }

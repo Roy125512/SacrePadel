@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Booking } from "@/lib/reception/types";
 import { parseISOToLocalTime } from "@/lib/reception/utils";
+import { errorMessage } from "@/lib/errors";
 
 /** Ligar (o cambiar) el cliente de una reserva: lo busca por teléfono o lo crea. */
 export default function AssignCustomerModal({
@@ -43,8 +44,8 @@ export default function AssignCustomerModal({
       if (!r2.ok) throw new Error(body2?.error ?? "Error al asignar cliente");
 
       await onAssigned();
-    } catch (e: any) {
-      setError(e?.message ?? "Error");
+    } catch (e) {
+      setError(errorMessage(e, "Error"));
     } finally {
       setAssignSaving(false);
     }

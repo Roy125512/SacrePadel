@@ -1,9 +1,10 @@
+import { errorMessage } from "@/lib/errors";
 export class ValidationError extends Error {}
 
-export function friendlyAuthError(e: any): string {
+export function friendlyAuthError(e: unknown): string {
   if (e instanceof ValidationError) return e.message;
 
-  const msg = String(e?.message ?? "").toLowerCase();
+  const msg = String(errorMessage(e, "")).toLowerCase();
 
   if (e instanceof TypeError || msg.includes("failed to fetch") || msg.includes("network"))
     return "No se pudo conectar. Revisa tu conexión a internet e intenta de nuevo.";

@@ -11,7 +11,7 @@ export async function GET() {
   try {
     const courts = await fetchActiveCourts(supabaseAdmin);
     return NextResponse.json({ courts }, { status: 200 });
-  } catch (e: any) {
+  } catch (e) {
     return dbErrorResponse("GET /api/reception/courts", e);
   }
 }

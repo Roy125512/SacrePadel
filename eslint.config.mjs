@@ -6,12 +6,13 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    // El modo demo es una base de datos falsa genérica (cualquier tabla,
+    // cualquier columna) y los tests arman filas a mano: ahí `any` es lo
+    // honesto. En el resto del código los resultados de Supabase están
+    // tipados con src/lib/database.types.ts.
+    files: ["src/lib/demo/**", "src/**/__tests__/**"],
     rules: {
-      // Hay ~120 `any`, casi todos en resultados de Supabase sin tipar. Se
-      // dejan como aviso (no error) para que `npm run lint` sirva como
-      // filtro de bugs reales; la solución de fondo es generar los tipos
-      // de la base de datos (`supabase gen types typescript`).
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
   // Override default ignores of eslint-config-next.

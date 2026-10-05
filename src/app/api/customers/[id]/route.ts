@@ -3,8 +3,9 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireReceptionAccess } from "@/lib/guards/reception";
 import { dbErrorResponse } from "@/lib/apiError";
 import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
+import type { TablesUpdate } from "@/lib/database.types";
 
-function clampInt(v: any, def: number, min: number, max: number) {
+function clampInt(v: unknown, def: number, min: number, max: number) {
   const n = Number(v);
   if (!Number.isFinite(n)) return def;
   return Math.max(min, Math.min(max, Math.trunc(n)));
@@ -73,7 +74,7 @@ export async function GET(
 
   if (bErr) return dbErrorResponse("GET /api/customers/[id] fetch bookings", bErr);
 
-  const rows = (bookings ?? []).map((b: any) => {
+  const rows = (bookings ?? []).map((b) => {
     // Misma tarifa que el resto del sitio (día $350 / noche $400), no un
     // precio fijo por hora.
     const expected_amount = computeExpectedAmountMXN(b.start_at, b.end_at);
@@ -173,7 +174,7 @@ export async function PATCH(
 
   const is_active = typeof body.is_active === "boolean" ? body.is_active : undefined;
 
-  const patch: any = {};
+  const patch: TablesUpdate<"customers"> = {};
   if (notes !== undefined) patch.notes = notes || null;
   if (birthday !== undefined) patch.birthday = birthday;
   if (player_notes !== undefined) patch.player_notes = player_notes || null;

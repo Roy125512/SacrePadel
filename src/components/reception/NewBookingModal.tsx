@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toYMDLocal } from "@/lib/reception/utils";
 import { hhmmInBusinessTZ } from "@/lib/businessTime";
+import { errorMessage } from "@/lib/errors";
 
 // Cuánto tiempo después de la hora de inicio se sigue dejando elegir ese
 // horario en "Nueva reserva" — un cliente que llega unos minutos tarde no
@@ -97,8 +98,8 @@ export default function NewBookingModal({
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j?.error ?? "No se pudo crear la reserva.");
       await onCreated();
-    } catch (e: any) {
-      setNbError(e?.message ?? "No se pudo crear la reserva.");
+    } catch (e) {
+      setNbError(errorMessage(e, "No se pudo crear la reserva."));
     } finally {
       setNbSaving(false);
     }

@@ -32,6 +32,7 @@ import { AreaTrendChart, CategoryBarChart, DonutChart, HBarList, HourlyBarChart 
 import { IconButton } from "@/components/reception/ui";
 import { useActiveCourtCount } from "@/lib/reception/hooks";
 import { hourInBusinessTZ, weekdayInBusinessTZ, weekdayOfYMD } from "@/lib/businessTime";
+import { errorMessage } from "@/lib/errors";
 
 const WEEKDAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 // Lunes primero — así se lee como una semana normal, no empezando en domingo.
@@ -53,7 +54,7 @@ async function fetchBookings(start: string, end: string): Promise<Booking[]> {
     cache: "no-store",
   });
   const text = await r.text();
-  let body: any = null;
+  let body: { error?: string } & Partial<ApiResponse> | null = null;
   try {
     body = text ? JSON.parse(text) : null;
   } catch {
@@ -178,8 +179,8 @@ export default function ReceptionDashboard() {
       setRange({ start, end });
       setRows(current);
       setPrevRows(previous);
-    } catch (e: any) {
-      setError(e?.message ?? "Error al cargar el dashboard");
+    } catch (e) {
+      setError(errorMessage(e, "Error al cargar el dashboard"));
       setRows([]);
       setPrevRows([]);
     } finally {
@@ -198,8 +199,8 @@ export default function ReceptionDashboard() {
       setRange({ start: d, end: d });
       setRows(current);
       setPrevRows(previous);
-    } catch (e: any) {
-      setError(e?.message ?? "Error al cargar el dashboard");
+    } catch (e) {
+      setError(errorMessage(e, "Error al cargar el dashboard"));
       setRows([]);
       setPrevRows([]);
     } finally {
@@ -231,9 +232,9 @@ export default function ReceptionDashboard() {
         if (!r.ok) throw new Error(body?.error ?? `Error ${r.status}`);
         if (!cancelled) setMonthlySummary(body?.months ?? []);
       })
-      .catch((e: any) => {
+      .catch((e) => {
         if (!cancelled) {
-          setMonthlyError(e?.message ?? "No se pudo cargar la línea de tiempo anual");
+          setMonthlyError(errorMessage(e, "No se pudo cargar la línea de tiempo anual"));
           setMonthlySummary([]);
         }
       })

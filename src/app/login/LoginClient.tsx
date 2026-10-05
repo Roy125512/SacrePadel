@@ -85,7 +85,7 @@ export default function LoginClient() {
         router.refresh();
         return;
       }
-    } catch (e: any) {
+    } catch (e) {
       setError(friendlyAuthError(e));
     } finally {
       setSending(false);
@@ -113,7 +113,7 @@ export default function LoginClient() {
       if (err) throw err;
 
       setOk("Listo. Te reenvié el correo de confirmación. Revisa inbox y spam.");
-    } catch (e: any) {
+    } catch (e) {
       setError(friendlyAuthError(e));
     } finally {
       setSending(false);

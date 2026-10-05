@@ -75,7 +75,7 @@ export async function fetchBlockingBookings(
   if (error) throw new Error(error.message);
 
   // HOLD solo bloquea si no expiró
-  const blockers = (data ?? []).filter((b: any) => {
+  const blockers = (data ?? []).filter((b) => {
     if (b.status === "HOLD") {
       if (!b.hold_expires_at) return true;
       return new Date(b.hold_expires_at).getTime() > nowMs;

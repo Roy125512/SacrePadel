@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 import { DEMO } from "@/lib/demo/flag";
 import { makeServerClient } from "@/lib/demo/serverClient";
 
@@ -8,7 +10,7 @@ import { makeServerClient } from "@/lib/demo/serverClient";
  * En Server Components no se pueden escribir cookies (Next lanza error):
  * por eso el try/catch — ahí el refresco de sesión lo hace src/proxy.ts.
  */
-export async function createClient() {
+export async function createClient(): Promise<SupabaseClient<Database>> {
   const cookieStore = await cookies();
 
   if (DEMO) {
@@ -34,7 +36,7 @@ export async function createClient() {
     throw new Error("Faltan NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local");
   }
 
-  return createServerClient(url, anon, {
+  return createServerClient<Database>(url, anon, {
     cookies: {
       getAll() {
         return cookieStore.getAll();

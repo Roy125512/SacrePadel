@@ -72,7 +72,7 @@ export async function GET(req: Request) {
       },
       { status: 200 }
     );
-  } catch (e: any) {
+  } catch (e) {
     return dbErrorResponse("GET /api/web/availability", e);
   }
 }

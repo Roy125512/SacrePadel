@@ -56,7 +56,7 @@ export default function ReservarButton({
       setChecking(false);
     })();
 
-    const { data: sub } = supabaseBrowser.auth.onAuthStateChange((_event: string, session: any) => {
+    const { data: sub } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
       setHasSession(!!session?.user);
     });
 

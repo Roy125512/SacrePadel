@@ -53,7 +53,7 @@ export default function AppHeader() {
         .maybeSingle();
 
       if (error) throw error;
-      setRole((data?.role ?? null) as any);
+      setRole(data?.role ?? null);
     } catch {
       // Si falla por RLS o red, no rompemos el header.
       setRole(null);
@@ -77,7 +77,7 @@ export default function AppHeader() {
       }
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setLoggedIn(Boolean(session));
       if (session?.user?.id) loadRole(session.user.id);
       else setRole(null);

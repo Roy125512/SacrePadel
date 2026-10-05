@@ -70,7 +70,7 @@ export async function sendBookingConfirmationEmails(
     return { email_to: to, email_sent: !!(to && b?.confirmation_email_sent_at), email_error: null };
   }
 
-  const b = claimed as any;
+  const b = claimed;
   const courtName = String(b.courts?.name ?? "Cancha");
   const fullName = opts?.displayName?.trim() || String(b.customers?.full_name ?? "").trim() || "Cliente";
   const phone = String(b.customers?.phone_e164 ?? "");

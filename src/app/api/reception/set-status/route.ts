@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });
-  } catch (e: any) {
+  } catch (e) {
     return dbErrorResponse("POST /api/reception/set-status", e);
   }
 }

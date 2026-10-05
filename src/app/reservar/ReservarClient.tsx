@@ -19,6 +19,7 @@ import {
 import CourtGrid from "./CourtGrid";
 import BookingModal from "./BookingModal";
 import BookingSuccessModal from "./BookingSuccessModal";
+import { errorMessage } from "@/lib/errors";
 
 // Checkout Pro redirects the browser away to Mercado Pago and back, so
 // there's no embedded payment form/component to lazy-load here anymore
@@ -177,8 +178,8 @@ export default function ReservarClient() {
         sessionStorage.removeItem(MP_PENDING_KEY);
         setEmailInfo({
             sent: !!json?.email_sent,
-            to: (json?.email_to ?? null) as any,
-            error: (json?.email_error ?? null) as any,
+            to: (json?.email_to ?? null) as string | null,
+            error: (json?.email_error ?? null) as string | null,
         });
         setConfirmedBooking({
             fullName: pending.full_name,
@@ -215,8 +216,8 @@ export default function ReservarClient() {
             return;
         }
         setData(json as AvailabilityResponse);
-        } catch (e: any) {
-        if (!silent) setError(e?.message ?? "Error desconocido");
+        } catch (e) {
+        if (!silent) setError(errorMessage(e, "Error desconocido"));
         } finally {
         if (!silent) setLoading(false);
         }
@@ -358,8 +359,8 @@ export default function ReservarClient() {
         }
 
         setHoldId(String(jHold?.booking?.id ?? ""));
-        } catch (e: any) {
-        setError(e?.message ?? "No se pudo crear el HOLD");
+        } catch (e) {
+        setError(errorMessage(e, "No se pudo crear el HOLD"));
         setModalOpen(false);
         setSelected(null);
         }
@@ -390,9 +391,9 @@ export default function ReservarClient() {
             setError(j?.error ?? `Error ${r.status}`);
             if (durationMin !== 60) setDurationMin(60);
             }
-        } catch (e: any) {
-            if (e?.name === "AbortError") return;
-            setError(e?.message ?? "No se pudo ajustar el HOLD");
+        } catch (e) {
+            if (e instanceof Error && e.name === "AbortError") return;
+            setError(errorMessage(e, "No se pudo ajustar el HOLD"));
         }
         }, 250);
 
@@ -517,8 +518,8 @@ export default function ReservarClient() {
 
         setEmailInfo({
             sent: !!json?.email_sent,
-            to: (json?.email_to ?? null) as any,
-            error: (json?.email_error ?? null) as any,
+            to: (json?.email_to ?? null) as string | null,
+            error: (json?.email_error ?? null) as string | null,
         });
         setToleranceOpen(true);
         setSuccessMsg("Reserva confirmada. Tu pago se realiza en recepcion.");
@@ -578,8 +579,8 @@ export default function ReservarClient() {
 
         leavingForPaymentRef.current = true;
         window.location.href = json.init_point;
-        } catch (e: any) {
-        setMpError(e?.message ?? "Error al iniciar el pago.");
+        } catch (e) {
+        setMpError(errorMessage(e, "Error al iniciar el pago."));
         sessionStorage.removeItem(MP_PENDING_KEY);
         } finally {
         setMpLoading(false);

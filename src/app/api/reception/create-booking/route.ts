@@ -152,7 +152,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ booking: { ...booking, amount } }, { status: 201 });
-  } catch (e: any) {
+  } catch (e) {
     return dbErrorResponse("POST /api/reception/create-booking", e);
   }
 }

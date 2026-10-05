@@ -4,7 +4,7 @@ const GENERIC_MESSAGE = "Ocurrió un error interno. Intenta de nuevo en unos mom
 
 export function dbErrorResponse(
   context: string,
-  error: { message: string } | null | undefined,
+  error: unknown,
   status = 500
 ) {
   console.error(context, error);

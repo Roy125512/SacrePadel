@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/errors";
 type SendArgs = { to: string; subject: string; html: string; text?: string };
 
 function env(name: string) {
@@ -46,7 +47,7 @@ export async function sendEmail(
     });
 
     return { ok: true };
-  } catch (e: any) {
-    return { ok: false, error: e?.message ?? "Error enviando correo" };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e, "Error enviando correo") };
   }
 }

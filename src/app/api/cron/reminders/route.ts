@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     const summary = await sendTomorrowReminders();
     console.log("reminders", summary);
     return NextResponse.json(summary, { status: 200 });
-  } catch (e: any) {
+  } catch (e) {
     return dbErrorResponse("GET /api/cron/reminders", e);
   }
 }

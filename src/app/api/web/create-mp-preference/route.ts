@@ -126,7 +126,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Monto inválido." }, { status: 400 });
     }
 
-    const courtName = (booking as any).courts?.name ?? "cancha";
+    const courtName = booking.courts?.name ?? "cancha";
     const origin = new URL(req.url).origin;
     const isHttps = origin.startsWith("https://");
 
@@ -214,7 +214,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ init_point }, { status: 200 });
-  } catch (e: any) {
+  } catch (e) {
     return dbErrorResponse("POST /api/web/create-mp-preference", e);
   }
 }

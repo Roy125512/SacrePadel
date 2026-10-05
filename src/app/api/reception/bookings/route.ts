@@ -76,7 +76,7 @@ export async function GET(req: Request) {
 
   // Paginado: con rangos largos (dashboard del dueño) hay más de las 1000
   // filas que Supabase regresa por consulta, y el resto se perdía sin aviso.
-  const res = await fetchAllRows<any>((from, to) =>
+  const res = await fetchAllRows((from, to) =>
     supabaseAdmin
       .from("bookings")
       .select(selectFull)
@@ -92,7 +92,7 @@ export async function GET(req: Request) {
     return dbErrorResponse("GET /api/reception/bookings", res.error);
   }
 
-  const bookings = (res.data ?? []).map((b: any) => {
+  const bookings = res.data.map((b) => {
     const customerId = b.customers?.id ?? b.customer_id ?? null;
     return {
       id: b.id,

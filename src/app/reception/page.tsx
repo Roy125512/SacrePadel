@@ -48,6 +48,7 @@ import ChargeModal from "@/components/reception/ChargeModal";
 import AssignCustomerModal from "@/components/reception/AssignCustomerModal";
 import PlayerCardModal from "@/components/reception/PlayerCardModal";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import { errorMessage } from "@/lib/errors";
 
 /* ===================== PÁGINA ===================== */
 
@@ -191,7 +192,7 @@ export default function ReceptionPage() {
 
       // 👇 evita “Unexpected end of JSON input”
       const text = await r.text();
-      let body: any = null;
+      let body: { error?: string } & Partial<ApiResponse> | null = null;
       try {
         body = text ? JSON.parse(text) : null;
       } catch {
@@ -211,8 +212,8 @@ export default function ReceptionPage() {
       const enriched = (typed.bookings ?? []).map(enrichBooking);
 
       setRows(enriched);
-    } catch (e: any) {
-      setError(e?.message ?? "Error desconocido");
+    } catch (e) {
+      setError(errorMessage(e, "Error desconocido"));
       setRows([]);
     } finally {
       setLoading(false);
@@ -336,7 +337,7 @@ export default function ReceptionPage() {
     setSearch("");
   }
 
-  function csvEscape(v: any) {
+  function csvEscape(v: unknown) {
     if (v === null || v === undefined) return "";
     const s = String(v);
     if (/[\r\n",]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
@@ -346,7 +347,7 @@ export default function ReceptionPage() {
   // Excel (compu o celular) trata un CSV con puros dígitos/"+" como número y
   // le recorta el "+"/ceros a la izquierda o lo muestra en notación
   // científica. Envolverlo en ="..." fuerza a que se abra como texto tal cual.
-  function csvPhoneCell(v: any) {
+  function csvPhoneCell(v: unknown) {
     if (v === null || v === undefined) return "";
     const s = String(v);
     if (!s) return "";
@@ -475,8 +476,8 @@ export default function ReceptionPage() {
       a.remove();
 
       URL.revokeObjectURL(url);
-    } catch (e: any) {
-      setError(e?.message ?? "No se pudo exportar");
+    } catch (e) {
+      setError(errorMessage(e, "No se pudo exportar"));
     } finally {
       setExporting(false);
     }
@@ -511,8 +512,8 @@ export default function ReceptionPage() {
       const body = await r.json();
       if (!r.ok) throw new Error(body?.error ?? "Error al actualizar status");
       await refreshCurrent();
-    } catch (e: any) {
-      setError(e?.message ?? "Error");
+    } catch (e) {
+      setError(errorMessage(e, "Error"));
     } finally {
       setLoading(false);
     }
@@ -1095,11 +1096,11 @@ export default function ReceptionPage() {
                       <td className="px-4 py-4">{tipoLabel(b)}</td>
 
                       <td className="px-4 py-4">
-                        <Pill text={statusLabelES(b.status)} tone={statusTone as any} />
+                        <Pill text={statusLabelES(b.status)} tone={statusTone} />
                       </td>
 
                       <td className="px-4 py-4">
-                        <Pill text={pagoLabel} tone={payTone as any} />
+                        <Pill text={pagoLabel} tone={payTone} />
                       </td>
 
                       <td className="px-4 py-4">{currencyMXN(b.amount ?? 0)}</td>
@@ -1349,7 +1350,7 @@ function FilterHeader(props: {
                     type="checkbox"
                     checked={checked}
                     onChange={() => props.onToggle(opt)}
-                    style={{ accentColor: "var(--brand)" } as any}
+                    style={{ accentColor: "var(--brand)" }}
                   />
                   <span style={{ color: "rgba(30,27,24,0.85)" }}>{opt}</span>
                 </label>

@@ -43,18 +43,20 @@ Las mismas variables deben estar en Vercel (Settings → Environment Variables).
 | `npm test` | Corre las pruebas (precios, horarios, clientes, pagos…) |
 | `npm run lint` | Revisa el código |
 | `npm run build` | Compila para producción |
+| `npm run db:types` | Regenera los tipos de la base de datos (`src/lib/database.types.ts`) |
 
 Para probar sin datos reales: `NEXT_PUBLIC_DEMO_MODE=true npm run dev`. Cuentas demo: `recepcion@demo.com` (dueño) y `cliente@demo.com`, con cualquier contraseña de 8+ caracteres.
 
 ## Base de datos
 
-Las migraciones están en `migrations/` y se aplican **en orden**, a mano, en el SQL Editor de Supabase. Al agregar una nueva, aplícala en Supabase **antes** de subir el código que la usa.
+Las migraciones están en `migrations/` y se aplican **en orden**, a mano, en el SQL Editor de Supabase. Al agregar una nueva, aplícala en Supabase **antes** de subir el código que la usa, y después corre `npm run db:types` para actualizar los tipos.
 
 | Migración | Contenido |
 |---|---|
 | `000`–`007` | Esquema base, Mercado Pago, rol de solo lectura para reportes, orígenes de reservas de recepción |
 | `008` | Dueño de cada cliente (`customers.user_id`) y correo de contacto por reserva |
 | `009` | Límite de solicitudes compartido (`rate_limits`) |
+| `010` | Marca de recordatorio enviado (`bookings.reminder_sent_at`) |
 
 Acceso de solo lectura para Excel/contabilidad: ver `docs/reporting-access.md`.
 

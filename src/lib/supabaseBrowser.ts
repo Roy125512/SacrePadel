@@ -1,8 +1,12 @@
 import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 import { DEMO } from "@/lib/demo/flag";
 import { makeBrowserClient } from "@/lib/demo/browserClient";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-export const supabaseBrowser: any = DEMO ? makeBrowserClient() : createBrowserClient(url, key);
+export const supabaseBrowser: SupabaseClient<Database> = DEMO
+  ? (makeBrowserClient() as unknown as SupabaseClient<Database>)
+  : createBrowserClient<Database>(url, key);

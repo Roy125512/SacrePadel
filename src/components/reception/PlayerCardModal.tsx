@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { BookingStatus } from "@/lib/reception/types";
 import { currencyMXN, formatDateMX, parseISOToLocalTime, statusLabelES } from "@/lib/reception/utils";
+import { errorMessage } from "@/lib/errors";
 
 type PlayerApiResponse = {
   customer: {
@@ -64,8 +65,8 @@ export default function PlayerCardModal({ customerId, onClose }: { customerId: s
         }
         setPlayerData(body);
         setReceptionNotes(body?.customer?.notes ?? "");
-      } catch (e: any) {
-        if (!cancelled) setPlayerError(e?.message ?? "Error al cargar ficha");
+      } catch (e) {
+        if (!cancelled) setPlayerError(errorMessage(e, "Error al cargar ficha"));
       } finally {
         if (!cancelled) setPlayerLoading(false);
       }
@@ -98,8 +99,8 @@ export default function PlayerCardModal({ customerId, onClose }: { customerId: s
       );
 
       setNotesOk("Notas guardadas");
-    } catch (e: any) {
-      setPlayerError(e?.message ?? "No se pudieron guardar las notas.");
+    } catch (e) {
+      setPlayerError(errorMessage(e, "No se pudieron guardar las notas."));
     } finally {
       setNotesSaving(false);
     }
@@ -125,8 +126,8 @@ export default function PlayerCardModal({ customerId, onClose }: { customerId: s
       setPlayerData((prev) =>
         prev ? { ...prev, customer: { ...prev.customer, is_active: j?.customer?.is_active ?? nextActive } } : prev
       );
-    } catch (e: any) {
-      setPlayerError(e?.message ?? "No se pudo cambiar el estado del cliente.");
+    } catch (e) {
+      setPlayerError(errorMessage(e, "No se pudo cambiar el estado del cliente."));
     } finally {
       setActiveSaving(false);
     }

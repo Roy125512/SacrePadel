@@ -37,7 +37,7 @@ export default function ResetPasswordPage() {
 
     check();
 
-    const { data: sub } = supabaseBrowser.auth.onAuthStateChange((_evt: string, session: any) => {
+    const { data: sub } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
       setHasSession(!!session);
     });
 
@@ -70,7 +70,7 @@ export default function ResetPasswordPage() {
 
       // opcional: manda a perfil o a login (yo prefiero perfil)
       router.push("/perfil");
-    } catch (err: any) {
+    } catch (err) {
       setError(friendlyAuthError(err));
     } finally {
       setSaving(false);
