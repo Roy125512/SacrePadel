@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import ReservarClient from "./ReservarClient";
 import LoadingRacket from "@/components/LoadingRacket";
+
+export const metadata: Metadata = {
+  title: "Reservar cancha",
+  description: "Elige cancha y horario, y reserva en línea. Disponibilidad en vivo de las canchas de Sacré Pádel en Pátzcuaro.",
+  alternates: { canonical: "/reservar" },
+};
 
 function ReservarFallback() {
   return (

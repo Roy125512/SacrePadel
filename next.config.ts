@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   // hueco por sí solo, pero le regala a un atacante una pista gratis de qué
   // familia de CVEs/técnicas probar primero.
   poweredByHeader: false,
+  async redirects() {
+    return [{ source: "/", destination: "/inicio", permanent: true }];
+  },
   async headers() {
     return [
       {

@@ -3,65 +3,27 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BUSINESS_TZ_OFFSET } from "@/lib/config";
 import { computeExpectedAmountMXN, priceLabelForRange } from "@/lib/pricing-shared";
-import { WHATSAPP_PHONE } from "@/components/WhatsAppButton";
-import { hhmmInBusinessTZ, ymdInBusinessTZ } from "@/lib/businessTime";
+import {
+  addMinutesIso,
+  formatDateES,
+  toYMDLocal,
+  type AvailabilityResponse,
+  type ConfirmedBooking,
+  type CourtAvailability,
+  type EmailInfo,
+  type PaymentMode,
+  type SelectedSlot,
+  type Slot,
+} from "./reservarUtils";
+import CourtGrid from "./CourtGrid";
+import BookingModal from "./BookingModal";
+import BookingSuccessModal from "./BookingSuccessModal";
 
 // Checkout Pro redirects the browser away to Mercado Pago and back, so
 // there's no embedded payment form/component to lazy-load here anymore
 // (unlike the old Stripe Elements flow) — see startMercadoPagoPayment().
 const MP_PENDING_KEY = "mp_pending_booking";
-
-function pad2(n: number) {
-  return String(n).padStart(2, "0");
-}
-// Fecha/hora en la hora del club, no la del navegador del cliente.
-function toYMDLocal(d: Date) {
-  return ymdInBusinessTZ(d);
-}
-function parseISOToLocalTime(iso: string) {
-  return hhmmInBusinessTZ(iso);
-}
-function formatDateES(ymd: string) {
-  const [y, m, d] = ymd.split("-");
-  return `${d}/${m}/${y}`;
-}
-function addMinutesIso(iso: string, minutes: number) {
-  const m = iso.match(/([+-]\d{2}:\d{2})$/);
-  const offset = m ? m[1] : BUSINESS_TZ_OFFSET;
-
-
-  const [datePart, timeAndOffset] = iso.split("T");
-  const timePart = timeAndOffset.slice(0, 8); // HH:mm:ss
-  const [hh, mm, ss] = timePart.split(":").map((x) => Number(x));
-
-  const total = hh * 60 + mm + minutes;
-
-  const newH = Math.floor((total % (24 * 60) + 24 * 60) % (24 * 60) / 60);
-  const newM = ((total % 60) + 60) % 60;
-
-  return `${datePart}T${pad2(newH)}:${pad2(newM)}:${pad2(ss)}${offset}`;
-}
-
-// Pricing imported from @/lib/pricing-shared
-
-type Slot = { start_at: string; end_at: string; available: boolean; can_start?: boolean };
-type CourtAvailability = { court_id: string; court_name: string; slots: Slot[] };
-
-type AvailabilityResponse = {
-  date: string;
-  timezone_offset: string;
-  step_minutes: number;
-  open_hour: number;
-  close_hour: number;
-  availability: CourtAvailability[];
-};
-
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
 
 export default function ReservarClient() {
     // useSearchParams (bajo Suspense porque el page lo envuelve)
@@ -81,11 +43,7 @@ export default function ReservarClient() {
 
     const [data, setData] = useState<AvailabilityResponse | null>(null);
 
-    const [selected, setSelected] = useState<{
-        court_id: string;
-        court_name: string;
-        start_at: string;
-    } | null>(null);
+    const [selected, setSelected] = useState<SelectedSlot | null>(null);
 
     const [modalOpen, setModalOpen] = useState(false);
 
@@ -97,17 +55,12 @@ export default function ReservarClient() {
     const [phone, setPhone] = useState("");
     const [email, setEmail] = useState("");
     const [toleranceOpen, setToleranceOpen] = useState(false);
-    const [emailInfo, setEmailInfo] = useState<{ sent: boolean; to: string | null; error: string | null } | null>(null);
+    const [emailInfo, setEmailInfo] = useState<EmailInfo | null>(null);
     // Snapshot taken right when a booking succeeds — `selected`/`fullName`
     // get cleared (or, after the Mercado Pago redirect, never repopulated:
     // it's a full page reload) before the tolerance modal renders, so the
     // modal can't read them live.
-    const [confirmedBooking, setConfirmedBooking] = useState<{
-        fullName: string;
-        courtName: string | null;
-        dateYMD: string | null;
-        startAt: string | null;
-    } | null>(null);
+    const [confirmedBooking, setConfirmedBooking] = useState<ConfirmedBooking | null>(null);
 
 
 
@@ -116,7 +69,6 @@ export default function ReservarClient() {
     // Payment state. "stripe" no longer exists as an in-page sub-mode:
     // Checkout Pro navigates the browser away immediately, so there's
     // nothing to render in between "choose" and coming back confirmed.
-    type PaymentMode = "choose" | "reception";
     const [paymentMode, setPaymentMode] = useState<PaymentMode>("choose");
     const [mpLoading, setMpLoading] = useState(false);
     const [mpError, setMpError] = useState<string | null>(null);
@@ -798,70 +750,12 @@ export default function ReservarClient() {
             )}
 
             {/* ===== COURT GRID ===== */}
-            <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
-            {(data?.availability ?? []).map((c) => (
-                <div key={c.court_id} className="overflow-hidden rounded-lg border bg-[var(--surface)] transition-colors duration-200 hover:border-[var(--brand-200)]" style={{ borderColor: "rgba(120,46,21,0.14)" }}>
-                {/* Court header */}
-                <div
-                    className="flex items-center gap-3 border-b px-5 py-3.5"
-                    style={{ borderColor: "rgba(120,46,21,0.10)" }}
-                >
-                    <span
-                        aria-hidden
-                        className="h-5 w-1"
-                        style={{ background: "var(--brand)" }}
-                    />
-                    <span className="font-display text-lg font-semibold" style={{ color: "var(--foreground)" }}>
-                        {c.court_name}
-                    </span>
-                </div>
-
-                {/* Slots grid */}
-                <div className="p-4">
-                    <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
-                    {c.slots.map((s) => {
-                    const isBooked = !s.available;
-                    const canStart = s.can_start !== false;
-                    const isStartDisabled = !canStart && !isBooked;
-
-                    const isSelected =
-                        !!selected &&
-                        selected.court_id === c.court_id &&
-                        selected.start_at === s.start_at;
-
-                    return (
-                        <button
-                        key={`${c.court_id}-${s.start_at}`}
-                        type="button"
-                        onClick={() => pickSlot(c, s)}
-                        disabled={isBooked || isStartDisabled || saving}
-                        className={cx(
-                            "rounded-lg border px-2 py-2.5 text-xs font-medium transition-all duration-150",
-                            "focus:outline-none focus:ring-2",
-                            isBooked
-                            ? "cursor-not-allowed border-transparent bg-[var(--surface-2)] line-through opacity-40"
-                            : isSelected
-                            ? "border-[var(--brand-600)] text-white shadow-md ring-2 ring-[var(--brand-200)]"
-                            : isStartDisabled
-                            ? "cursor-not-allowed border-transparent bg-[var(--surface-2)] opacity-30"
-                            : "border-[rgba(120,46,21,0.10)] bg-white hover:border-[var(--brand-200)] hover:bg-[var(--brand-50)] hover:shadow-sm active:scale-[0.97]"
-                        )}
-                        style={
-                            isSelected
-                            ? { background: "linear-gradient(135deg, var(--brand-highlight), var(--brand))" }
-                            : undefined
-                        }
-                        title={`${parseISOToLocalTime(s.start_at)}\u2013${parseISOToLocalTime(s.end_at)} (30m)`}
-                        >
-                        {parseISOToLocalTime(s.start_at)}
-                        </button>
-                    );
-                    })}
-                    </div>
-                </div>
-                </div>
-            ))}
-            </div>
+            <CourtGrid
+            availability={data?.availability ?? []}
+            selected={selected}
+            disabled={saving}
+            onPick={pickSlot}
+            />
 
             {/* ===== FOOTER NOTE ===== */}
             <div className="mt-8 border-t pt-4 text-xs leading-relaxed" style={{ color: "var(--muted)", borderColor: "rgba(120,46,21,0.15)" }}>
@@ -872,438 +766,44 @@ export default function ReservarClient() {
 
         {/* ===== BOOKING MODAL ===== */}
         {modalOpen && selected && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto px-4 py-4 animate-fade-in"
-            style={{ background: "rgba(30, 27, 24, 0.45)", backdropFilter: "blur(4px)" }}
-            >
-            <div className="w-full max-w-md my-auto animate-slide-up">
-                <div className="overflow-hidden rounded-2xl bg-white shadow-2xl" style={{ border: "1px solid rgba(120, 46, 21, 0.10)" }}>
-
-                {/* Modal header — deep-copper checkout band */}
-                <div
-                    className="px-6 py-5"
-                    style={{
-                    background: "var(--court)",
-                    borderBottom: "1px solid rgba(120, 46, 21, 0.25)",
-                    }}
-                >
-                    <span className="flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-[0.28em]" style={{ color: "rgba(246, 240, 230, 0.72)" }}>
-                    <span aria-hidden className="inline-block h-px w-7" style={{ background: "rgba(246, 240, 230, 0.6)" }} />
-                    Confirmar reserva
-                    </span>
-                    <h2 className="font-display mt-2 text-2xl leading-tight" style={{ color: "#F6F0E6" }}>
-                    <span className="font-light italic">{selected.court_name}</span>
-                    </h2>
-                    <div className="mt-1 text-sm" style={{ color: "rgba(246, 240, 230, 0.78)" }}>
-                    {formatDateES(dateYMD)}
-                    </div>
-
-                    {selectedEndAt && (
-                    <div className="mt-4 flex flex-wrap items-baseline gap-2">
-                        <span className="font-display text-3xl font-black" style={{ color: "#F6F0E6" }}>
-                        {parseISOToLocalTime(selected.start_at)}&ndash;{parseISOToLocalTime(selectedEndAt)}
-                        </span>
-                        <span className="badge-brand">{durationMin} min</span>
-                    </div>
-                    )}
-                </div>
-
-                {/* Modal body */}
-                <div className="px-6 py-5 space-y-4">
-
-                    {/* Duration */}
-                    <div>
-                    <label className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--muted)" }}>
-                        Duracion
-                    </label>
-                    <select
-                        className="input w-full"
-                        value={durationMin}
-                        onChange={(e) => setDurationMin(Number(e.target.value))}
-                        disabled={allowedDurations.length === 0 || paymentMode !== "choose" || mpLoading}
-                    >
-                        {allowedDurations.map((d) => (
-                        <option key={d} value={d}>
-                            {d} min
-                        </option>
-                        ))}
-                    </select>
-                    {allowedDurations.length === 0 && (
-                        <div className="mt-1.5 text-xs" style={{ color: "rgb(153, 27, 27)" }}>
-                        No hay continuidad suficiente. Elige otro horario.
-                        </div>
-                    )}
-                    {(paymentMode !== "choose" || mpLoading) && (
-                        <div className="mt-1.5 text-xs" style={{ color: "var(--muted)" }}>
-                        La duracion queda fija una vez que inicias el pago.
-                        </div>
-                    )}
-                    </div>
-
-                    {/* Price card */}
-                    {priceInfo && selectedEndAt && (
-                    <div className="flex items-end justify-between gap-3 border-t pt-4" style={{ borderColor: "rgba(120,46,21,0.15)" }}>
-                        <div>
-                            <div className="text-[0.65rem] font-semibold uppercase tracking-[0.2em]" style={{ color: "var(--muted)" }}>
-                            Precio
-                            </div>
-                            <div className="mt-1 text-sm" style={{ color: "var(--brand-800)" }}>
-                            {priceInfo.label}
-                            </div>
-                        </div>
-                        <div className="flex items-baseline gap-1.5">
-                            <span className="font-display text-4xl font-black leading-none" style={{ color: "var(--foreground)" }}>
-                            ${priceInfo.total}
-                            </span>
-                            <span className="text-sm font-medium" style={{ color: "var(--muted)" }}>
-                            MXN
-                            </span>
-                        </div>
-                    </div>
-                    )}
-
-                    {/* Name */}
-                    <div>
-                    <label className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--muted)" }}>
-                        Nombre
-                    </label>
-                    <input
-                        className="input disabled:opacity-60"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        placeholder="Tu nombre completo"
-                        disabled={!isGuest}
-                    />
-                    {!isGuest && (
-                        <div className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-                        Tus datos vienen de tu perfil.
-                        </div>
-                    )}
-                    </div>
-
-                    {/* Guest email */}
-                    {isGuest && (
-                    <div>
-                        <label className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--muted)" }}>
-                        Correo (para confirmacion)
-                        </label>
-                        <input
-                        className="input"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="tu@correo.com"
-                        inputMode="email"
-                        />
-                        <div className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-                        Opcional. Si lo pones, te llega confirmacion por correo.
-                        </div>
-                    </div>
-                    )}
-
-                    {/* Phone */}
-                    <div>
-                    <label className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--muted)" }}>
-                        Telefono
-                    </label>
-                    <input
-                        className="input disabled:opacity-60"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="+521234567890 o 4431234567"
-                        disabled={!isGuest}
-                    />
-                    </div>
-
-                    {/* Error inside modal */}
-                    {error && (
-                    <div
-                        className="animate-slide-down rounded-lg border px-3 py-2 text-xs"
-                        style={{
-                        borderColor: "rgba(220, 38, 38, 0.2)",
-                        background: "rgba(254, 242, 242, 1)",
-                        color: "rgb(153, 27, 27)",
-                        }}
-                    >
-                        {error}
-                    </div>
-                    )}
-
-                    {/* ===== PAYMENT: CHOOSE ===== */}
-                    {paymentMode === "choose" && (
-                    <div>
-                        <div className="mb-3 text-[0.65rem] font-semibold uppercase tracking-[0.2em]" style={{ color: "var(--muted)" }}>
-                        Forma de pago
-                        </div>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        {/* Online payment card — redirects to Mercado Pago's
-                            Checkout Pro and back (see startMercadoPagoPayment) */}
-                        <button
-                            onClick={startMercadoPagoPayment}
-                            disabled={saving || mpLoading || allowedDurations.length === 0}
-                            className="group rounded-md border p-4 text-left transition-all duration-200 hover:shadow-sm disabled:opacity-50"
-                            style={{
-                            borderColor: "var(--brand-200)",
-                            background: "var(--brand-50)",
-                            }}
-                            onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.borderColor = "var(--brand)"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--brand-200)"; }}
-                        >
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                <rect x="1" y="4" width="22" height="16" rx="3" />
-                                <line x1="1" y1="10" x2="23" y2="10" />
-                            </svg>
-                            <div className="font-display mt-3 text-base font-semibold" style={{ color: "var(--brand-800)" }}>
-                            {mpLoading ? "Preparando..." : "Pagar en linea"}
-                            </div>
-                            <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
-                            Tarjeta o transferencia, con Mercado Pago
-                            </div>
-                        </button>
-
-                        {/* Reception payment card — solo cambia de vista a un paso de
-                            confirmacion explicito (ver paymentMode === "reception" abajo);
-                            NO reserva todavia. Antes reservaba en este mismo click, lo
-                            cual confundia a la gente porque no habia ningun aviso claro
-                            de que ya se habia hecho la reserva. */}
-                        <button
-                            onClick={() => setPaymentMode("reception")}
-                            disabled={saving || mpLoading || allowedDurations.length === 0}
-                            className="group rounded-md border p-4 text-left transition-all duration-200 hover:shadow-sm disabled:opacity-50"
-                            style={{
-                            borderColor: "rgba(120,46,21,0.12)",
-                            background: "var(--surface)",
-                            }}
-                            onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.borderColor = "var(--brand-200)"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(120,46,21,0.12)"; }}
-                        >
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 21h18" />
-                                <path d="M5 21V7l7-4 7 4v14" />
-                                <path d="M9 21v-6h6v6" />
-                                <path d="M10 10h4" />
-                            </svg>
-                            <div className="font-display mt-3 text-base font-semibold" style={{ color: "var(--foreground)" }}>
-                            {saving ? "Confirmando..." : "Pagar en recepcion"}
-                            </div>
-                            <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
-                            Efectivo o tarjeta al llegar
-                            </div>
-                        </button>
-                        </div>
-
-                        {mpError && (
-                        <div
-                            className="mt-3 animate-slide-down rounded-lg border px-3 py-2 text-xs"
-                            style={{
-                            borderColor: "rgba(220, 38, 38, 0.2)",
-                            background: "rgba(254, 242, 242, 1)",
-                            color: "rgb(153, 27, 27)",
-                            }}
-                        >
-                            {mpError}
-                        </div>
-                        )}
-                    </div>
-                    )}
-
-                    {/* ===== PAYMENT: RECEPTION CONFIRM ===== */}
-                    {paymentMode === "reception" && (
-                    <div>
-                        <div
-                        className="rounded-lg border px-4 py-3 text-sm animate-slide-down"
-                        style={{ borderColor: "var(--brand-200)", background: "var(--brand-50)", color: "var(--brand-800)" }}
-                        >
-                        Vas a reservar <strong>{selected.court_name}</strong> el {formatDateES(dateYMD)} de{" "}
-                        {parseISOToLocalTime(selected.start_at)}
-                        {selectedEndAt && <> a {parseISOToLocalTime(selectedEndAt)}</>}. El pago se hace en recepcion al llegar.
-                        </div>
-
-                        <div className="mt-3 flex gap-3">
-                        <button
-                            type="button"
-                            className="btn-secondary flex-1"
-                            onClick={() => setPaymentMode("choose")}
-                            disabled={saving}
-                        >
-                            Volver
-                        </button>
-                        <button
-                            type="button"
-                            className="btn-primary flex-1"
-                            onClick={() => confirmBooking("RECEPTION")}
-                            disabled={saving}
-                        >
-                            {saving ? "Confirmando..." : "Confirmar reserva"}
-                        </button>
-                        </div>
-                    </div>
-                    )}
-                </div>
-
-                {/* Modal footer */}
-                <div
-                    className="flex items-center justify-between px-6 py-4"
-                    style={{
-                    borderTop: "1px solid rgba(120, 46, 21, 0.08)",
-                    background: "var(--surface-2)",
-                    }}
-                >
-                    <div className="text-xs" style={{ color: "var(--muted)" }}>
-                    Cambios: +52 1 434 116 8095
-                    </div>
-                    <button className="btn-secondary text-xs" onClick={cancelHoldAndClose} disabled={saving}>
-                    Cancelar
-                    </button>
-                </div>
-                </div>
-            </div>
-            </div>
+            <BookingModal
+            selected={selected}
+            dateYMD={dateYMD}
+            selectedEndAt={selectedEndAt}
+            durationMin={durationMin}
+            setDurationMin={setDurationMin}
+            allowedDurations={allowedDurations}
+            priceInfo={priceInfo}
+            isGuest={isGuest}
+            fullName={fullName}
+            setFullName={setFullName}
+            email={email}
+            setEmail={setEmail}
+            phone={phone}
+            setPhone={setPhone}
+            error={error}
+            paymentMode={paymentMode}
+            setPaymentMode={setPaymentMode}
+            saving={saving}
+            mpLoading={mpLoading}
+            mpError={mpError}
+            onStartOnlinePayment={startMercadoPagoPayment}
+            onConfirmReception={() => confirmBooking("RECEPTION")}
+            onCancel={cancelHoldAndClose}
+            />
         )}
 
         {/* ===== SUCCESS / TOLERANCE MODAL ===== */}
         {toleranceOpen && (
-            <div
-            className="fixed inset-0 z-[999] flex items-center justify-center px-4 animate-fade-in"
-            style={{ background: "rgba(30, 27, 24, 0.45)", backdropFilter: "blur(4px)" }}
-            >
-            <div className="w-full max-w-md animate-slide-up">
-                <div
-                className="overflow-hidden rounded-2xl shadow-2xl"
-                style={{
-                    background: "linear-gradient(135deg, var(--brand-50) 0%, white 40%, white 100%)",
-                    border: "1px solid var(--brand-100)",
-                }}
-                >
-                {/* Success header */}
-                <div className="px-6 pt-6 pb-4 text-center">
-                    <div
-                    className="mx-auto flex h-14 w-14 items-center justify-center rounded-full animate-checkmark"
-                    style={{ background: "rgba(16, 185, 129, 0.12)", border: "2px solid rgba(16, 185, 129, 0.3)" }}
-                    >
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgb(16, 185, 129)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    </div>
-                    <h2 className="font-display mt-3 text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
-                    Reserva confirmada
-                    </h2>
-                    <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-                    Tienes <span className="font-semibold" style={{ color: "var(--foreground)" }}>15 minutos</span> de tolerancia
-                    para llegar a tu cancha.
-                    </p>
-                </div>
-
-                {/* Email info */}
-                <div className="px-6 pb-2">
-                    <div
-                    className="rounded-xl p-3 text-sm"
-                    style={{
-                        background: "white",
-                        border: "1px solid rgba(120, 46, 21, 0.08)",
-                        color: "var(--foreground)",
-                    }}
-                    >
-                    {emailInfo?.to ? (
-                        emailInfo.sent ? (
-                        <div className="flex items-start gap-2">
-                            <span className="mt-0.5 text-emerald-500">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <rect x="2" y="4" width="20" height="16" rx="2" />
-                                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                            </svg>
-                            </span>
-                            <div>
-                            Confirmacion enviada a{" "}
-                            <span className="font-medium">{emailInfo.to}</span>
-                            </div>
-                        </div>
-                        ) : (
-                        <div>
-                            <div className="flex items-start gap-2">
-                            <span className="mt-0.5" style={{ color: "rgb(245, 158, 11)" }}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                                <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-                                </svg>
-                            </span>
-                            <div>
-                                No se pudo enviar el correo a{" "}
-                                <span className="font-medium">{emailInfo.to}</span>
-                                {emailInfo.error && (
-                                <div className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-                                    {emailInfo.error}
-                                </div>
-                                )}
-                            </div>
-                            </div>
-                        </div>
-                        )
-                    ) : (
-                        <div style={{ color: "var(--muted)" }}>
-                        Correo: no proporcionado.
-                        </div>
-                    )}
-                    </div>
-                </div>
-
-                {/* Compromiso: hospitalidad, no política de cancelación */}
-                <div className="px-6 pb-2">
-                    <div
-                    className="rounded-xl p-4 text-sm"
-                    style={{
-                        background: "var(--brand-50)",
-                        border: "1px solid var(--brand-100)",
-                        color: "var(--foreground)",
-                    }}
-                    >
-                    <p className="font-display text-[0.95rem] font-semibold" style={{ color: "var(--brand)" }}>
-                        Un compromiso, no solo una reserva
-                    </p>
-                    <p className="mt-1.5 leading-relaxed" style={{ color: "var(--muted)" }}>
-                        {confirmedBooking?.fullName.trim().split(" ")[0]
-                        ? `${confirmedBooking.fullName.trim().split(" ")[0]}, tu`
-                        : "Tu"}{" "}
-                        cancha queda apartada solo para ti — nadie más la va a tomar. Si al final no
-                        puedes venir, un mensaje con un poco de anticipación es todo lo que necesitamos
-                        para dársela a alguien que sí la está esperando. Gracias por cuidar tu lugar.
-                    </p>
-                    <a
-                        href={`https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(
-                        confirmedBooking?.courtName && confirmedBooking?.dateYMD && confirmedBooking?.startAt
-                            ? `Hola, soy ${confirmedBooking.fullName.trim() || "un cliente"}. Reservé ${
-                                confirmedBooking.courtName
-                            } el ${formatDateES(confirmedBooking.dateYMD)} a las ${parseISOToLocalTime(
-                                confirmedBooking.startAt
-                            )} y no voy a poder llegar. ¿Podrían liberar el horario? ¡Gracias!`
-                            : `Hola, soy ${
-                                confirmedBooking?.fullName.trim() || "un cliente"
-                            }. Reservé una cancha y no voy a poder llegar. ¿Podrían liberar el horario? ¡Gracias!`
-                        )}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold underline underline-offset-2"
-                        style={{ color: "var(--brand)" }}
-                    >
-                        Avisar que no podré llegar
-                    </a>
-                    </div>
-                </div>
-
-                {/* CTA button */}
-                <div className="px-6 pt-2 pb-6">
-                    <button
-                    className="btn-primary w-full py-3 text-sm"
-                    onClick={() => {
-                        setToleranceOpen(false);
-                        setEmailInfo(null);
-                        setConfirmedBooking(null);
-                    }}
-                    >
-                    Entendido
-                    </button>
-                </div>
-                </div>
-            </div>
-            </div>
+            <BookingSuccessModal
+            confirmedBooking={confirmedBooking}
+            emailInfo={emailInfo}
+            onClose={() => {
+                setToleranceOpen(false);
+                setEmailInfo(null);
+                setConfirmedBooking(null);
+            }}
+            />
         )}
         </div>
     );

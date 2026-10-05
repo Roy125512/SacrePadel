@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import LoginClient from "./LoginClient";
 import LoadingRacket from "@/components/LoadingRacket";
+
+export const metadata: Metadata = { title: "Iniciar sesión", robots: { index: false } };
 
 export default function LoginPage() {
   return (

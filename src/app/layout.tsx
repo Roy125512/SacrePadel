@@ -28,8 +28,17 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Sacré Pádel",
-  description: "Reservas de canchas",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://sacrepadel.com"),
+  title: { default: "Sacré Pádel | Canchas de pádel en Pátzcuaro", template: "%s | Sacré Pádel" },
+  description:
+    "Club de pádel en Pátzcuaro, Michoacán. Reserva tu cancha en línea en segundos, paga en línea o en recepción.",
+  openGraph: {
+    type: "website",
+    locale: "es_MX",
+    siteName: "Sacré Pádel",
+    title: "Sacré Pádel | Canchas de pádel en Pátzcuaro",
+    description: "Reserva tu cancha de pádel en Pátzcuaro en línea.",
+  },
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",
