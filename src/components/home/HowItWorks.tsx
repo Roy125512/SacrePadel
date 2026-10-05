@@ -3,69 +3,28 @@
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 
 const STEPS = [
-  {
-    title: "Elige tu horario",
-    body: "Fecha, cancha y hora disponible. Los bloques se muestran cada 30 minutos.",
-  },
-  {
-    title: "Reserva y paga",
-    body: "Con tarjeta en línea, o aparta y liquida en recepción cuando llegues.",
-  },
-  {
-    title: "A jugar",
-    body: "Llega 15 minutos antes, calienta y adueñate de la cancha.",
-  },
+  { n: "I", title: "Elige tu horario", body: "Fecha, cancha y hora. Ves en vivo qué está libre." },
+  { n: "II", title: "Aparta y paga", body: "Con tarjeta en línea, o en recepción al llegar." },
+  { n: "III", title: "Llega y juega", body: "Tienes quince minutos de tolerancia." },
 ];
 
 export default function HowItWorks() {
   const revealRef = useScrollReveal<HTMLDivElement>();
 
   return (
-    <section
-      id="como-reservar"
-      className="section-court cut-top relative w-full scroll-mt-16 overflow-hidden pb-24 pt-28 sm:pb-32 sm:pt-36"
-    >
-      <div className="mx-auto max-w-6xl px-6">
-        <div className="max-w-xl">
-          <span className="flex items-center gap-3 text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-[rgba(246,240,230,0.75)]">
-            <span aria-hidden className="h-px w-10 bg-[rgba(246,240,230,0.6)]" />
-            Reservar toma segundos
-          </span>
-          <h2 className="font-display mt-5 text-4xl leading-[1.02] sm:text-6xl">
-            <span className="font-light italic">Tres pasos</span>{" "}
-            <span className="font-black">y estás dentro.</span>
-          </h2>
-        </div>
-
-        <div
-          ref={revealRef}
-          className="reveal mt-16 grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-3"
-        >
-          {STEPS.map((s, i) => (
-            <div
-              key={s.title}
-              className={[
-                "relative",
-                // staggered vertical offset so it's not three equal columns
-                i === 1 ? "sm:translate-y-10" : "",
-                i === 2 ? "sm:translate-y-20" : "",
-              ].join(" ")}
-            >
-              <span
-                aria-hidden
-                className="font-display block text-[6rem] font-black leading-[0.8] tracking-tighter sm:text-[8rem]"
-                style={{ color: "rgba(246,240,230,0.22)" }}
-              >
-                {i + 1}
-              </span>
-              <h3 className="font-display -mt-4 text-2xl font-semibold sm:text-3xl">
-                {s.title}
-              </h3>
-              <p className="mt-3 max-w-xs text-sm leading-relaxed text-[rgba(246,240,230,0.8)]">
-                {s.body}
-              </p>
-            </div>
-          ))}
+    <section id="como-reservar" className="section-dark scroll-mt-16 py-24 sm:py-32">
+      <div ref={revealRef} className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-14">
+        <div className="grid gap-12 lg:grid-cols-[1fr_2fr] lg:gap-24">
+          <h2 className="font-display text-[clamp(2.2rem,3.8vw,3.4rem)] leading-[1.05]">Reservar toma un minuto.</h2>
+          <ol className="grid gap-10 sm:grid-cols-3">
+            {STEPS.map((s) => (
+              <li key={s.n} className="border-t pt-6" style={{ borderColor: "rgba(241,236,227,.16)" }}>
+                <span className="font-display text-xl italic text-[var(--brand-highlight)]">{s.n}</span>
+                <h3 className="mt-4 text-[0.72rem] font-semibold uppercase tracking-[0.2em]">{s.title}</h3>
+                <p className="mt-3 leading-relaxed text-[rgba(241,236,227,.65)]">{s.body}</p>
+              </li>
+            ))}
+          </ol>
         </div>
       </div>
     </section>

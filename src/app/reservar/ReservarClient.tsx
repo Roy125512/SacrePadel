@@ -452,7 +452,7 @@ export default function ReservarClient() {
         const phone_input = phone.trim();
 
         if (!full_name) { setError("Escribe tu nombre."); return null; }
-        if (!phone_input) { setError("Escribe tu telefono."); return null; }
+        if (!phone_input) { setError("Escribe tu teléfono."); return null; }
         if (allowedDurations.length === 0) {
         setError("No hay continuidad suficiente desde ese inicio. Elige otro horario.");
         return null;
@@ -522,7 +522,7 @@ export default function ReservarClient() {
             error: (json?.email_error ?? null) as string | null,
         });
         setToleranceOpen(true);
-        setSuccessMsg("Reserva confirmada. Tu pago se realiza en recepcion.");
+        setSuccessMsg("Reserva confirmada. Tu pago se realiza en recepción.");
         await loadAvailability(dateYMD);
         } finally {
         setSaving(false);
@@ -618,24 +618,14 @@ export default function ReservarClient() {
             {/* ===== HEADER ===== */}
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-                <span className="flex items-center gap-3 text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-[var(--brand)]">
-                <span aria-hidden className="h-px w-10 bg-[var(--brand)]" />
-                Disponibilidad en vivo
-                </span>
-                <h1 className="font-display mt-4 text-4xl leading-[1.02] sm:text-5xl">
-                <span className="font-light italic">Reserva</span>{" "}
-                <span className="font-black">tu cancha.</span>
-                {isGuest && (
-                    <span className="ml-2 align-middle text-base font-normal not-italic" style={{ color: "var(--muted)" }}>
-                    (Invitado)
-                    </span>
-                )}
-                </h1>
-                <p className="section-subtitle max-w-sm">Selecciona un horario disponible para tu cancha</p>
+                <h1 className="font-display text-[clamp(2.6rem,5vw,4rem)] leading-[1.02]">Reserva tu cancha.</h1>
+                <p className="mt-3 max-w-md text-[var(--muted)]">
+                Toca un horario libre para apartarlo.{isGuest ? " Estás reservando como invitado." : ""}
+                </p>
 
                 {isGuest && (
                 <div className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
-                    Quieres que la proxima sea mas rapido?{" "}
+                    ¿Quieres que la próxima sea más rápido?{" "}
                     <button
                     className="font-medium underline underline-offset-2 transition-colors hover:opacity-80"
                     style={{ color: "var(--brand)" }}
@@ -688,16 +678,7 @@ export default function ReservarClient() {
 
             {/* ===== DATE INFO BAR ===== */}
             <div className="mt-6 flex flex-wrap items-center gap-3">
-            <span
-                className="inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]"
-                style={{
-                background: "var(--brand-50)",
-                borderLeft: "2px solid var(--brand)",
-                color: "var(--brand-800)",
-                }}
-            >
-                {formatDateES(dateYMD)}
-            </span>
+            <span className="font-display text-xl">{formatDateES(dateYMD)}</span>
             <span className="text-xs" style={{ color: "var(--muted)" }}>
                 Intervalos de 30 min &middot; Hora de Pátzcuaro
             </span>
@@ -760,8 +741,8 @@ export default function ReservarClient() {
 
             {/* ===== FOOTER NOTE ===== */}
             <div className="mt-8 border-t pt-4 text-xs leading-relaxed" style={{ color: "var(--muted)", borderColor: "rgba(120,46,21,0.15)" }}>
-            El calendario muestra horarios en <b>intervalos de 30 min</b>. La reserva minima es de{" "}
-            <b>60 min</b>; la duracion se elige despues de seleccionar el horario.
+            El calendario muestra horarios en <b>intervalos de 30 min</b>. La reserva mínima es de{" "}
+            <b>60 min</b>; la duración se elige después de seleccionar el horario.
             </div>
         </div>
 

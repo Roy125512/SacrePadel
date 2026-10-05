@@ -41,6 +41,8 @@ function seed(): Store {
   const courts: Row[] = [
     { id: "court-1", name: "Cancha 1", is_active: true, created_at: nowIso() },
     { id: "court-2", name: "Cancha 2", is_active: true, created_at: nowIso() },
+    { id: "court-3", name: "Cancha 3", is_active: true, created_at: nowIso() },
+    { id: "court-4", name: "Cancha 4", is_active: true, created_at: nowIso() },
   ];
 
   const profiles: Row[] = DEMO_USERS.map((u) => ({

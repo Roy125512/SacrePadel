@@ -31,17 +31,10 @@ export default function Offerings() {
     <section id="proximamente" className="section-court relative w-full scroll-mt-16 overflow-hidden py-24 sm:py-32">
       <div className="mx-auto max-w-6xl px-6">
         <div className="max-w-xl">
-          <span className="flex items-center gap-3 text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-[rgba(246,240,230,0.75)]">
-            <span aria-hidden className="h-px w-10 bg-[rgba(246,240,230,0.6)]" />
-            Más allá de la reserva
-          </span>
-          <h2 className="font-display mt-5 text-4xl leading-[1.02] sm:text-6xl">
-            <span className="font-light italic">Esto es</span>{" "}
-            <span className="font-black">lo que viene.</span>
-          </h2>
+          <h2 className="font-display mt-5 text-[clamp(2.4rem,4.6vw,3.6rem)] leading-[1.02]">Lo que viene en Sacré.</h2>
           <p className="mt-5 max-w-md text-base leading-relaxed text-[rgba(246,240,230,0.82)]">
-            Sacré está creciendo. Aquí va lo que estamos preparando además de
-            la reserva libre de cancha.
+            Además de rentar cancha, estamos preparando esto. Si te interesa,
+            avísanos y te escribimos cuando arranque.
           </p>
         </div>
 
@@ -55,7 +48,7 @@ export default function Offerings() {
               className="border-b border-[rgba(246,240,230,0.18)] pb-8 pt-8 sm:border-b-0 sm:pt-10"
               style={{ animationDelay: `${i * 100}ms` }}
             >
-              <span className="inline-block rounded-full border border-[rgba(246,240,230,0.35)] px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-[rgba(246,240,230,0.85)]">
+              <span className="inline-block text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--brand-highlight)]">
                 Próximamente
               </span>
               <h3 className="font-display mt-4 text-2xl font-semibold leading-tight sm:text-3xl">

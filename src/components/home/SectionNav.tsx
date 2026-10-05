@@ -3,22 +3,23 @@
 import ReservarButton from "@/components/ReservarButton";
 
 const LINKS = [
-  { href: "#value-props", label: "Experiencia" },
-  { href: "#precios", label: "Tarifas" },
+  { href: "#el-club", label: "El club" },
+  { href: "#tarifas", label: "Tarifas" },
   { href: "#faq", label: "Preguntas" },
-  { href: "#ubicacion", label: "Ubicación" },
+  { href: "#galeria", label: "Fotos" },
+  { href: "#ubicacion", label: "Cómo llegar" },
 ];
 
 export default function SectionNav() {
   return (
-    <nav className="sticky top-0 z-30 w-full border-b border-[rgba(120,46,21,0.12)] bg-[var(--background)]/90 backdrop-blur">
+    <nav className="sticky top-0 z-30 w-full border-b border-[var(--line)] bg-[var(--background)]/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-1 overflow-x-auto px-4 py-2.5 sm:gap-2 sm:px-6">
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           {LINKS.map((l) => (
             <a
               key={l.href}
               href={l.href}
-              className="whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium text-[var(--muted)] transition hover:bg-[var(--brand-50)] hover:text-[var(--brand-700)]"
+              className="whitespace-nowrap px-3 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-[var(--muted)] transition hover:text-[var(--foreground)]"
             >
               {l.label}
             </a>

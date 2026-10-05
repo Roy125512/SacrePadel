@@ -41,7 +41,7 @@ export default function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="section-dark w-full border-t border-[rgba(246,240,230,0.08)]">
+    <footer className="section-dark w-full border-t border-[rgba(241,236,227,0.08)]">
       <div className="mx-auto max-w-6xl px-6 py-14">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
@@ -54,12 +54,10 @@ export default function Footer() {
                 height={60}
                 className="h-14 w-14 drop-shadow-md sm:h-[60px] sm:w-[60px]"
               />
-              <span className="text-base font-semibold tracking-[0.24em]">
-                SACRÉ PÁDEL
-              </span>
+              <span className="text-[0.72rem] font-semibold uppercase tracking-[0.34em]">Sacré Pádel</span>
             </Link>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-[rgba(246,240,230,0.7)]">
-              Reserva tu cancha y únete a la comunidad Sacré. 🎾
+              Cuatro canchas de cristal en Pátzcuaro. Abierto todos los días de 7:00 a 22:00.
             </p>
 
             <div className="mt-5 flex items-center gap-3">
@@ -86,7 +84,7 @@ export default function Footer() {
 
           {/* Quick links */}
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-[rgba(246,240,230,0.55)]">
+            <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-[var(--brand-highlight)]">
               Navegación
             </h3>
             <ul className="mt-4 space-y-2.5 text-sm">
@@ -116,7 +114,7 @@ export default function Footer() {
 
           {/* Contact */}
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-[rgba(246,240,230,0.55)]">
+            <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-[var(--brand-highlight)]">
               Contacto
             </h3>
             <ul className="mt-4 space-y-3 text-sm text-[rgba(246,240,230,0.8)]">

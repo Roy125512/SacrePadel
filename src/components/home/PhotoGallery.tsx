@@ -105,10 +105,7 @@ export default function PhotoGallery() {
         {/* Header sits to the side and reads across the top edge, not a
             centered eyebrow→title→subtitle stack. */}
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <h2 className="font-display max-w-md text-4xl leading-[1.02] sm:text-6xl">
-            <span className="font-light italic">El club,</span>{" "}
-            <span className="font-black">sin filtros.</span>
-          </h2>
+          <h2 className="font-display max-w-md text-[clamp(2.4rem,4.6vw,3.6rem)] leading-[1.02]">Así se ve la cancha.</h2>
           <p className="max-w-xs text-sm leading-relaxed text-[var(--muted)] sm:text-right">
             Fotos reales de la cancha. Toca cualquiera para verla en grande.
           </p>
@@ -124,7 +121,7 @@ export default function PhotoGallery() {
               type="button"
               onClick={() => setOpenIndex(i)}
               aria-label={`Ampliar foto: ${img.alt}`}
-              className={`group relative block w-full overflow-hidden rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${img.span} ${img.place}`}
+              className={`group relative block w-full overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${img.span} ${img.place}`}
               style={{ animationDelay: `${i * 80}ms` }}
             >
               <Image

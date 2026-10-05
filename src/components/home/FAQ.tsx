@@ -45,13 +45,9 @@ export default function FAQ() {
     <section id="faq" className="w-full scroll-mt-16 bg-[var(--background)] py-24 sm:py-32">
       <div className="mx-auto grid max-w-5xl grid-cols-1 gap-x-14 gap-y-10 px-6 lg:grid-cols-[0.8fr_1.2fr]">
         <div className="lg:sticky lg:top-24 lg:self-start">
-          <h2 className="font-display text-4xl leading-[1.02] sm:text-5xl">
-            <span className="font-light italic">Antes de</span>
-            <br />
-            <span className="font-black">reservar.</span>
-          </h2>
+          <h2 className="font-display text-[clamp(2.4rem,4.6vw,3.6rem)] leading-[1.02]">Antes de venir.</h2>
           <p className="mt-5 max-w-xs text-sm leading-relaxed text-[var(--muted)]">
-            Lo que necesitas saber antes de entrar a la cancha.
+            Lo que conviene saber antes de tu primera reserva.
           </p>
           <a
             href={WHATSAPP_FAQ_LINK}

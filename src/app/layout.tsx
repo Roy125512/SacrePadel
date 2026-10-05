@@ -1,30 +1,28 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Fraunces } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import AppHeader from "@/components/AppHeader";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-// Editorial display face for headlines — deliberately distinct from the
-// utilitarian Geist body text, and from every other Google-Fonts-default
-// startup landing page. Optical sizing + italic give it real character at
-// large sizes instead of just "bigger bold sans".
-const fraunces = Fraunces({
+// Tipografías alojadas en el propio sitio (src/fonts): la política de
+// seguridad (CSP) no permite cargar fuentes de otros dominios.
+// Bodoni Moda — titulares: serif de alto contraste, editorial.
+// Archivo — texto e interfaz, sobria y legible.
+const display = localFont({
+  src: [
+    { path: "../fonts/bodoni-normal.woff2", weight: "400 900", style: "normal" },
+    { path: "../fonts/bodoni-italic.woff2", weight: "400 900", style: "italic" },
+  ],
   variable: "--font-display",
-  subsets: ["latin"],
-  axes: ["opsz", "SOFT", "WONK"],
-  weight: "variable",
-  style: ["normal", "italic"],
+  display: "swap",
+});
+
+const body = localFont({
+  src: "../fonts/archivo.woff2",
+  weight: "400 900",
+  variable: "--font-body",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -56,7 +54,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} antialiased bg-background text-foreground`}>
+      <body className={`${display.variable} ${body.variable} antialiased bg-background text-foreground`}>
         <AppHeader />
         {children}
         <Footer />

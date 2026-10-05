@@ -104,10 +104,10 @@ export default function AppHeader() {
   const linkClass = (href: string) => {
     const active = pathname === href;
     return [
-      "text-sm px-3 py-2 rounded-md border transition",
+      "text-sm font-medium px-3.5 py-2 rounded-full transition",
       active
-        ? "border-[rgba(175,78,43,0.35)] bg-[rgba(253,238,232,1)]"
-        : "border-[rgba(120,46,21,0.14)] hover:bg-white/80",
+        ? "bg-[var(--brand-50)] text-[var(--brand-700)]"
+        : "text-[var(--foreground)] hover:bg-[var(--brand-50)]",
     ].join(" ");
   };
 
@@ -153,8 +153,8 @@ export default function AppHeader() {
               scrolled ? "h-8 w-8" : "h-9 w-9 sm:h-10 sm:w-10",
             ].join(" ")}
           />
-          <span className="block min-w-0 truncate whitespace-nowrap text-[10px] sm:text-xs font-semibold tracking-[0.18em] sm:tracking-[0.28em] text-black">
-            SACRÉ PÁDEL
+          <span className="font-display block min-w-0 truncate whitespace-nowrap text-xl text-[var(--foreground)] sm:text-2xl">
+            Sacré Pádel
           </span>
 
         </Link>
@@ -201,7 +201,7 @@ export default function AppHeader() {
               <button
                 type="button"
                 onClick={() => setMenuOpen((v) => !v)}
-                className="inline-flex items-center justify-center rounded-md border p-2 text-sm transition hover:bg-[rgba(253,238,232,0.6)]"
+                className="inline-flex items-center justify-center rounded-full border p-2 text-sm transition hover:bg-[rgba(253,238,232,0.6)]"
                 style={{ borderColor: "rgba(120, 46, 21, 0.18)" }}
                 aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
                 aria-expanded={menuOpen}
@@ -219,7 +219,7 @@ export default function AppHeader() {
                 <div className="mx-auto max-w-6xl px-6 py-3 grid gap-2">
                   <Link
                     href="/"
-                    className="w-full text-sm rounded-md border px-3 py-2 text-center
+                    className="w-full text-sm rounded-full border px-3 py-2 text-center
                       transition active:scale-[0.99]
                       active:bg-[rgba(253,238,232,0.95)]
                       active:border-[rgba(175,78,43,0.35)]"
@@ -231,7 +231,7 @@ export default function AppHeader() {
 
                   <Link
                     href={loggedIn ? "/reservar" : loginToReserveHref}
-                    className="w-full text-sm rounded-md border px-3 py-2 text-center
+                    className="w-full text-sm rounded-full border px-3 py-2 text-center
                       transition active:scale-[0.99]
                       active:bg-[rgba(253,238,232,0.95)]
                       active:border-[rgba(175,78,43,0.35)]"
@@ -242,7 +242,7 @@ export default function AppHeader() {
 
                   <Link
                     href="/perfil"
-                    className="w-full text-sm rounded-md border px-3 py-2 text-center
+                    className="w-full text-sm rounded-full border px-3 py-2 text-center
                       transition active:scale-[0.99]
                       active:bg-[rgba(253,238,232,0.95)]
                       active:border-[rgba(175,78,43,0.35)]"
@@ -253,7 +253,7 @@ export default function AppHeader() {
                   {loggedIn && (role === "owner" || role === "reception") && (
                     <Link 
                       href="/reception" 
-                      className="w-full text-sm rounded-md border px-3 py-2 text-center
+                      className="w-full text-sm rounded-full border px-3 py-2 text-center
                         transition active:scale-[0.99]
                         active:bg-[rgba(253,238,232,0.95)]
                         active:border-[rgba(175,78,43,0.35)]"
@@ -265,7 +265,7 @@ export default function AppHeader() {
                   {loggedIn ? (
                     <button
                       onClick={signOut}
-                      className="w-full text-sm rounded-md border px-3 py-2 text-center
+                      className="w-full text-sm rounded-full border px-3 py-2 text-center
                         transition active:scale-[0.99]
                         active:bg-[rgba(253,238,232,0.95)]
                         active:border-[rgba(175,78,43,0.35)]"
@@ -285,7 +285,7 @@ export default function AppHeader() {
                   <button
                     type="button"
                     onClick={() => setMenuOpen(false)}
-                    className="w-full text-sm rounded-md border px-3 py-2 text-center
+                    className="w-full text-sm rounded-full border px-3 py-2 text-center
                       transition active:scale-[0.99]
                       active:bg-[rgba(253,238,232,0.95)]
                       active:border-[rgba(175,78,43,0.35)]"

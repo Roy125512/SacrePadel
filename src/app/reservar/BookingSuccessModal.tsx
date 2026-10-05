@@ -65,7 +65,7 @@ export default function BookingSuccessModal({
                     </svg>
                     </span>
                     <div>
-                    Confirmacion enviada a{" "}
+                    Confirmación enviada a{" "}
                     <span className="font-medium">{emailInfo.to}</span>
                     </div>
                 </div>

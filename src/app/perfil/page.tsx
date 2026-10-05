@@ -189,9 +189,6 @@ export default function ProfilePage() {
     <div className="page page-gradient">
       <div className="mx-auto max-w-2xl px-6 py-10 sm:py-14">
         <div className="max-w-lg">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--brand)]">
-            Tu cuenta
-          </p>
           <h1 className="font-display mt-3 text-4xl leading-[1.05] sm:text-5xl">
             <span className="font-light italic">Completa</span>{" "}
             <span className="font-black">tu perfil.</span>

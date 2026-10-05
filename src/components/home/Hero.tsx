@@ -3,12 +3,22 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, ChevronDown, LayoutDashboard } from "lucide-react";
+import { ArrowRight, LayoutDashboard } from "lucide-react";
+import TodayAvailability from "@/components/brand/TodayAvailability";
+import dynamic from "next/dynamic";
+import ContourLines from "@/components/three/ContourLines";
+
+// Three.js solo se descarga en el navegador y después de lo esencial: la
+// portada (texto y botón de reservar) nunca espera al 3D.
+const PaddleScene = dynamic(() => import("@/components/three/PaddleScene"), { ssr: false });
+import { DAY_RATE } from "@/lib/pricing-shared";
 import ReservarButton from "@/components/ReservarButton";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 /**
- * Hero — full-bleed golden-hour section for /inicio.
+ * Hero de /inicio: "SACRÉ" gigante, una pala de pádel 3D (Three.js) que
+ * sigue al cursor y gira con el scroll, curvas de nivel de fondo y los
+ * horarios libres de hoy. Si no hay WebGL, se muestra una foto.
  *
  * Because AppHeader hides its nav on /inicio, this Hero renders its own
  * minimal embedded top bar (logo + wordmark left, session-aware account
@@ -18,6 +28,8 @@ export default function Hero() {
   const [hasSession, setHasSession] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
+  const [sceneReady, setSceneReady] = useState(false);
+  const [webglFailed, setWebglFailed] = useState(false);
   const canAccessReception = role === "owner" || role === "reception";
 
   async function loadProfile(userId: string, email: string | null) {
@@ -64,121 +76,97 @@ export default function Hero() {
     setRole(null);
   }
 
+  const word = "SACRÉ";
+
   return (
-    <section className="section-dark relative isolate min-h-[100svh] w-full overflow-hidden">
-      {/* Background photo */}
-      <Image
-        src="/images/hero-golden-hour.jpg"
-        alt="Cancha de pádel Sacré al atardecer en Pátzcuaro"
-        fill
-        priority
-        sizes="100vw"
-        className="object-cover object-top"
-      />
+    <section className="relative isolate h-[100svh] min-h-[640px] w-full overflow-hidden" style={{ background: "var(--dark)", color: "var(--dark-foreground)" }}>
+      <ContourLines />
 
-      {/* Readability gradient */}
-      <div className="hero-overlay" />
+      {/* Foto de respaldo si el equipo no soporta 3D */}
+      {webglFailed && (
+        <div className="absolute inset-0">
+          <Image src="/images/gallery-court-night.jpg" alt="" fill priority sizes="100vw" className="object-cover opacity-40" />
+        </div>
+      )}
 
-      {/* Embedded top bar */}
-      <div className="absolute inset-x-0 top-0 z-20">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <Link href="/" className="flex items-center gap-3">
-            <Image
-              src="/logo-sacre.png"
-              alt="Sacré Pádel"
-              width={56}
-              height={56}
-              priority
-              className="h-12 w-12 drop-shadow-md sm:h-14 sm:w-14"
-            />
-            <span className="text-sm font-semibold tracking-[0.24em] text-[var(--dark-foreground)] sm:text-base">
-              SACRÉ PÁDEL
+      {/* Titular gigante detrás de la pala */}
+      <h1 className="pointer-events-none absolute inset-x-0 top-1/2 z-0 -translate-y-[56%] select-none text-center">
+        <span className="sr-only">Sacré Pádel — canchas de pádel en Pátzcuaro</span>
+        <span aria-hidden className="font-display block whitespace-nowrap text-[clamp(5.5rem,25vw,24rem)] font-normal leading-[0.8] tracking-[-0.03em]">
+          {word.split("").map((ch, i) => (
+            <span key={i} className="letter-mask">
+              <span className="letter-rise" style={{ animationDelay: `${0.15 + i * 0.08}s` }}>
+                {ch}
+              </span>
             </span>
-          </Link>
+          ))}
+        </span>
+      </h1>
 
+      {/* Pala 3D */}
+      {!webglFailed && (
+        <div className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-[1400ms]" style={{ opacity: sceneReady ? 1 : 0 }}>
+          <PaddleScene onReady={() => setSceneReady(true)} onFail={() => setWebglFailed(true)} />
+        </div>
+      )}
+
+      {/* Barra superior */}
+      <header className="absolute inset-x-0 top-0 z-30 flex items-center justify-between gap-6 px-6 py-6 sm:px-10">
+        <Link href="/" className="flex items-center gap-3">
+          <Image src="/logo-sacre.png" alt="" width={36} height={36} priority className="h-8 w-8" />
+          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.34em]">Sacré Pádel</span>
+        </Link>
+        <nav className="hidden items-center gap-8 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-[rgba(241,236,227,.7)] md:flex">
+          <a href="#el-club" className="transition hover:text-[var(--dark-foreground)]">El club</a>
+          <a href="#tarifas" className="transition hover:text-[var(--dark-foreground)]">Tarifas</a>
+          <a href="#ubicacion" className="transition hover:text-[var(--dark-foreground)]">Ubicación</a>
           {hasSession ? (
-            <div className="flex items-center gap-3 sm:gap-4">
-              <Link
-                href="/perfil"
-                className="hidden text-xs font-medium tracking-wide text-[rgba(246,240,230,0.85)] transition hover:text-[var(--dark-foreground)] sm:inline"
-              >
-                Hola, {displayName ?? "…"}
-              </Link>
+            <>
               {canAccessReception && (
-                <Link
-                  href="/reception"
-                  className="btn-primary flex items-center gap-1.5 px-3 py-2 text-xs sm:px-4 sm:text-sm"
-                >
+                <Link href="/reception" className="inline-flex items-center gap-1.5 transition hover:text-[var(--dark-foreground)]">
                   <LayoutDashboard className="h-3.5 w-3.5" />
                   Recepción
                 </Link>
               )}
-              <button
-                type="button"
-                onClick={signOut}
-                className="btn-outline-light text-xs sm:text-sm"
-              >
-                Cerrar sesión
+              <Link href="/perfil" className="transition hover:text-[var(--dark-foreground)]">
+                {displayName ?? "Mi cuenta"}
+              </Link>
+              <button type="button" onClick={signOut} className="uppercase tracking-[0.2em] text-[rgba(241,236,227,.45)] hover:text-[var(--dark-foreground)]">
+                Salir
               </button>
-            </div>
+            </>
           ) : (
-            <Link
-              href="/login?next=%2Freservar"
-              className="btn-outline-light text-xs sm:text-sm"
-            >
+            <Link href="/login?next=%2Freservar" className="transition hover:text-[var(--dark-foreground)]">
               Iniciar sesión
             </Link>
           )}
-        </div>
-      </div>
+        </nav>
+        <ReservarButton className="btn-primary !bg-[var(--dark-foreground)] !px-5 !py-3 !text-[var(--dark)] hover:!bg-[var(--brand-highlight)]" align="right">
+          Reservar
+        </ReservarButton>
+      </header>
 
-      {/* Hero content */}
-      <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-6xl flex-col justify-center px-6 pb-24 pt-28">
-        <div className="max-w-2xl">
-          <span className="flex items-center gap-3 text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-[rgba(246,240,230,0.85)]">
-            <span aria-hidden className="h-px w-10 bg-[var(--brand-highlight)]" />
-            Pátzcuaro · Michoacán
-          </span>
-
-          <h1 className="font-display mt-6 text-[3.25rem] leading-[0.95] text-[var(--dark-foreground)] sm:text-7xl md:text-[5.5rem]">
-            <span className="block font-light italic tracking-tight text-[rgba(246,240,230,0.92)]">
-              Donde el juego
-            </span>
-            <span className="mt-1 block">
-              <span className="font-light italic tracking-tight text-[rgba(246,240,230,0.92)]">
-                se vuelve{" "}
-              </span>
-              <span className="font-black tracking-[-0.02em] text-[var(--brand-highlight)]">
-                sagrado
-              </span>
-            </span>
-          </h1>
-
-          <p className="mt-7 max-w-xl text-lg leading-relaxed text-[rgba(246,240,230,0.85)] sm:text-xl">
-            De día o de noche, conecta, convive y crece con la comunidad Sacré.
+      {/* Pie de la portada */}
+      <div className="absolute inset-x-0 bottom-0 z-20 grid gap-8 px-6 pb-8 sm:px-10 md:grid-cols-[1fr_auto] md:items-end">
+        <div className="max-w-md">
+          <p className="text-[0.7rem] uppercase tracking-[0.3em] text-[var(--brand-highlight)]">Pátzcuaro, Michoacán</p>
+          <p className="font-display mt-4 text-[clamp(1.6rem,2.4vw,2.2rem)] leading-[1.1]">
+            Cuatro canchas de cristal frente a los cerros.
           </p>
-
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <ReservarButton className="btn-primary group px-6 py-3 text-base">
-              Reservar ahora
-              <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+          <div className="mt-6 flex flex-wrap items-center gap-6">
+            <ReservarButton className="btn-primary !bg-[var(--dark-foreground)] !text-[var(--dark)] hover:!bg-[var(--brand-highlight)]">
+              Reservar cancha
+              <ArrowRight className="h-4 w-4" />
             </ReservarButton>
-
-            <a href="#value-props" className="btn-outline-light px-6 py-3 text-base">
-              Conocer más
+            <a href="#tarifas" className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-[rgba(241,236,227,.8)] underline decoration-[var(--brand-highlight)] underline-offset-[10px]">
+              Desde ${DAY_RATE} la hora
             </a>
           </div>
         </div>
+        <div className="md:text-right">
+          <TodayAvailability dark />
+        </div>
       </div>
-
-      {/* Scroll hint */}
-      <a
-        href="#value-props"
-        aria-label="Desplázate hacia abajo"
-        className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2 text-[var(--dark-foreground)]/70 transition hover:text-[var(--dark-foreground)]"
-      >
-        <ChevronDown className="h-7 w-7 animate-bounce" />
-      </a>
     </section>
   );
 }

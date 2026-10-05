@@ -67,16 +67,15 @@ export default function BookingModal({
         <div
             className="px-6 py-5"
             style={{
-            background: "var(--court)",
-            borderBottom: "1px solid rgba(120, 46, 21, 0.25)",
+            background: "radial-gradient(120% 140% at 0% 0%, #C9683A 0%, #8A3E1C 45%, #4A1E0C 100%)",
+            boxShadow: "inset 0 1px 0 rgba(255,220,190,.35)",
             }}
         >
-            <span className="flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-[0.28em]" style={{ color: "rgba(246, 240, 230, 0.72)" }}>
-            <span aria-hidden className="inline-block h-px w-7" style={{ background: "rgba(246, 240, 230, 0.6)" }} />
+            <span className="text-sm font-medium" style={{ color: "rgba(246, 240, 230, 0.75)" }}>
             Confirmar reserva
             </span>
-            <h2 className="font-display mt-2 text-2xl leading-tight" style={{ color: "#F6F0E6" }}>
-            <span className="font-light italic">{selected.court_name}</span>
+            <h2 className="font-display mt-1 text-3xl leading-tight" style={{ color: "#F6F0E6" }}>
+            {selected.court_name}
             </h2>
             <div className="mt-1 text-sm" style={{ color: "rgba(246, 240, 230, 0.78)" }}>
             {formatDateES(dateYMD)}
@@ -97,8 +96,8 @@ export default function BookingModal({
 
             {/* Duration */}
             <div>
-            <label className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--muted)" }}>
-                Duracion
+            <label className="block text-sm font-medium" style={{ color: "var(--muted)" }}>
+                Duración
             </label>
             <select
                 className="input w-full"
@@ -119,7 +118,7 @@ export default function BookingModal({
             )}
             {(paymentMode !== "choose" || mpLoading) && (
                 <div className="mt-1.5 text-xs" style={{ color: "var(--muted)" }}>
-                La duracion queda fija una vez que inicias el pago.
+                La duración queda fija una vez que inicias el pago.
                 </div>
             )}
             </div>
@@ -128,7 +127,7 @@ export default function BookingModal({
             {priceInfo && selectedEndAt && (
             <div className="flex items-end justify-between gap-3 border-t pt-4" style={{ borderColor: "rgba(120,46,21,0.15)" }}>
                 <div>
-                    <div className="text-[0.65rem] font-semibold uppercase tracking-[0.2em]" style={{ color: "var(--muted)" }}>
+                    <div className="text-sm font-medium" style={{ color: "var(--muted)" }}>
                     Precio
                     </div>
                     <div className="mt-1 text-sm" style={{ color: "var(--brand-800)" }}>
@@ -148,7 +147,7 @@ export default function BookingModal({
 
             {/* Name */}
             <div>
-            <label className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--muted)" }}>
+            <label className="block text-sm font-medium" style={{ color: "var(--muted)" }}>
                 Nombre
             </label>
             <input
@@ -168,8 +167,8 @@ export default function BookingModal({
             {/* Guest email */}
             {isGuest && (
             <div>
-                <label className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--muted)" }}>
-                Correo (para confirmacion)
+                <label className="block text-sm font-medium" style={{ color: "var(--muted)" }}>
+                Correo (para confirmación)
                 </label>
                 <input
                 className="input"
@@ -179,15 +178,15 @@ export default function BookingModal({
                 inputMode="email"
                 />
                 <div className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-                Opcional. Si lo pones, te llega confirmacion por correo.
+                Opcional. Si lo pones, te llega confirmación por correo.
                 </div>
             </div>
             )}
 
             {/* Phone */}
             <div>
-            <label className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--muted)" }}>
-                Telefono
+            <label className="block text-sm font-medium" style={{ color: "var(--muted)" }}>
+                Teléfono
             </label>
             <input
                 className="input disabled:opacity-60"
@@ -215,7 +214,7 @@ export default function BookingModal({
             {/* ===== PAYMENT: CHOOSE ===== */}
             {paymentMode === "choose" && (
             <div>
-                <div className="mb-3 text-[0.65rem] font-semibold uppercase tracking-[0.2em]" style={{ color: "var(--muted)" }}>
+                <div className="mb-3 text-sm font-medium" style={{ color: "var(--muted)" }}>
                 Forma de pago
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -237,7 +236,7 @@ export default function BookingModal({
                         <line x1="1" y1="10" x2="23" y2="10" />
                     </svg>
                     <div className="font-display mt-3 text-base font-semibold" style={{ color: "var(--brand-800)" }}>
-                    {mpLoading ? "Preparando..." : "Pagar en linea"}
+                    {mpLoading ? "Preparando..." : "Pagar en línea"}
                     </div>
                     <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
                     Tarjeta o transferencia, con Mercado Pago
@@ -245,7 +244,7 @@ export default function BookingModal({
                 </button>
 
                 {/* Reception payment card — solo cambia de vista a un paso de
-                    confirmacion explicito (ver paymentMode === "reception" abajo);
+                    confirmación explicito (ver paymentMode === "reception" abajo);
                     NO reserva todavia. Antes reservaba en este mismo click, lo
                     cual confundia a la gente porque no habia ningun aviso claro
                     de que ya se habia hecho la reserva. */}
@@ -267,7 +266,7 @@ export default function BookingModal({
                         <path d="M10 10h4" />
                     </svg>
                     <div className="font-display mt-3 text-base font-semibold" style={{ color: "var(--foreground)" }}>
-                    {saving ? "Confirmando..." : "Pagar en recepcion"}
+                    {saving ? "Confirmando..." : "Pagar en recepción"}
                     </div>
                     <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
                     Efectivo o tarjeta al llegar
@@ -299,7 +298,7 @@ export default function BookingModal({
                 >
                 Vas a reservar <strong>{selected.court_name}</strong> el {formatDateES(dateYMD)} de{" "}
                 {parseISOToLocalTime(selected.start_at)}
-                {selectedEndAt && <> a {parseISOToLocalTime(selectedEndAt)}</>}. El pago se hace en recepcion al llegar.
+                {selectedEndAt && <> a {parseISOToLocalTime(selectedEndAt)}</>}. El pago se hace en recepción al llegar.
                 </div>
 
                 <div className="mt-3 flex gap-3">

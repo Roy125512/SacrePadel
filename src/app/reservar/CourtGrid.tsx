@@ -53,19 +53,19 @@ export default function CourtGrid({
                 onClick={() => onPick(c, s)}
                 disabled={isBooked || isStartDisabled || disabled}
                 className={cx(
-                    "rounded-lg border px-2 py-2.5 text-xs font-medium transition-all duration-150",
+                    "rounded-full border px-2 py-2 text-[0.8rem] font-semibold tabular-nums transition-all duration-150",
                     "focus:outline-none focus:ring-2",
                     isBooked
                     ? "cursor-not-allowed border-transparent bg-[var(--surface-2)] line-through opacity-40"
                     : isSelected
-                    ? "border-[var(--brand-600)] text-white shadow-md ring-2 ring-[var(--brand-200)]"
+                    ? "border-transparent text-white shadow-md ring-2 ring-[var(--brand-200)]"
                     : isStartDisabled
                     ? "cursor-not-allowed border-transparent bg-[var(--surface-2)] opacity-30"
-                    : "border-[rgba(120,46,21,0.10)] bg-white hover:border-[var(--brand-200)] hover:bg-[var(--brand-50)] hover:shadow-sm active:scale-[0.97]"
+                    : "border-[var(--line)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--brand)] hover:bg-[var(--brand-50)] active:scale-[0.97]"
                 )}
                 style={
                     isSelected
-                    ? { background: "linear-gradient(135deg, var(--brand-highlight), var(--brand))" }
+                    ? { background: "linear-gradient(180deg, #C2643A, #9C4622)" }
                     : undefined
                 }
                 title={`${parseISOToLocalTime(s.start_at)}\u2013${parseISOToLocalTime(s.end_at)} (30m)`}

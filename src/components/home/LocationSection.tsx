@@ -47,7 +47,7 @@ export default function LocationSection() {
   return (
     <section
       id="ubicacion"
-      className="section-dark cut-top relative w-full overflow-hidden py-24 sm:py-32"
+      className="section-dark relative w-full overflow-hidden py-24 sm:py-32"
     >
       {/* Full-bleed photo background */}
       <Image
@@ -65,15 +65,7 @@ export default function LocationSection() {
       >
         {/* Copy + contacto */}
         <div className="max-w-xl">
-          <span className="flex items-center gap-3 text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-[var(--brand-highlight)]">
-            <span aria-hidden className="h-px w-10 bg-[var(--brand-highlight)]" />
-            Cómo llegar
-          </span>
-          <h2 className="font-display mt-5 text-4xl leading-[1.03] sm:text-6xl">
-            <span className="font-light italic">Encuéntranos</span>
-            <br />
-            <span className="font-black">en Pátzcuaro.</span>
-          </h2>
+          <h2 className="font-display mt-5 text-[clamp(2.4rem,4.6vw,3.6rem)] leading-[1.02]">Estamos en Pátzcuaro.</h2>
           <p className="mt-6 text-lg leading-relaxed text-[rgba(246,240,230,0.82)]">
             Frente a las montañas, a unos minutos del centro. Dale a
             &ldquo;Cómo llegar&rdquo; y Google Maps te lleva directo a la
@@ -145,7 +137,7 @@ export default function LocationSection() {
         </div>
 
         {/* Mapa */}
-        <div className="overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
+        <div className="overflow-hidden border border-white/10">
           <iframe
             title="Ubicación de Sacré Pádel en el mapa"
             src={MAP_EMBED_SRC}

@@ -542,7 +542,6 @@ export default function ReceptionPage() {
       <div className="mx-auto w-full max-w-[96vw] px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--brand)]">Sacré Pádel</p>
             <h1 className="font-display mt-1 text-4xl leading-[1.05] sm:text-5xl">
               <span className="font-light italic">Control</span> <span className="font-black">de recepción.</span>
             </h1>

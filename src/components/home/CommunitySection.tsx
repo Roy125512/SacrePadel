@@ -9,7 +9,7 @@ export default function CommunitySection() {
   const revealRef = useScrollReveal<HTMLDivElement>();
 
   return (
-    <section className="section-dark cut-top relative w-full overflow-hidden pb-20 pt-28 sm:pb-28 sm:pt-36">
+    <section className="section-dark relative w-full overflow-hidden pb-20 pt-28 sm:pb-28 sm:pt-36">
       <div
         ref={revealRef}
         className="reveal mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-6 lg:grid-cols-2"
@@ -21,7 +21,7 @@ export default function CommunitySection() {
             extreme sliver. */}
         <div className="order-last lg:order-first">
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-            <div className="relative col-span-2 h-64 overflow-hidden rounded-3xl shadow-2xl sm:h-80 lg:col-span-3 lg:h-80">
+            <div className="relative col-span-2 h-64 overflow-hidden sm:h-80 lg:col-span-3 lg:h-80">
               <Image
                 src="/images/community-players-laughing.jpg"
                 alt="Jugadores de la comunidad Sacré riendo junto a la red"
@@ -32,7 +32,7 @@ export default function CommunitySection() {
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-[rgba(30,20,14,0.35)] to-transparent" />
             </div>
 
-            <div className="relative h-40 overflow-hidden rounded-2xl border-4 border-[var(--dark)] shadow-2xl sm:h-48 lg:h-48">
+            <div className="relative h-40 overflow-hidden sm:h-48 lg:h-48">
               <Image
                 src="/images/community-players-net.jpg"
                 alt="Jugadores conviviendo junto a la red después de un partido"
@@ -43,7 +43,7 @@ export default function CommunitySection() {
               />
             </div>
 
-            <div className="relative h-40 overflow-hidden rounded-2xl border-4 border-[var(--dark)] shadow-2xl sm:h-48 lg:h-48">
+            <div className="relative h-40 overflow-hidden sm:h-48 lg:h-48">
               <Image
                 src="/images/community-players-fistbump.jpg"
                 alt="Jugadores saludándose después de un partido"
@@ -53,7 +53,7 @@ export default function CommunitySection() {
               />
             </div>
 
-            <div className="relative col-span-2 h-44 overflow-hidden rounded-2xl border-4 border-[var(--dark)] shadow-2xl sm:h-48 lg:col-span-1 lg:h-48">
+            <div className="relative col-span-2 h-44 overflow-hidden sm:h-48 lg:col-span-1 lg:h-48">
               <Image
                 src="/images/community-players-duo.jpg"
                 alt="Dos jugadores de la comunidad Sacré conviviendo en la cancha"
@@ -67,19 +67,10 @@ export default function CommunitySection() {
 
         {/* Copy */}
         <div className="max-w-xl">
-          <span className="flex items-center gap-3 text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-[var(--brand-highlight)]">
-            <span aria-hidden className="h-px w-10 bg-[var(--brand-highlight)]" />
-            La comunidad Sacré
-          </span>
-          <h2 className="font-display mt-5 text-4xl leading-[1.03] sm:text-6xl">
-            <span className="font-light italic">Más que una cancha,</span>
-            <br />
-            <span className="font-black">una tribu.</span>
-          </h2>
+          <h2 className="font-display mt-5 text-[clamp(2.4rem,4.6vw,3.6rem)] leading-[1.02]">Aquí se arman las retas.</h2>
           <p className="mt-6 text-lg leading-relaxed text-[rgba(246,240,230,0.82)]">
-            En Sacré cada partido es un encuentro. Crea tu cuenta para reservar
-            más rápido, guardar tu historial y ser el primero en enterarte de
-            ligas, eventos y promociones.
+            Con cuenta reservas en segundos: tus datos quedan guardados, ves tu
+            historial y te avisamos primero de ligas, torneos y promociones.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
