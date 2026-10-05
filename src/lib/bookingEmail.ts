@@ -242,3 +242,103 @@ export function buildOwnerNotificationEmail(a: {
 
   return { subject, text, html };
 }
+
+/**
+ * Recordatorio que se manda la tarde anterior a la reserva. Incluye un link
+ * para avisar por WhatsApp si el cliente ya no puede ir, para liberar la
+ * cancha a tiempo.
+ */
+export function buildBookingReminderEmail(a: {
+  clubName?: string;
+  logoUrl?: string;
+  fullName: string;
+  courtName: string;
+  dateLocal: string;
+  startTimeLocal: string;
+  endTimeLocal: string;
+  paid: boolean;
+  whatsappPhone: string;
+}) {
+  const club = a.clubName ?? "Sacré Pádel";
+  const logo = a.logoUrl ?? "https://sacrepadel.com/email/logo.png";
+  const firstName = a.fullName.trim().split(/\s+/)[0] || "";
+  const subject = `Recordatorio: tu reserva de mañana a las ${a.startTimeLocal} - ${club}`;
+
+  const cancelText = `Hola, soy ${a.fullName.trim() || "un cliente"}. Tengo reserva en ${a.courtName} el ${a.dateLocal} a las ${a.startTimeLocal} y no voy a poder llegar. ¿Podrían liberar el horario? ¡Gracias!`;
+  const cancelHref = `https://wa.me/${a.whatsappPhone}?text=${encodeURIComponent(cancelText)}`;
+  const paymentLine = a.paid ? "Ya está pagada." : "El pago se hace en recepción al llegar.";
+
+  const text = [
+    `Hola${firstName ? ` ${firstName}` : ""},`,
+    "",
+    `Te recordamos tu reserva de mañana en ${club}:`,
+    `Cancha: ${a.courtName}`,
+    `Fecha: ${a.dateLocal}`,
+    `Horario: ${a.startTimeLocal} - ${a.endTimeLocal}`,
+    paymentLine,
+    "",
+    "Si ya no puedes venir, avísanos para dársela a alguien más:",
+    cancelHref,
+  ].join("\n");
+
+  const font = "font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;";
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f6efe9;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6efe9;padding:24px 0;">
+      <tr>
+        <td align="center" style="padding:0 12px;">
+          <table role="presentation" width="520" cellspacing="0" cellpadding="0" style="width:520px;max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #f0e2d8;">
+            <tr>
+              <td style="padding:18px 20px;">
+                <table role="presentation" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td style="vertical-align:middle;">
+                      <img src="${esc(logo)}" width="40" height="40" alt="${esc(club)}" style="display:block;border:0;border-radius:10px;" />
+                    </td>
+                    <td style="vertical-align:middle;padding-left:12px;">
+                      <div style="${font}color:#111;font-weight:800;letter-spacing:1px;">${esc(club).toUpperCase()}</div>
+                      <div style="${font}color:#6b7280;font-size:12px;margin-top:2px;">Recordatorio de reserva</div>
+                    </td>
+                  </tr>
+                </table>
+
+                <div style="height:14px"></div>
+                <div style="${font}color:#111;font-size:18px;font-weight:800;">¡Nos vemos mañana!</div>
+                <div style="height:8px"></div>
+                <div style="${font}color:#374151;font-size:14px;line-height:1.5;">
+                  Hola${firstName ? ` <b>${esc(firstName)}</b>` : ""}, te recordamos tu reserva.
+                </div>
+
+                <div style="height:14px"></div>
+                <div style="border:1px solid #e9d5c7;border-radius:14px;padding:14px;background:#fff7f1;">
+                  <div style="${font}color:#111;font-size:14px;line-height:1.6;">
+                    <div><b>Cancha:</b> ${esc(a.courtName)}</div>
+                    <div><b>Fecha:</b> ${esc(a.dateLocal)}</div>
+                    <div><b>Horario:</b> ${esc(a.startTimeLocal)} – ${esc(a.endTimeLocal)}</div>
+                    <div style="margin-top:10px;">${esc(paymentLine)}</div>
+                  </div>
+                </div>
+
+                <div style="height:16px"></div>
+                <div style="${font}color:#374151;font-size:13px;line-height:1.5;">
+                  ¿Ya no puedes venir? Un aviso nos ayuda a dársela a alguien que la está esperando.
+                </div>
+                <div style="height:10px"></div>
+                <a href="${esc(cancelHref)}" style="${font}display:inline-block;background:#9a3b1b;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;padding:10px 16px;border-radius:10px;">
+                  Avisar por WhatsApp
+                </a>
+
+                <div style="height:16px"></div>
+                <div style="${font}font-size:12px;color:#9ca3af;">© ${new Date().getFullYear()} ${esc(club)}</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return { subject, text, html };
+}

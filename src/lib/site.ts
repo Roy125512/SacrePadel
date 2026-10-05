@@ -5,6 +5,7 @@ export const SITE = {
   description:
     "Club de pádel en Pátzcuaro, Michoacán. Reserva tu cancha en línea en segundos, paga en línea o en recepción.",
   phone: "+52 1 434 116 8095",
+  whatsapp: "5214341168095",
   email: "sacrepadelpatz@gmail.com",
   instagram: "https://instagram.com/sacrepadel.patz",
   address: {
