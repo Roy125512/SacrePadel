@@ -538,6 +538,39 @@ textarea {
   }
 }
 
+/* Sin el destello gris del navegador al tocar enlaces y botones en celular */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Carrusel horizontal sin barra visible (menú de secciones en celular) */
+.no-scrollbar {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+@media (max-width: 767px) {
+  .fade-right {
+    mask-image: linear-gradient(90deg, #000 85%, transparent);
+  }
+}
+
+/* Celular: las curvas de fondo quietas (menos trabajo para el teléfono) y
+   los enlaces #ancla con desplazamiento suave nativo. */
+@media (pointer: coarse) {
+  .contour-drift {
+    animation: none;
+    transform: scale(1.06);
+  }
+}
+@media (pointer: coarse) and (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 /* Cursor propio: ocultar el del sistema solo en la portada (clase que pone
    el componente Cursor) */
 .has-custom-cursor,

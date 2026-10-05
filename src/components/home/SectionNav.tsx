@@ -12,21 +12,22 @@ const LINKS = [
 
 export default function SectionNav() {
   return (
-    <nav className="sticky top-0 z-30 w-full border-b border-[var(--line)] bg-[var(--background)]/95 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center gap-1 overflow-x-auto px-4 py-2.5 sm:gap-2 sm:px-6">
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+    <nav className="sticky top-0 z-30 w-full border-b border-[var(--line)] bg-[var(--background)]">
+      <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2.5 sm:px-6">
+        {/* en celular los enlaces se deslizan de lado; el botón Reservar queda fijo */}
+        <div className="no-scrollbar fade-right flex min-w-0 flex-1 items-center gap-1 overflow-x-auto sm:gap-2">
           {LINKS.map((l) => (
             <a
               key={l.href}
               href={l.href}
-              className="whitespace-nowrap px-3 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-[var(--muted)] transition hover:text-[var(--foreground)]"
+              className="shrink-0 whitespace-nowrap px-3 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-[var(--muted)] transition hover:text-[var(--foreground)]"
             >
               {l.label}
             </a>
           ))}
         </div>
 
-        <div className="ml-auto shrink-0">
+        <div className="shrink-0">
           <ReservarButton className="btn-primary px-4 py-1.5 text-sm" align="right">
             Reservar
           </ReservarButton>

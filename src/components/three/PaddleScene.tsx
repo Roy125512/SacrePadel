@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { createStage } from "./stage";
 
 /**
  * Pala de pádel en 3D, generada por código (sin modelos externos).
@@ -11,7 +11,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
  *
  * - Gira hacia el cursor y flota suavemente.
  * - Al hacer scroll sobre la portada, rota y se aleja.
- * - Se pausa fuera de pantalla o con la pestaña oculta.
+ * - Se pausa fuera de pantalla; en celular usa menos detalle.
  * - Respeta "reducir movimiento": queda quieta.
  * - Si no hay WebGL, llama a onFail para que la portada muestre una foto.
  */
@@ -22,29 +22,12 @@ export default function PaddleScene({ onReady, onFail }: { onReady?: () => void;
     const mount = mountRef.current;
     if (!mount) return;
 
-    let renderer: THREE.WebGLRenderer;
-    try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-    } catch {
+    const stage = createStage(mount, { fov: 32, exposure: 1.05 });
+    if (!stage) {
       onFail?.();
       return;
     }
-
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const isSmall = window.matchMedia("(max-width: 768px)").matches;
-
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isSmall ? 1.5 : 1.75));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
-    mount.appendChild(renderer.domElement);
-
-    const scene = new THREE.Scene();
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    const envTexture = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environment = envTexture;
-
-    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
+    const { renderer, scene, camera, isSmall, reduceMotion } = stage;
     camera.position.set(0, 0, 9.5);
 
     // Luces: principal cálida arriba a la izquierda y contraluz de bronce.
@@ -63,19 +46,27 @@ export default function PaddleScene({ onReady, onFail }: { onReady?: () => void;
       const g = c.getContext("2d")!;
       g.fillStyle = "#0d0c0b";
       g.fillRect(0, 0, c.width, c.height);
-      // Tejido de carbono 3K (sarga 2×2)
+      // Tejido de carbono 3K (sarga 2×2): se dibuja un mosaico de 4×4
+      // celdas y se repite como patrón (el tejido tiene periodo 4).
       const s = 14;
-      for (let y = 0; y < c.height; y += s) {
-        for (let x = 0; x < c.width; x += s) {
+      const tile = document.createElement("canvas");
+      tile.width = tile.height = s * 4;
+      const tg = tile.getContext("2d")!;
+      tg.fillStyle = "#0d0c0b";
+      tg.fillRect(0, 0, s * 4, s * 4);
+      for (let y = 0; y < s * 4; y += s) {
+        for (let x = 0; x < s * 4; x += s) {
           const diag = Math.floor(x / s + y / s) % 4 < 2;
-          const grad = g.createLinearGradient(x, y, x + (diag ? s : 0), y + (diag ? 0 : s));
+          const grad = tg.createLinearGradient(x, y, x + (diag ? s : 0), y + (diag ? 0 : s));
           grad.addColorStop(0, diag ? "#1b1a18" : "#141311");
           grad.addColorStop(0.5, diag ? "#2a2825" : "#1f1d1a");
           grad.addColorStop(1, diag ? "#161513" : "#121110");
-          g.fillStyle = grad;
-          g.fillRect(x, y, s - 1, s - 1);
+          tg.fillStyle = grad;
+          tg.fillRect(x, y, s - 1, s - 1);
         }
       }
+      g.fillStyle = g.createPattern(tile, "repeat")!;
+      g.fillRect(0, 0, c.width, c.height);
       // Nombre grabado en bronce, en vertical sobre la cabeza
       g.save();
       g.translate(c.width / 2, c.height * 0.36);
@@ -157,6 +148,7 @@ export default function PaddleScene({ onReady, onFail }: { onReady?: () => void;
     // Perforaciones en patrón hexagonal dentro de la cabeza
     const r = 0.65;
     const step = 2.55;
+    const holeSides = isSmall ? 12 : 18;
     for (let row = -8; row <= 8; row++) {
       const y = HEAD_CY + row * step * 0.866;
       const offset = row % 2 === 0 ? 0 : step / 2;
@@ -168,8 +160,16 @@ export default function PaddleScene({ onReady, onFail }: { onReady?: () => void;
         if (nx * nx + ny * ny > 1 || y < -6.5) continue;
         // zona central sin agujeros para el nombre grabado
         if (Math.abs(x) < 1.9 && y > -3 && y < 12) continue;
+        // polígono directo: el contorno puede ir muy suave sin multiplicar
+        // los vértices de los ~50 agujeros
         const hole = new THREE.Path();
-        hole.absarc(x, y, r, 0, Math.PI * 2, true);
+        for (let i = 0; i <= holeSides; i++) {
+          const a = (-i / holeSides) * Math.PI * 2;
+          const px = x + r * Math.cos(a);
+          const py = y + r * Math.sin(a);
+          if (i === 0) hole.moveTo(px, py);
+          else hole.lineTo(px, py);
+        }
         outline.holes.push(hole);
       }
     }
@@ -179,8 +179,8 @@ export default function PaddleScene({ onReady, onFail }: { onReady?: () => void;
       bevelEnabled: true,
       bevelThickness: 0.25,
       bevelSize: 0.22,
-      bevelSegments: 4,
-      curveSegments: isSmall ? 24 : 48,
+      bevelSegments: isSmall ? 3 : 4,
+      curveSegments: 48, // solo afecta al contorno: borde de bronce suave
     });
     headGeo.translate(0, 0, -1.65);
 
@@ -226,51 +226,26 @@ export default function PaddleScene({ onReady, onFail }: { onReady?: () => void;
     window.addEventListener("pointermove", onPointer, { passive: true });
 
     let scrollP = 0;
+    let heroH = window.innerHeight;
     const onScroll = () => {
-      const h = mount.parentElement?.getBoundingClientRect().height ?? window.innerHeight;
-      scrollP = THREE.MathUtils.clamp(window.scrollY / h, 0, 1);
+      scrollP = THREE.MathUtils.clamp(window.scrollY / heroH, 0, 1);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
 
     // altura de la pala: en pantallas angostas sube para dejar abajo el texto
     let baseY = 0.05;
-    function resize() {
-      const w = mount!.clientWidth;
-      const h = mount!.clientHeight;
-      renderer.setSize(w, h, false);
-      renderer.domElement.style.width = "100%";
-      renderer.domElement.style.height = "100%";
-      camera.aspect = w / h;
+    stage.onResize((w, h) => {
       // en pantallas angostas, alejar para que quepa la pala completa
       camera.position.z = w / h < 0.8 ? 13 : 10.5;
-      baseY = w / h < 0.8 ? 1.15 : 0.05;
       camera.updateProjectionMatrix();
-    }
-    const ro = new ResizeObserver(resize);
-    ro.observe(mount);
-    resize();
+      baseY = w / h < 0.8 ? 1.15 : 0.05;
+      heroH = mount.parentElement?.offsetHeight || window.innerHeight;
+    });
+    onScroll();
 
-    let visible = true;
-    const io = new IntersectionObserver(([entry]) => (visible = entry.isIntersecting));
-    io.observe(mount);
-
-    const start = performance.now();
-    let raf = 0;
-    let readyCalled = false;
     const cur = { rx: 0, ry: -0.5 };
-
-    // El navegador ya pausa requestAnimationFrame en pestañas ocultas; aquí
-    // solo se evita dibujar cuando la portada salió de la pantalla.
-    function frame() {
-      raf = requestAnimationFrame(frame);
-      if (!visible) return;
-      draw();
-    }
-
-    function draw() {
-      const t = (performance.now() - start) / 1000;
+    stage.start((t) => {
       const idle = reduceMotion ? 0 : 1;
-
       const ry = -0.55 + target.x * 0.55 * idle + Math.sin(t * 0.35) * 0.18 * idle + scrollP * Math.PI * 1.1;
       const rx = 0.12 + target.y * 0.3 * idle + Math.sin(t * 0.5) * 0.05 * idle - scrollP * 0.5;
       cur.ry += (ry - cur.ry) * 0.06;
@@ -278,36 +253,12 @@ export default function PaddleScene({ onReady, onFail }: { onReady?: () => void;
       pivot.rotation.set(cur.rx, cur.ry, -0.32 + Math.sin(t * 0.3) * 0.04 * idle);
       pivot.position.y = baseY + Math.sin(t * 0.8) * 0.1 * idle + scrollP * 1.4;
       pivot.position.z = -scrollP * 3;
-
-      renderer.render(scene, camera);
-      if (!readyCalled) {
-        readyCalled = true;
-        onReady?.();
-      }
-    }
-    draw(); // primer cuadro de inmediato
-    frame();
+    }, onReady);
 
     return () => {
-      cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onPointer);
       window.removeEventListener("scroll", onScroll);
-      ro.disconnect();
-      io.disconnect();
-      scene.traverse((o) => {
-        if (o instanceof THREE.Mesh) {
-          o.geometry.dispose();
-          const mats = Array.isArray(o.material) ? o.material : [o.material];
-          mats.forEach((m) => {
-            (m as THREE.MeshStandardMaterial).map?.dispose();
-            m.dispose();
-          });
-        }
-      });
-      envTexture.dispose();
-      pmrem.dispose();
-      renderer.dispose();
-      renderer.domElement.remove();
+      stage.dispose();
     };
     // onReady/onFail se leen una vez al montar.
     // eslint-disable-next-line react-hooks/exhaustive-deps

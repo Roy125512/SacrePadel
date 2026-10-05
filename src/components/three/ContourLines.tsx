@@ -27,7 +27,9 @@ export default function ContourLines({ color = "rgba(201,162,126,0.16)" }: { col
     }
 
     function draw() {
-      const dpr = Math.min(window.devicePixelRatio, 2);
+      // en celular, 1× basta para líneas tan finas y tenues
+      const small = window.matchMedia("(max-width: 768px), (pointer: coarse)").matches;
+      const dpr = Math.min(window.devicePixelRatio, small ? 1.5 : 2);
       const w = canvas!.clientWidth;
       const h = canvas!.clientHeight;
       canvas!.width = Math.round(w * dpr);
@@ -79,8 +81,16 @@ export default function ContourLines({ color = "rgba(201,162,126,0.16)" }: { col
       }
     }
 
-    draw();
-    const ro = new ResizeObserver(draw);
+    // solo redibujar si cambia el ancho (en celular la barra del navegador
+    // cambia el alto al hacer scroll)
+    let lastW = 0;
+    const onResize = () => {
+      if (canvas.clientWidth === lastW) return;
+      lastW = canvas.clientWidth;
+      draw();
+    };
+    onResize();
+    const ro = new ResizeObserver(onResize);
     ro.observe(canvas);
     return () => ro.disconnect();
   }, [color]);

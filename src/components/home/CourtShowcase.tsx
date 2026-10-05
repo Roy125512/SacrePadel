@@ -49,7 +49,7 @@ export default function CourtShowcase() {
   }, []);
 
   return (
-    <section id="el-club" ref={sectionRef} className="relative h-[340vh] scroll-mt-16" style={{ background: "var(--dark)", color: "var(--dark-foreground)" }}>
+    <section id="el-club" ref={sectionRef} className="relative h-[300vh] scroll-mt-16 md:h-[340vh]" style={{ background: "var(--dark)", color: "var(--dark-foreground)" }}>
       <div className="sticky top-0 h-[100svh] overflow-hidden">
         {failed ? (
           <Image src="/images/gallery-two-courts-mountain.jpg" alt="" fill sizes="100vw" className="object-cover opacity-50" />

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { createStage, stickyProgress } from "./stage";
+import { createStage, noiseTile, stickyProgress } from "./stage";
 
 /**
  * Cancha de pádel reglamentaria en 3D (20 × 10 m), generada por código.
@@ -17,7 +17,7 @@ export default function CourtScene({ onReady, onFail }: { onReady?: () => void; 
     const mount = mountRef.current;
     if (!mount) return;
     const section = mount.closest("section") as HTMLElement | null;
-    const stage = createStage(mount, { fov: 38, exposure: 1.05 });
+    const stage = createStage(mount, { fov: 38, exposure: 1.05, maxDprSmall: 1.25 });
     if (!stage) {
       onFail?.();
       return;
@@ -31,17 +31,21 @@ export default function CourtScene({ onReady, onFail }: { onReady?: () => void; 
       c.width = 10 * ppm;
       c.height = 20 * ppm;
       const g = c.getContext("2d")!;
-      g.fillStyle = "#1d4fb8";
+      // grano del césped: un mosaico de ruido que se repite
+      const grain = noiseTile(96, (tg, n) => {
+        tg.fillStyle = "#1d4fb8";
+        tg.fillRect(0, 0, n, n);
+        const img = tg.getImageData(0, 0, n, n);
+        for (let i = 0; i < img.data.length; i += 4) {
+          const v = (Math.random() - 0.5) * 22;
+          img.data[i] += v;
+          img.data[i + 1] += v;
+          img.data[i + 2] += v;
+        }
+        tg.putImageData(img, 0, 0);
+      });
+      g.fillStyle = g.createPattern(grain, "repeat")!;
       g.fillRect(0, 0, c.width, c.height);
-      // grano del césped
-      const img = g.getImageData(0, 0, c.width, c.height);
-      for (let i = 0; i < img.data.length; i += 4) {
-        const n = (Math.random() - 0.5) * 22;
-        img.data[i] += n;
-        img.data[i + 1] += n;
-        img.data[i + 2] += n;
-      }
-      g.putImageData(img, 0, 0);
       g.fillStyle = "#f4f4f0";
       const lw = 0.05 * ppm;
       const sY1 = (10 - 6.95) * ppm;
@@ -208,6 +212,11 @@ export default function CourtScene({ onReady, onFail }: { onReady?: () => void; 
     // Una sola curva suave (sin frenazos entre tramos). Los puntos marcados
     // con `stop` son las cuatro tomas; los demás solo guían el trayecto, p. ej.
     // pasar por encima de la malla en vez de atravesarla.
+    // pantalla vertical (celular): alejar la cámara para que quepa la cancha
+    // (la toma a ras de césped casi no se aleja, para no quedar fuera del cristal)
+    const aspect = (mount.clientWidth || 1) / (mount.clientHeight || 1);
+    const portrait = aspect < 0.8;
+    const far = portrait ? 1.65 : isSmall ? 1.25 : 1;
     const path = [
       { pos: [16, 12, 18], look: [0, 0, 0], stop: true }, // aérea
       { pos: [5.5, 3.2, 16.5], look: [0, 1, 3], stop: true }, // tras el cristal
@@ -215,10 +224,10 @@ export default function CourtScene({ onReady, onFail }: { onReady?: () => void; 
       { pos: [-14.5, 10, 3], look: [0.5, 0, 0.5], stop: true }, // costado, luces
       { pos: [-6.5, 7.5, -5], look: [0.5, 0.5, 1], stop: false }, // sobre la malla
       { pos: [-3.2, 0.7, -8.6], look: [0.8, 0.9, 2], stop: true }, // a ras de césped
-      { pos: [6, 26, 3.5], look: [0, 0, 3.5], stop: true }, // cenital
+      // cenital: en pantalla horizontal la cancha va a lo ancho; en vertical, a lo largo
+      portrait ? { pos: [0, 24, 3], look: [0, 0, 0.4], stop: true } : { pos: [6, 26, 3.5], look: [0, 0, 3.5], stop: true },
     ];
-    const far = isSmall ? 1.35 : 1;
-    const posCurve = new THREE.CatmullRomCurve3(path.map((k) => new THREE.Vector3(...k.pos).multiplyScalar(far)), false, "centripetal");
+    const posCurve = new THREE.CatmullRomCurve3(path.map((k) => new THREE.Vector3(...k.pos).multiplyScalar(k.pos[1] < 2 ? Math.min(far, 1.1) : far)), false, "centripetal");
     const lookCurve = new THREE.CatmullRomCurve3(path.map((k) => new THREE.Vector3(...k.look)), false, "centripetal");
     const stops = path.map((k, i) => (k.stop ? i / (path.length - 1) : -1)).filter((u) => u >= 0);
     // progreso de scroll → posición en la curva: avanza constante pero se
@@ -243,6 +252,13 @@ export default function CourtScene({ onReady, onFail }: { onReady?: () => void; 
     window.addEventListener("pointermove", onPointer, { passive: true });
 
     let readyCalled = false;
+    // En pantalla vertical el título va arriba y el texto abajo: subir un
+    // poco la imagen para que la cancha quede en el hueco entre ambos.
+    stage.onResize((w, h) => {
+      if (w / h < 0.8) camera.setViewOffset(w, h, 0, h * 0.06, w, h);
+      else camera.clearViewOffset();
+    });
+
     stage.start((t) => {
       const p = section ? stickyProgress(section) : 0;
       const dt = Math.min(0.1, t - lastT);

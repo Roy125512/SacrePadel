@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { createStage } from "./stage";
+import { createStage, noiseTile } from "./stage";
 
 /**
  * Pelota de pádel en 3D: fieltro con brillo aterciopelado, costura real
@@ -26,62 +26,92 @@ export default function BallScene({ onReady, onFail }: { onReady?: () => void; o
     camera.lookAt(0, -0.15, 0);
 
     // ── Fieltro: color + fibras (también sirve de relieve) ──
-    function feltCanvas(withPrint: boolean) {
-      const c = document.createElement("canvas");
-      c.width = 2048;
-      c.height = 1024;
-      const g = c.getContext("2d")!;
-      g.fillStyle = withPrint ? "#b8cf12" : "#808080";
-      g.fillRect(0, 0, c.width, c.height);
-      // fibras cortas en todas direcciones
-      for (let i = 0; i < 60000; i++) {
-        const x = Math.random() * c.width;
-        const y = Math.random() * c.height;
-        const a = Math.random() * Math.PI;
-        const l = 3 + Math.random() * 7;
-        const v = Math.random();
-        g.strokeStyle = withPrint
-          ? v > 0.5 ? `rgba(235,248,120,${0.35 * v})` : `rgba(90,110,0,${0.35 * (1 - v)})`
-          : `rgba(${v > 0.5 ? 255 : 0},${v > 0.5 ? 255 : 0},${v > 0.5 ? 255 : 0},${0.25 * Math.abs(v - 0.5) * 2})`;
-        g.lineWidth = 1;
-        g.beginPath();
-        g.moveTo(x, y);
-        g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l);
-        g.stroke();
-      }
-      if (withPrint) {
-        // sello en tinta oscura, dos veces (lados opuestos de la pelota)
-        for (const u of [0.125, 0.625]) {
-          const cx = u * c.width;
-          g.save();
-          g.translate(cx, c.height / 2);
-          g.fillStyle = "rgba(14,13,11,0.95)";
-          g.textAlign = "center";
-          g.textBaseline = "middle";
-          g.font = "700 86px Georgia, 'Times New Roman', serif";
-          g.fillText("SACRÉ", 0, -10);
-          g.font = "600 22px Arial, sans-serif";
-          g.fillText("P Á D E L  ·  P R O", 0, 44);
-          g.restore();
+    // Las fibras se pintan una sola vez en un mosaico chico que se repite sin
+    // costuras (antes: 120 mil trazos, segundos de pantalla congelada en celular).
+    const W = isSmall ? 1024 : 2048; // ancho del mapa de color
+    const k = W / 2048; // escala de fibras y letras
+    function fiberTile(color: boolean) {
+      const size = Math.round(256 * k);
+      return noiseTile(size, (g, n) => {
+        g.fillStyle = color ? "#b8cf12" : "#808080";
+        g.fillRect(0, 0, n, n);
+        g.lineWidth = Math.max(1, k * 1.2);
+        // pocos grupos de opacidad → pocas llamadas a stroke()
+        const shades = color
+          ? ["rgba(235,248,120,0.28)", "rgba(235,248,120,0.14)", "rgba(90,110,0,0.28)", "rgba(90,110,0,0.14)"]
+          : ["rgba(255,255,255,0.22)", "rgba(255,255,255,0.1)", "rgba(0,0,0,0.22)", "rgba(0,0,0,0.1)"];
+        const perShade = Math.round(1900 / shades.length);
+        for (const shade of shades) {
+          g.strokeStyle = shade;
+          g.beginPath();
+          for (let i = 0; i < perShade; i++) {
+            const x = Math.random() * n;
+            const y = Math.random() * n;
+            const a = Math.random() * Math.PI;
+            const l = (3 + Math.random() * 7) * k;
+            const dx = Math.cos(a) * l;
+            const dy = Math.sin(a) * l;
+            g.moveTo(x, y);
+            g.lineTo(x + dx, y + dy);
+            // la fibra que se sale por un borde entra por el opuesto: así el
+            // mosaico se repite sin costuras
+            const ox = x + dx > n ? -n : x + dx < 0 ? n : 0;
+            const oy = y + dy > n ? -n : 0;
+            if (ox || oy) {
+              g.moveTo(x + ox, y + oy);
+              g.lineTo(x + ox + dx, y + oy + dy);
+            }
+          }
+          g.stroke();
         }
+      });
+    }
+
+    function feltColor() {
+      const c = document.createElement("canvas");
+      c.width = W;
+      c.height = W / 2;
+      const g = c.getContext("2d")!;
+      g.fillStyle = g.createPattern(fiberTile(true), "repeat")!;
+      g.fillRect(0, 0, c.width, c.height);
+      // sello en tinta oscura, dos veces (lados opuestos de la pelota)
+      for (const u of [0.125, 0.625]) {
+        g.save();
+        g.translate(u * c.width, c.height / 2);
+        g.fillStyle = "rgba(14,13,11,0.95)";
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.font = `700 ${Math.round(86 * k)}px Georgia, 'Times New Roman', serif`;
+        g.fillText("SACRÉ", 0, -10 * k);
+        g.font = `600 ${Math.round(22 * k)}px Arial, sans-serif`;
+        g.fillText("P Á D E L  ·  P R O", 0, 44 * k);
+        g.restore();
       }
       const tex = new THREE.CanvasTexture(c);
-      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      if (withPrint) tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function feltBump() {
+      // el mosaico mismo, repetido sobre la esfera
+      const tex = new THREE.CanvasTexture(fiberTile(false));
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(8, 4);
       return tex;
     }
 
     const R = 1;
     const ballMat = new THREE.MeshPhysicalMaterial({
-      map: feltCanvas(true),
-      bumpMap: feltCanvas(false),
+      map: feltColor(),
+      bumpMap: feltBump(),
       bumpScale: 2.5,
       roughness: 0.95,
       sheen: 0.55,
       sheenRoughness: 0.4,
       sheenColor: new THREE.Color("#eaf7a0"),
     });
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(R, 128, 96), ballMat);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(R, isSmall ? 72 : 128, isSmall ? 54 : 96), ballMat);
 
     // ── Costura: x = a·cos t + b·cos 3t, y = a·sin t − b·sin 3t, z = c·sin 2t
     // con a + b = 1 y c = 2√(ab) queda exactamente sobre la esfera unitaria.
@@ -98,7 +128,7 @@ export default function BallScene({ onReady, onFail }: { onReady?: () => void; o
     }
     const seamCurve = new THREE.CatmullRomCurve3(seamPts, true);
     const seamMat = new THREE.MeshStandardMaterial({ color: "#f3f1e4", roughness: 0.55 });
-    const seam = new THREE.Mesh(new THREE.TubeGeometry(seamCurve, 480, 0.016, 10, true), seamMat);
+    const seam = new THREE.Mesh(new THREE.TubeGeometry(seamCurve, isSmall ? 320 : 480, 0.016, isSmall ? 8 : 10, true), seamMat);
     ball.add(seam);
 
     // pivote = posición (rebote); ball = giro; squash en el pivote

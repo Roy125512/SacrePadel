@@ -32,11 +32,11 @@ export default function PricingTeaser() {
             <div key={r.label} className="flex items-baseline justify-between gap-6 border-t py-8" style={{ borderColor: "var(--line)" }}>
               <div>
                 <div className="font-display text-3xl">{r.label}</div>
-                <div className="mt-2 text-[0.72rem] uppercase tracking-[0.2em] text-[var(--muted)]">{r.hours}</div>
+                <div className="mt-2 whitespace-nowrap text-[0.72rem] uppercase tracking-[0.2em] text-[var(--muted)]">{r.hours}</div>
               </div>
               <div className="text-right">
                 <span className="font-display text-[clamp(2.8rem,5vw,4.4rem)] leading-none">${r.price}</span>
-                <span className="ml-2 text-[0.72rem] uppercase tracking-[0.2em] text-[var(--muted)]">MXN / hora</span>
+                <span className="mt-2 block whitespace-nowrap text-[0.72rem] uppercase tracking-[0.2em] text-[var(--muted)] sm:ml-2 sm:mt-0 sm:inline">MXN / hora</span>
               </div>
             </div>
           ))}
