@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useNearViewport } from "@/hooks/useNearViewport";
 import { ArrowRight } from "lucide-react";
 import ReservarButton from "@/components/ReservarButton";
 import TodayAvailability from "@/components/brand/TodayAvailability";
@@ -14,9 +15,11 @@ const BallScene = dynamic(() => import("@/components/three/BallScene"), { ssr: f
 export default function FinalCta() {
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const near = useNearViewport(sectionRef);
 
   return (
-    <section className="relative isolate overflow-hidden" style={{ background: "var(--dark)", color: "var(--dark-foreground)" }}>
+    <section ref={sectionRef} className="relative isolate overflow-hidden" style={{ background: "var(--dark)", color: "var(--dark-foreground)" }}>
       <ContourLines color="rgba(201,162,126,0.1)" />
       <div className="relative mx-auto grid min-h-[100svh] max-w-7xl grid-cols-1 items-center gap-4 px-6 py-20 sm:px-10 lg:grid-cols-[1fr_1.1fr] lg:py-0">
         <div className="order-last lg:order-first">
@@ -43,7 +46,7 @@ export default function FinalCta() {
             <Image src="/images/gallery-court-night.jpg" alt="" fill sizes="(max-width: 1024px) 100vw, 55vw" className="object-cover opacity-60" />
           ) : (
             <div className="absolute inset-0 transition-opacity duration-1000" style={{ opacity: ready ? 1 : 0 }}>
-              <BallScene onReady={() => setReady(true)} onFail={() => setFailed(true)} />
+              {near && <BallScene onReady={() => setReady(true)} onFail={() => setFailed(true)} />}
             </div>
           )}
         </div>

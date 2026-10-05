@@ -232,6 +232,8 @@ export default function PaddleScene({ onReady, onFail }: { onReady?: () => void;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
 
+    // altura de la pala: en pantallas angostas sube para dejar abajo el texto
+    let baseY = 0.05;
     function resize() {
       const w = mount!.clientWidth;
       const h = mount!.clientHeight;
@@ -241,6 +243,7 @@ export default function PaddleScene({ onReady, onFail }: { onReady?: () => void;
       camera.aspect = w / h;
       // en pantallas angostas, alejar para que quepa la pala completa
       camera.position.z = w / h < 0.8 ? 13 : 10.5;
+      baseY = w / h < 0.8 ? 1.15 : 0.05;
       camera.updateProjectionMatrix();
     }
     const ro = new ResizeObserver(resize);
@@ -273,7 +276,7 @@ export default function PaddleScene({ onReady, onFail }: { onReady?: () => void;
       cur.ry += (ry - cur.ry) * 0.06;
       cur.rx += (rx - cur.rx) * 0.06;
       pivot.rotation.set(cur.rx, cur.ry, -0.32 + Math.sin(t * 0.3) * 0.04 * idle);
-      pivot.position.y = 0.05 + Math.sin(t * 0.8) * 0.1 * idle + scrollP * 1.4;
+      pivot.position.y = baseY + Math.sin(t * 0.8) * 0.1 * idle + scrollP * 1.4;
       pivot.position.z = -scrollP * 3;
 
       renderer.render(scene, camera);

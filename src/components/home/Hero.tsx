@@ -90,7 +90,7 @@ export default function Hero() {
       )}
 
       {/* Titular gigante detrás de la pala */}
-      <h1 className="pointer-events-none absolute inset-x-0 top-1/2 z-0 -translate-y-[56%] select-none text-center">
+      <h1 className="pointer-events-none absolute inset-x-0 top-[31%] z-0 -translate-y-[56%] md:top-1/2 select-none text-center">
         <span className="sr-only">Sacré Pádel — canchas de pádel en Pátzcuaro</span>
         <span aria-hidden className="font-display block whitespace-nowrap text-[clamp(5.5rem,25vw,24rem)] font-normal leading-[0.8] tracking-[-0.03em]">
           {word.split("").map((ch, i) => (
@@ -150,7 +150,7 @@ export default function Hero() {
       <div className="absolute inset-x-0 bottom-0 z-20 grid gap-8 px-6 pb-8 sm:px-10 md:grid-cols-[1fr_auto] md:items-end">
         <div className="max-w-md">
           <p className="text-[0.7rem] uppercase tracking-[0.3em] text-[var(--brand-highlight)]">Pátzcuaro, Michoacán</p>
-          <p className="font-display mt-4 text-[clamp(1.6rem,2.4vw,2.2rem)] leading-[1.1]">
+          <p className="font-display mt-3 text-[clamp(1.5rem,2.4vw,2.2rem)] leading-[1.1] md:mt-4">
             Cuatro canchas de cristal frente a los cerros.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-6">
@@ -163,7 +163,7 @@ export default function Hero() {
             </a>
           </div>
         </div>
-        <div className="md:text-right">
+        <div className="hidden md:block md:text-right">
           <TodayAvailability dark />
         </div>
       </div>

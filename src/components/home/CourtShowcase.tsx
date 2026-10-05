@@ -3,6 +3,7 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
+import { useNearViewport } from "@/hooks/useNearViewport";
 
 const CourtScene = dynamic(() => import("@/components/three/CourtScene"), { ssr: false });
 
@@ -22,6 +23,7 @@ export default function CourtShowcase() {
   const [step, setStep] = useState(0);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
+  const near = useNearViewport(sectionRef);
 
   useEffect(() => {
     let raf = 0;
@@ -53,12 +55,14 @@ export default function CourtShowcase() {
           <Image src="/images/gallery-two-courts-mountain.jpg" alt="" fill sizes="100vw" className="object-cover opacity-50" />
         ) : (
           <div className="absolute inset-0 transition-opacity duration-1000" style={{ opacity: ready ? 1 : 0 }}>
-            <CourtScene onReady={() => setReady(true)} onFail={() => setFailed(true)} />
+            {near && <CourtScene onReady={() => setReady(true)} onFail={() => setFailed(true)} />}
           </div>
         )}
 
         {/* velo para que el texto se lea sobre la escena */}
-        <div className="pointer-events-none absolute inset-0" style={{ background: "linear-gradient(90deg, rgba(14,13,11,.88) 0%, rgba(14,13,11,.35) 45%, transparent 70%)" }} />
+        <div className="pointer-events-none absolute inset-0 hidden md:block" style={{ background: "linear-gradient(90deg, rgba(14,13,11,.88) 0%, rgba(14,13,11,.35) 45%, transparent 70%)" }} />
+        {/* en celular el texto va arriba y abajo: el velo también */}
+        <div className="pointer-events-none absolute inset-0 md:hidden" style={{ background: "linear-gradient(180deg, rgba(14,13,11,.9) 0%, transparent 32%, transparent 52%, rgba(14,13,11,.94) 80%)" }} />
 
         <div className="relative z-10 flex h-full flex-col justify-between px-6 py-24 sm:px-10 lg:px-14">
           <div>

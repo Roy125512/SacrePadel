@@ -61,17 +61,11 @@ export default function BookingModal({
     style={{ background: "rgba(30, 27, 24, 0.45)", backdropFilter: "blur(4px)" }}
     >
     <div className="w-full max-w-md my-auto animate-slide-up">
-        <div className="overflow-hidden rounded-2xl bg-white shadow-2xl" style={{ border: "1px solid rgba(120, 46, 21, 0.10)" }}>
+        <div className="overflow-hidden rounded-[4px] bg-[var(--surface)] shadow-2xl" style={{ border: "1px solid var(--line)" }}>
 
-        {/* Modal header — deep-copper checkout band */}
-        <div
-            className="px-6 py-5"
-            style={{
-            background: "radial-gradient(120% 140% at 0% 0%, #C9683A 0%, #8A3E1C 45%, #4A1E0C 100%)",
-            boxShadow: "inset 0 1px 0 rgba(255,220,190,.35)",
-            }}
-        >
-            <span className="text-sm font-medium" style={{ color: "rgba(246, 240, 230, 0.75)" }}>
+        {/* Encabezado oscuro, como la portada */}
+        <div className="px-6 py-5" style={{ background: "var(--dark)" }}>
+            <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em]" style={{ color: "var(--brand-highlight)" }}>
             Confirmar reserva
             </span>
             <h2 className="font-display mt-1 text-3xl leading-tight" style={{ color: "#F6F0E6" }}>
@@ -83,10 +77,12 @@ export default function BookingModal({
 
             {selectedEndAt && (
             <div className="mt-4 flex flex-wrap items-baseline gap-2">
-                <span className="font-display text-3xl font-black" style={{ color: "#F6F0E6" }}>
+                <span className="font-display text-3xl tabular-nums" style={{ color: "#F6F0E6" }}>
                 {parseISOToLocalTime(selected.start_at)}&ndash;{parseISOToLocalTime(selectedEndAt)}
                 </span>
-                <span className="badge-brand">{durationMin} min</span>
+                <span className="border px-2 py-0.5 text-[0.7rem] font-semibold uppercase tracking-[0.18em]" style={{ borderColor: "rgba(241,236,227,.3)", color: "rgba(241,236,227,.8)" }}>
+                {durationMin} min
+                </span>
             </div>
             )}
         </div>

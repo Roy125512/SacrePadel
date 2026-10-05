@@ -20,7 +20,7 @@ export default function BookingSuccessModal({
     >
     <div className="w-full max-w-md animate-slide-up">
         <div
-        className="overflow-hidden rounded-2xl shadow-2xl"
+        className="overflow-hidden rounded-[4px] shadow-2xl"
         style={{
             background: "linear-gradient(135deg, var(--brand-50) 0%, white 40%, white 100%)",
             border: "1px solid var(--brand-100)",
