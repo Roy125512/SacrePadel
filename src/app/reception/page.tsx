@@ -31,6 +31,7 @@ import {
   formatDateMX,
   formatRangeES,
   isPaid,
+  isPaidOnline,
   origenLabel,
   registradoPorLabel,
   parseISOToLocalTime,
@@ -1226,13 +1227,24 @@ export default function ReceptionPage() {
                                     type="button"
                                     className="w-full rounded-md px-2 py-2 text-left text-sm transition hover:bg-[rgba(253,238,232,0.7)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                                     disabled={!canCancelBooking(b)}
-                                    title={isPaid(b) ? "No se puede cancelar una reserva pagada" : undefined}
+                                    title={
+                                      isPaid(b) && !isPaidOnline(b)
+                                        ? "Se cobró en recepción: devuelve el dinero antes de cancelar"
+                                        : undefined
+                                    }
                                     onClick={() => {
                                       setOutcomeMenuFor(null);
+                                      if (
+                                        isPaidOnline(b) &&
+                                        !window.confirm(
+                                          `Esta reserva se pagó en línea ($${b.paid_amount ?? ""} MXN). Al cancelarla, Mercado Pago le devuelve el dinero al cliente automáticamente. ¿Continuar?`
+                                        )
+                                      )
+                                        return;
                                       setBookingStatus(b.id, "CANCELLED");
                                     }}
                                   >
-                                    📅 Canceló con anticipación
+                                    {isPaidOnline(b) ? "💸 Cancelar y reembolsar" : "📅 Canceló con anticipación"}
                                   </button>
                                 </div>
                               </Menu>

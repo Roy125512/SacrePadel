@@ -56,7 +56,9 @@ export async function finalizeMpBooking(
   if (booking.status === "CANCELLED") {
     // Mercado Pago reintenta notificaciones por días: no resucitar una
     // reserva que recepción ya canceló.
-    if (booking.payment_status !== "PAID") {
+    // Solo si nunca se registró el pago: una reserva ya reembolsada
+    // (REFUNDED) no necesita alerta.
+    if (booking.payment_status === "UNPAID") {
       await alertOwner("Pago aprobado de una reserva cancelada", [
         `La reserva ${bookingId} está cancelada, pero Mercado Pago aprobó el pago ${payment.id}`,
         `por $${payment.transaction_amount ?? "?"} MXN. Revisa si hay que reembolsar.`,

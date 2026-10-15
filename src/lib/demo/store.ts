@@ -105,6 +105,7 @@ function seed(): Store {
       hold_expires_at: null,
       cancelled_by: null,
       stripe_payment_intent_id: null,
+      cancel_token: uuid(),
       created_at: nowIso(),
     },
     {
@@ -124,6 +125,7 @@ function seed(): Store {
       hold_expires_at: null,
       cancelled_by: null,
       stripe_payment_intent_id: null,
+      cancel_token: uuid(),
       created_at: nowIso(),
     },
   ];
@@ -460,6 +462,11 @@ class FakeQuery {
         hold_expires_at: null,
         cancelled_by: null,
         stripe_payment_intent_id: null,
+        cancel_token: uuid(),
+        refunded_amount: null,
+        refunded_at: null,
+        mp_refund_id: null,
+        cancelled_at: null,
         ...base,
       };
     }

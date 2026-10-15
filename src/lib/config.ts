@@ -22,3 +22,15 @@ export const MIN_BOOKING_MINUTES = 60 as const;
 // can't request an absurdly long end_at to block a court's availability
 // for other customers while the HOLD is alive.
 export const MAX_BOOKING_MINUTES = 180 as const;
+
+// Política de cancelación (como Playtomic): el cliente puede cancelar su
+// reserva él mismo hasta estas horas antes del inicio. Si pagó en línea, se
+// le reembolsa automáticamente. Después de ese plazo ya no se puede cancelar
+// en línea; recepción decide los casos especiales (lluvia, etc.).
+export const CANCEL_NOTICE_HOURS = 24 as const;
+
+/** ¿Todavía se puede cancelar en línea una reserva que empieza en `startAt`? */
+export function withinCancelWindow(startAt: string | Date, nowMs = Date.now()): boolean {
+  const start = typeof startAt === "string" ? new Date(startAt).getTime() : startAt.getTime();
+  return start - nowMs >= CANCEL_NOTICE_HOURS * 3600_000;
+}

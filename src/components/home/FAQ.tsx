@@ -33,7 +33,7 @@ const QUESTIONS = [
   },
   {
     q: "¿Puedo reagendar o cancelar un partido?",
-    a: "Sí, puedes solicitar cambios con al menos 2 horas de anticipación enviando un mensaje directo a nuestro WhatsApp de atención.",
+    a: "Sí. Puedes cancelar tú mismo sin costo hasta 24 horas antes, desde la liga del correo de confirmación o desde tu perfil, en Mis reservas. Si pagaste en línea, te devolvemos el pago automáticamente. Con menos de 24 horas, escríbenos por WhatsApp y lo revisamos.",
   },
 ];
 

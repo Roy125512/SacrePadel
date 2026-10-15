@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireReceptionAccess } from "@/lib/guards/reception";
 import { dbErrorResponse } from "@/lib/apiError";
+import { cancelBooking } from "@/lib/cancellation";
 
 // Únicas transiciones que recepción puede hacer. Antes se aceptaba cualquier
 // estado, así que una llamada directa podía, por ejemplo, "des-cancelar" una
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
 
     const { data: current, error: readErr } = await supabaseAdmin
       .from("bookings")
-      .select("id, status, payment_status")
+      .select("id, status, payment_status, payment_method")
       .eq("id", booking_id)
       .maybeSingle();
 
@@ -36,7 +37,18 @@ export async function POST(req: Request) {
     const paid = (current.payment_status ?? "UNPAID") === "PAID";
 
     if (status === "CANCELLED") {
-      if (paid) return NextResponse.json({ error: "No se puede cancelar una reserva pagada." }, { status: 409 });
+      // Pagada en línea: se cancela y Mercado Pago reembolsa automáticamente.
+      if (paid && current.payment_method === "MERCADOPAGO") {
+        const result = await cancelBooking(booking_id, "RECEPTION");
+        if (!result.ok) return NextResponse.json({ error: result.message }, { status: result.reason === "db_error" ? 500 : 409 });
+        return NextResponse.json({ ok: true, refund: result.refund, refunded_mxn: result.refundedMXN }, { status: 200 });
+      }
+      if (paid) {
+        return NextResponse.json(
+          { error: "Se cobró en recepción: devuelve el dinero al cliente antes de cancelar." },
+          { status: 409 }
+        );
+      }
       if (curStatus === "COMPLETED" || curStatus === "NO_SHOW") {
         return NextResponse.json({ error: "No se puede cancelar después de capturar asistencia." }, { status: 409 });
       }
@@ -60,7 +72,11 @@ export async function POST(req: Request) {
     // (otra recepcionista, el webhook de pago), no se pisa.
     let update = supabaseAdmin
       .from("bookings")
-      .update({ status, cancelled_by: status === "CANCELLED" ? "RECEPTION" : null })
+      .update({
+        status,
+        cancelled_by: status === "CANCELLED" ? "RECEPTION" : null,
+        cancelled_at: status === "CANCELLED" ? new Date().toISOString() : null,
+      })
       .eq("id", booking_id)
       .eq("status", curStatus);
     if (status === "CANCELLED") update = update.neq("payment_status", "PAID");

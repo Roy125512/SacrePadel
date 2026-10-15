@@ -17,9 +17,18 @@ export function buildBookingConfirmationEmail(a: {
   toleranceMinutes?: number;
   paymentMethod?: "STRIPE" | "MERCADOPAGO" | "RECEPTION";
   amountMXN?: number;
+  /** Liga para cancelar en línea (política de cancelación). */
+  cancelUrl?: string;
+  cancelNoticeHours?: number;
 }) {
   const club = a.clubName ?? "Sacré Pádel";
   const tol = a.toleranceMinutes ?? 15;
+  const hrs = a.cancelNoticeHours ?? 24;
+  const cancelText = a.cancelUrl
+    ? `Puedes cancelar sin costo hasta ${hrs} h antes desde esta liga: ${a.cancelUrl}${
+        a.paymentMethod === "MERCADOPAGO" ? " (te devolvemos tu pago automáticamente)." : "."
+      } Después de ese plazo, escríbenos al +52 1 434 116 8095.`
+    : "Si necesitas cancelar, por favor llama al +52 1 434 116 8095.";
 
   // Cambia esto si decides otra ruta/archivo:
   const logo =
@@ -43,7 +52,7 @@ export function buildBookingConfirmationEmail(a: {
     `Tienes ${tol} minutos de tolerancia.`,
     paymentLine,
     "",
-    "Si necesitas cancelar, por favor llama al +52 1 434 116 8095.",
+    cancelText,
   ].join("\n");
 
   const html = `<!doctype html>
@@ -104,7 +113,13 @@ export function buildBookingConfirmationEmail(a: {
                   </div>
 
                   <div style="margin-top:12px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;font-size:12px;color:#6b7280;line-height:1.5;">
-                    Si necesitas cancelar, por favor llama al <b style="color:#111;">+52 1 434 116 8095</b>.
+                    ${
+                      a.cancelUrl
+                        ? `Cancelación sin costo hasta <b style="color:#111;">${hrs} h antes</b>${
+                            a.paymentMethod === "MERCADOPAGO" ? " (te devolvemos tu pago automáticamente)" : ""
+                          }. <a href="${esc(a.cancelUrl)}" style="color:#9A6A45;font-weight:700;">Cancelar mi reserva</a><br/>Después de ese plazo, escríbenos al <b style="color:#111;">+52 1 434 116 8095</b>.`
+                        : `Si necesitas cancelar, por favor llama al <b style="color:#111;">+52 1 434 116 8095</b>.`
+                    }
                   </div>
                 </div>
 
@@ -331,6 +346,80 @@ export function buildBookingReminderEmail(a: {
 
                 <div style="height:16px"></div>
                 <div style="${font}font-size:12px;color:#9ca3af;">© ${new Date().getFullYear()} ${esc(club)}</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return { subject, text, html };
+}
+
+/**
+ * Aviso al cliente de que su reserva se canceló (por él o por el club), con
+ * el estado del reembolso si había pagado en línea.
+ */
+export function buildCancellationEmail(a: {
+  clubName?: string;
+  fullName: string;
+  courtName: string;
+  dateLocal: string;
+  startTimeLocal: string;
+  endTimeLocal: string;
+  cancelledBy: "CUSTOMER" | "RECEPTION";
+  /** Monto reembolsado en línea; null si no había pago en línea. */
+  refundedMXN: number | null;
+  /** true si el reembolso automático falló y el club lo hará a mano. */
+  refundPending?: boolean;
+}) {
+  const club = a.clubName ?? "Sacré Pádel";
+  const subject = `Reserva cancelada - ${club}`;
+  const who = a.cancelledBy === "CUSTOMER" ? "Cancelaste tu reserva" : "El club canceló tu reserva";
+  const refundLine = a.refundPending
+    ? "Tu reembolso está en proceso: el club lo hará manualmente y te avisará."
+    : a.refundedMXN
+      ? `Te devolvimos $${a.refundedMXN} MXN a tu método de pago. Según tu banco, puede tardar de 2 a 10 días hábiles en verse.`
+      : "";
+
+  const text = [
+    `Hola ${a.fullName},`,
+    "",
+    `${who} en ${club}.`,
+    `Cancha: ${a.courtName}`,
+    `Fecha: ${a.dateLocal}`,
+    `Horario: ${a.startTimeLocal} - ${a.endTimeLocal}`,
+    refundLine ? "" : null,
+    refundLine || null,
+    "",
+    "Cuando quieras, reserva otra vez en sacrepadel.com.",
+  ]
+    .filter((l) => l !== null)
+    .join("\n");
+
+  const font = "font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;";
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f4f0e9;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f0e9;padding:24px 0;">
+      <tr>
+        <td align="center" style="padding:0 12px;">
+          <table role="presentation" width="520" cellspacing="0" cellpadding="0" style="width:520px;max-width:520px;background:#ffffff;border:1px solid #ded6c9;">
+            <tr>
+              <td style="padding:22px 22px;">
+                <div style="${font}color:#9A6A45;font-size:11px;letter-spacing:3px;text-transform:uppercase;">${esc(club)}</div>
+                <div style="${font}color:#13110E;font-size:20px;font-weight:700;margin-top:10px;">${esc(who)}</div>
+                <div style="${font}color:#374151;font-size:14px;line-height:1.6;margin-top:8px;">Hola <b>${esc(a.fullName)}</b>,</div>
+                <div style="border-top:1px solid #ded6c9;border-bottom:1px solid #ded6c9;padding:12px 0;margin-top:14px;${font}color:#13110E;font-size:14px;line-height:1.7;">
+                  <div><b>Cancha:</b> ${esc(a.courtName)}</div>
+                  <div><b>Fecha:</b> ${esc(a.dateLocal)}</div>
+                  <div><b>Horario:</b> ${esc(a.startTimeLocal)} – ${esc(a.endTimeLocal)}</div>
+                </div>
+                ${refundLine ? `<div style="${font}color:#374151;font-size:14px;line-height:1.6;margin-top:14px;">${esc(refundLine)}</div>` : ""}
+                <div style="${font}color:#374151;font-size:14px;line-height:1.6;margin-top:14px;">Cuando quieras, <a href="https://sacrepadel.com/reservar" style="color:#9A6A45;font-weight:700;">reserva otra vez</a>.</div>
+                <div style="${font}color:#9ca3af;font-size:12px;margin-top:18px;">© ${new Date().getFullYear()} ${esc(club)}</div>
               </td>
             </tr>
           </table>

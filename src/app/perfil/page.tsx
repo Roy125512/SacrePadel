@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { normalizePhone as normalizePhoneLib } from "@/lib/phone";
 import { User, Phone, Cake, Users, Trophy, MessageSquare, Check } from "lucide-react";
+import MyBookings from "@/components/booking/MyBookings";
 import LoadingRacket from "@/components/LoadingRacket";
 import { errorMessage } from "@/lib/errors";
 
@@ -377,6 +378,8 @@ export default function ProfilePage() {
             </div>
           )}
         </form>
+
+        <MyBookings />
       </div>
     </div>
   );

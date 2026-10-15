@@ -2,6 +2,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendEmail } from "@/lib/mailer";
 import { buildBookingConfirmationEmail, buildOwnerNotificationEmail } from "@/lib/bookingEmail";
 import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
+import { CANCEL_NOTICE_HOURS } from "@/lib/config";
+import { SITE } from "@/lib/site";
 
 export const TOLERANCE_MINUTES = 15;
 
@@ -50,7 +52,7 @@ export async function sendBookingConfirmationEmails(
     .eq("status", "CONFIRMED")
     .is("confirmation_email_sent_at", null)
     .select(
-      "id, start_at, end_at, payment_status, payment_method, paid_amount, contact_email, courts ( name ), customers:customer_id ( full_name, phone_e164 )"
+      "id, start_at, end_at, payment_status, payment_method, paid_amount, contact_email, cancel_token, courts ( name ), customers:customer_id ( full_name, phone_e164 )"
     )
     .maybeSingle();
 
@@ -94,6 +96,8 @@ export async function sendBookingConfirmationEmails(
       toleranceMinutes: TOLERANCE_MINUTES,
       paymentMethod: paidOnline ? "MERCADOPAGO" : "RECEPTION",
       amountMXN,
+      cancelUrl: b.cancel_token ? `${SITE.url}/reserva/cancelar?t=${b.cancel_token}` : undefined,
+      cancelNoticeHours: CANCEL_NOTICE_HOURS,
     });
     const sent = await sendEmail({ to, subject: mail.subject, html: mail.html, text: mail.text });
     if (sent.ok) email_sent = true;

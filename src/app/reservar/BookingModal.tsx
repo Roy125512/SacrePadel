@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDateES, parseISOToLocalTime, type PaymentMode, type SelectedSlot } from "./reservarUtils";
+import { CANCEL_NOTICE_HOURS } from "@/lib/config";
 
 /**
  * Modal para confirmar la reserva: duración, precio, datos del cliente y
@@ -282,6 +283,11 @@ export default function BookingModal({
                     {mpError}
                 </div>
                 )}
+
+                <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                Cancelación sin costo hasta {CANCEL_NOTICE_HOURS} h antes. Si pagas en línea y cancelas a tiempo, te
+                devolvemos el pago automáticamente.
+                </p>
             </div>
             )}
 

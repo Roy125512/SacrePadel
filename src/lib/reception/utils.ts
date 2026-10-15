@@ -114,9 +114,16 @@ export function canEditCustomer(b: Booking) {
   return true;
 }
 
+/** Pagada en línea: al cancelar, Mercado Pago devuelve el dinero solo. */
+export function isPaidOnline(b: Booking) {
+  return isPaid(b) && b.payment_method === "MERCADOPAGO";
+}
+
 export function canCancelBooking(b: Booking) {
   if (b.status === "CANCELLED") return false;
-  if (isPaid(b)) return false;
+  // Lo cobrado en recepción se devuelve a mano antes de cancelar; lo pagado
+  // en línea se reembolsa automáticamente al cancelar.
+  if (isPaid(b) && !isPaidOnline(b)) return false;
   if (isAttendanceFinal(b)) return false;
   return true;
 }

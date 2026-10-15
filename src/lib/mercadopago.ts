@@ -8,7 +8,7 @@ const globalForMp = globalThis as unknown as { _mpConfig?: MercadoPagoConfig };
 // before actually invoking this client — see
 // src/app/api/web/create-mp-preference, .../confirm and
 // src/app/api/mercadopago/webhook, which all skip real calls in DEMO mode.
-const mpConfig =
+export const mpConfig =
   globalForMp._mpConfig ??
   new MercadoPagoConfig({
     accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || "TEST-demo-mode-placeholder",

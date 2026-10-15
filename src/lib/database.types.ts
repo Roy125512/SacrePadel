@@ -30,6 +30,11 @@ export type Database = {
           contact_email: string | null;
           confirmation_email_sent_at: string | null;
           reminder_sent_at: string | null;
+          cancel_token: string;
+          refunded_amount: number | null;
+          refunded_at: string | null;
+          mp_refund_id: string | null;
+          cancelled_at: string | null;
         };
         Insert: {
           id?: string;
@@ -54,6 +59,11 @@ export type Database = {
           contact_email?: string | null;
           confirmation_email_sent_at?: string | null;
           reminder_sent_at?: string | null;
+          cancel_token?: string;
+          refunded_amount?: number | null;
+          refunded_at?: string | null;
+          mp_refund_id?: string | null;
+          cancelled_at?: string | null;
         };
         Update: {
           id?: string;
@@ -78,6 +88,11 @@ export type Database = {
           contact_email?: string | null;
           confirmation_email_sent_at?: string | null;
           reminder_sent_at?: string | null;
+          cancel_token?: string;
+          refunded_amount?: number | null;
+          refunded_at?: string | null;
+          mp_refund_id?: string | null;
+          cancelled_at?: string | null;
         };
         Relationships: [
           {

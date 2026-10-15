@@ -1,6 +1,7 @@
 "use client";
 
 import { WHATSAPP_PHONE } from "@/components/WhatsAppButton";
+import { CANCEL_NOTICE_HOURS } from "@/lib/config";
 import { formatDateES, parseISOToLocalTime, type ConfirmedBooking, type EmailInfo } from "./reservarUtils";
 
 /** "Reserva confirmada": tolerancia, estado del correo y aviso por WhatsApp. */
@@ -116,8 +117,9 @@ export default function BookingSuccessModal({
                 ? `${confirmedBooking.fullName.trim().split(" ")[0]}, tu`
                 : "Tu"}{" "}
                 cancha queda apartada solo para ti — nadie más la va a tomar. Si al final no
-                puedes venir, un mensaje con un poco de anticipación es todo lo que necesitamos
-                para dársela a alguien que sí la está esperando. Gracias por cuidar tu lugar.
+                puedes venir, cancélala tú mismo hasta {CANCEL_NOTICE_HOURS} h antes desde la liga del
+                correo o desde tu perfil, para dársela a alguien que sí la está esperando. Con menos
+                tiempo, escríbenos. Gracias por cuidar tu lugar.
             </p>
             <a
                 href={`https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(
