@@ -24,6 +24,10 @@ const QUESTIONS = [
     a: "Únete a un partido abierto en la sección Partidos: eliges uno de tu nivel y pagas solo tu lugar. También puedes crear el tuyo al reservar (opción “Partido abierto”) y lo publicamos para que se unan otros jugadores. Puedes salirte sin costo hasta 24 horas antes.",
   },
   {
+    q: "¿Cómo funciona el nivel de juego?",
+    a: "Es un número de 0 a 7. Lo calculas una vez en tu perfil con 5 preguntas y después sube o baja con tus partidos abiertos competitivos: un jugador captura el marcador y la pareja contraria lo confirma. Ganarle a una pareja más fuerte sube más; al principio se mueve rápido y con más partidos se estabiliza.",
+  },
+  {
     q: "¿Qué pasa si llego tarde a mi horario?",
     a: "Cuentas con 15 minutos de tolerancia. Pasado ese tiempo, la cancha queda liberada para que otros puedan jugar.",
   },

@@ -6,6 +6,7 @@ import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { normalizePhone as normalizePhoneLib } from "@/lib/phone";
 import { User, Phone, Cake, Users, Trophy, MessageSquare, Check } from "lucide-react";
 import MyBookings from "@/components/booking/MyBookings";
+import LevelCard from "@/components/booking/LevelCard";
 import LoadingRacket from "@/components/LoadingRacket";
 import { errorMessage } from "@/lib/errors";
 
@@ -379,6 +380,7 @@ export default function ProfilePage() {
           )}
         </form>
 
+        <LevelCard />
         <MyBookings />
       </div>
     </div>

@@ -95,7 +95,7 @@ export default async function PartidosPage() {
                         {m.players.map((p, i) => (
                           <span
                             key={i}
-                            title={`${p.name}${p.division ? ` · ${p.division}` : ""}`}
+                            title={`${p.name}${p.level != null ? ` · nivel ${p.level.toFixed(2)}` : p.division ? ` · ${p.division}` : ""}`}
                             className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold text-white"
                             style={{ background: "var(--brand)" }}
                           >

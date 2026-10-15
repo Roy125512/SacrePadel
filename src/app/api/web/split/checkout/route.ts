@@ -73,10 +73,10 @@ export async function POST(req: NextRequest) {
       if ((already ?? []).length > 0) return NextResponse.json({ error: "Ya estás en este partido." }, { status: 409 });
       const { data: prof } = await supabaseAdmin
         .from("profiles")
-        .select("full_name, sex, division")
+        .select("full_name, sex, division, level")
         .eq("id", userId)
         .maybeSingle();
-      const block = joinBlock(booking, { sex: prof?.sex ?? null, division: prof?.division ?? null });
+      const block = joinBlock(booking, { sex: prof?.sex ?? null, division: prof?.division ?? null, level: prof?.level ?? null });
       if (block) return NextResponse.json({ error: block }, { status: 409 });
       count = 1;
       email = email || auth.user.email || null;

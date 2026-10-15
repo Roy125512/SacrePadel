@@ -260,6 +260,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      match_results: {
+        Row: {
+          id: string;
+          booking_id: string;
+          team_a: string[];
+          team_b: string[];
+          sets: Json;
+          status: string;
+          submitted_by: string;
+          submitted_at: string;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          level_changes: Json | null;
+        };
+        Insert: {
+          id?: string;
+          booking_id: string;
+          team_a: string[];
+          team_b: string[];
+          sets: Json;
+          status?: string;
+          submitted_by: string;
+          submitted_at?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          level_changes?: Json | null;
+        };
+        Update: {
+          id?: string;
+          booking_id?: string;
+          team_a?: string[];
+          team_b?: string[];
+          sets?: Json;
+          status?: string;
+          submitted_by?: string;
+          submitted_at?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          level_changes?: Json | null;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
@@ -271,6 +313,10 @@ export type Database = {
           sex: string | null;
           division: string | null;
           updated_at: string | null;
+          level: number | null;
+          level_reliability: number;
+          level_matches: number;
+          level_updated_at: string | null;
         };
         Insert: {
           id: string;
@@ -282,6 +328,10 @@ export type Database = {
           sex?: string | null;
           division?: string | null;
           updated_at?: string | null;
+          level?: number | null;
+          level_reliability?: number;
+          level_matches?: number;
+          level_updated_at?: string | null;
         };
         Update: {
           id?: string;
@@ -293,6 +343,10 @@ export type Database = {
           sex?: string | null;
           division?: string | null;
           updated_at?: string | null;
+          level?: number | null;
+          level_reliability?: number;
+          level_matches?: number;
+          level_updated_at?: string | null;
         };
         Relationships: [];
       };

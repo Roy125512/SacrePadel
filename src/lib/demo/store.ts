@@ -6,7 +6,7 @@
 import { DEMO_USERS } from "./session";
 
 type Row = Record<string, any>;
-type TableName = "bookings" | "customers" | "profiles" | "courts" | "booking_events" | "booking_shares";
+type TableName = "bookings" | "customers" | "profiles" | "courts" | "booking_events" | "booking_shares" | "match_results";
 type Store = Record<TableName, Row[]>;
 
 const g = globalThis as any;
@@ -200,9 +200,10 @@ function seed(): Store {
 
   // Un partido abierto (2 de 4) de otros jugadores, pasado mañana a las
   // 18:00, para ver /partidos y unirse como el cliente demo.
-  const mateo = { id: "33333333-3333-4333-8333-333333333333", full_name: "Mateo Ruiz", sex: "M", division: "4ta" };
-  const sofia = { id: "44444444-4444-4444-8444-444444444444", full_name: "Sofía Garza", sex: "F", division: "5ta" };
-  for (const p of [mateo, sofia]) {
+  const mateo = { id: "33333333-3333-4333-8333-333333333333", full_name: "Mateo Ruiz", sex: "M", division: "4ta", level: 3.4, level_reliability: 40, level_matches: 4 };
+  const sofia = { id: "44444444-4444-4444-8444-444444444444", full_name: "Sofía Garza", sex: "F", division: "5ta", level: 2.6, level_reliability: 20, level_matches: 2 };
+  const diego = { id: "55555555-5555-4555-8555-555555555555", full_name: "Diego Luna", sex: "M", division: "4ta", level: 3.1, level_reliability: 60, level_matches: 6 };
+  for (const p of [mateo, sofia, diego]) {
     profiles.push({ ...p, role: "customer", phone_e164: null, birth_date: null, notes: null, updated_at: nowIso() });
   }
   const mateoCustomer = { ...splitCustomer, id: uuid(), full_name: mateo.full_name, phone_e164: "+524521150033", email: null };
@@ -252,7 +253,75 @@ function seed(): Store {
     });
   }
 
-  return { bookings, customers, profiles, courts, booking_events: [], booking_shares };
+  // Dos partidos competitivos ya jugados con el cliente demo: uno sin
+  // resultado (para capturarlo) y otro con resultado por confirmar.
+  const match_results: Row[] = [];
+  const clientId = demoClient?.id ?? "";
+  const yesterday = (() => {
+    const d = new Date(Date.now() - 86400_000);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  })();
+  for (const [hour, withResult] of [
+    [9, false],
+    [11, true],
+  ] as const) {
+    const id = uuid();
+    bookings.push({
+      ...bookings[bookings.length - 1],
+      id,
+      court_id: "court-4",
+      start_at: isoAt(yesterday, hour, 0),
+      end_at: isoAt(yesterday, hour + 1, 0),
+      status: "COMPLETED",
+      payment_status: "PAID",
+      paid_amount: 350,
+      online_paid_amount: 350,
+      cancel_token: uuid(),
+      split_token: `5b1e5b1e-0000-4000-8000-00000000000${withResult ? 4 : 3}`,
+      match_type: "COMPETITIVE",
+      match_level_min: 1,
+      match_level_max: 6,
+    });
+    [mateo.id, clientId, sofia.id, diego.id].forEach((uid, i) =>
+      booking_shares.push({
+        id: uuid(),
+        booking_id: id,
+        seq: i + 1,
+        amount: 87.5,
+        status: "PAID",
+        payer_name: null,
+        payer_email: null,
+        payment_method: "MERCADOPAGO",
+        mp_payment_id: `demo-comp-${hour}-${i}`,
+        paid_at: nowIso(),
+        checkout_until: null,
+        refunded_at: null,
+        user_id: uid,
+        created_at: nowIso(),
+      })
+    );
+    if (withResult) {
+      // Mateo y Diego capturaron que le ganaron al cliente demo y a Sofía.
+      match_results.push({
+        id: uuid(),
+        booking_id: id,
+        team_a: [mateo.id, diego.id],
+        team_b: [clientId, sofia.id],
+        sets: [
+          [6, 4],
+          [7, 5],
+        ],
+        status: "PENDING",
+        submitted_by: mateo.id,
+        submitted_at: nowIso(),
+        reviewed_by: null,
+        reviewed_at: null,
+        level_changes: null,
+      });
+    }
+  }
+
+  return { bookings, customers, profiles, courts, booking_events: [], booking_shares, match_results };
 }
 
 export function getStore(): Store {
@@ -634,6 +703,10 @@ class FakeQuery {
   // Mimic the `bookings_no_overlap` exclusion constraint so double-booking
   // fails the same way it would in production.
   private overlapError(row: Row): string | null {
+    // match_results.booking_id es UNIQUE
+    if (this.table === "match_results") {
+      return this.store.match_results.some((r) => r.booking_id === row.booking_id) ? "match_results_booking_id_key" : null;
+    }
     if (this.table !== "bookings") return null;
     if (!row.start_at || !row.end_at) return null;
     if (!ACTIVE_STATUSES.includes(row.status)) return null;

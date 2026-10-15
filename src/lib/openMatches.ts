@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { alertOwner } from "@/lib/bookingNotifications";
 import { syncBookingFromShares } from "@/lib/splitPayments";
 import { divisionNumber, withinCancelWindow, CANCEL_NOTICE_HOURS, type MatchGender } from "@/lib/config";
+import { levelToDivision } from "@/lib/levels-shared";
 import { DEMO } from "@/lib/demo/flag";
 
 /**
@@ -22,7 +23,7 @@ export type MatchRules = {
   match_level_max: number | null;
 };
 
-export type PlayerProfile = { sex: string | null; division: string | null };
+export type PlayerProfile = { sex: string | null; division: string | null; level?: number | null };
 
 /** Por qué este jugador no puede unirse (o null si sí puede). */
 export function joinBlock(rules: MatchRules, player: PlayerProfile): string | null {
@@ -32,8 +33,9 @@ export function joinBlock(rules: MatchRules, player: PlayerProfile): string | nu
   const min = rules.match_level_min ?? 1;
   const max = rules.match_level_max ?? 6;
   if (min > 1 || max < 6) {
-    const n = divisionNumber(player.division);
-    if (!n) return "Para unirte, primero elige tu división en tu perfil.";
+    // Con nivel calculado, manda el nivel; si no, la división que eligió.
+    const n = divisionNumber(player.level != null ? levelToDivision(Number(player.level)) : player.division);
+    if (!n) return "Para unirte, primero calcula tu nivel en tu perfil.";
     if (n < min || n > max) return "Tu división no está en el rango de nivel de este partido.";
   }
   return null;
@@ -116,7 +118,7 @@ export type OpenMatchCard = {
   match_level_min: number | null;
   match_level_max: number | null;
   share_amount: number;
-  players: { name: string; division: string | null }[];
+  players: { name: string; division: string | null; level: number | null }[];
   spots_left: number;
 };
 
@@ -144,8 +146,8 @@ export async function listOpenMatches(limit = 40): Promise<OpenMatchCard[]> {
     );
   const userIds = [...new Set((shares ?? []).map((s) => s.user_id).filter((x): x is string => !!x))];
   const { data: profiles } = userIds.length
-    ? await supabaseAdmin.from("profiles").select("id, full_name, division").in("id", userIds)
-    : { data: [] as { id: string; full_name: string | null; division: string | null }[] };
+    ? await supabaseAdmin.from("profiles").select("id, full_name, division, level").in("id", userIds)
+    : { data: [] as { id: string; full_name: string | null; division: string | null; level: number | null }[] };
   const prof = new Map((profiles ?? []).map((p) => [p.id, p]));
 
   return rows
@@ -168,6 +170,7 @@ export async function listOpenMatches(limit = 40): Promise<OpenMatchCard[]> {
           return {
             name: firstName(p?.full_name ?? s.payer_name) ?? "Jugador",
             division: p?.division ?? null,
+            level: p?.level != null ? Number(p.level) : null,
           };
         }),
         spots_left: mine.length - paid.length,

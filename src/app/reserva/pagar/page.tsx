@@ -22,6 +22,9 @@ import { DEMO } from "@/lib/demo/flag";
 import { SITE } from "@/lib/site";
 import SplitPayForm from "./SplitPayForm";
 import { JoinMatchButton, LeaveMatchButton } from "./MatchActions";
+import MatchResultPanel from "./MatchResultPanel";
+import { matchContext, submitBlock } from "@/lib/levels";
+import { formatLevel } from "@/lib/levels-shared";
 import ShareSplitLink from "@/components/booking/ShareSplitLink";
 
 export const metadata: Metadata = { title: "Pagar mi parte", robots: { index: false } };
@@ -91,23 +94,26 @@ export default async function PagarPartePage({ searchParams }: { searchParams: P
   const whatsapp = `https://wa.me/${SITE.whatsapp}`;
 
   // Partido abierto: quién soy y quiénes juegan (nombre y división).
-  let me: { id: string; sex: string | null; division: string | null } | null = null;
-  const players = new Map<string, { full_name: string | null; division: string | null }>();
+  let me: { id: string; sex: string | null; division: string | null; level: number | null } | null = null;
+  const players = new Map<string, { full_name: string | null; division: string | null; level: number | null }>();
   if (b?.is_open_match) {
     try {
       const supabase = await createClient();
       const { data: auth } = await supabase.auth.getUser();
       if (auth?.user) {
-        const { data: p } = await supabaseAdmin.from("profiles").select("sex, division").eq("id", auth.user.id).maybeSingle();
-        me = { id: auth.user.id, sex: p?.sex ?? null, division: p?.division ?? null };
+        const { data: p } = await supabaseAdmin.from("profiles").select("sex, division, level").eq("id", auth.user.id).maybeSingle();
+        me = { id: auth.user.id, sex: p?.sex ?? null, division: p?.division ?? null, level: p?.level ?? null };
       }
     } catch {}
     const ids = shares.map((s) => s.user_id).filter((x): x is string => !!x);
     if (ids.length) {
-      const { data: profs } = await supabaseAdmin.from("profiles").select("id, full_name, division").in("id", ids);
+      const { data: profs } = await supabaseAdmin.from("profiles").select("id, full_name, division, level").in("id", ids);
       for (const p of profs ?? []) players.set(p.id, p);
     }
   }
+
+  // Partido competitivo: resultado y nivel.
+  const ctx = b?.is_open_match && b.match_type === "COMPETITIVE" ? await matchContext(b.id) : null;
 
   return (
     <div className="page">
@@ -224,8 +230,11 @@ export default async function PagarPartePage({ searchParams }: { searchParams: P
                           <span>
                             {open ? (sh.status === "PAID" ? name ?? "Jugador" : "Lugar libre") : `Jugador ${sh.seq}`}
                             {!open && sh.status === "PAID" && name ? ` · ${name}` : ""}
-                            {open && sh.status === "PAID" && p?.division ? (
-                              <span className="text-[var(--muted)]"> · {p.division}</span>
+                            {open && sh.status === "PAID" && (p?.level != null || p?.division) ? (
+                              <span className="text-[var(--muted)]">
+                                {" "}
+                                · {p.level != null ? `nivel ${formatLevel(p.level)}` : p.division}
+                              </span>
                             ) : null}
                             {open && me && sh.user_id === me.id ? <span className="text-[var(--muted)]"> (tú)</span> : null}
                           </span>
@@ -255,7 +264,11 @@ export default async function PagarPartePage({ searchParams }: { searchParams: P
                 ) : open ? (
                   /* ===== Partido abierto ===== */
                   <>
-                    {iAmOrganizer ? (
+                    {ended && (iAmOrganizer || iAmIn) ? (
+                      <p className="mt-8 leading-relaxed text-[var(--muted)]">
+                        {ctx ? "Jugaste este partido." : "Jugaste este partido. ¡Gracias por venir!"}
+                      </p>
+                    ) : iAmOrganizer ? (
                       <p className="mt-8 leading-relaxed text-[var(--muted)]">
                         Creaste este partido.{" "}
                         {pending.length > 0
@@ -305,6 +318,19 @@ export default async function PagarPartePage({ searchParams }: { searchParams: P
                           <JoinMatchButton token={token} amount={share} />
                         );
                       })()
+                    )}
+                    {ctx && ended && (
+                      <MatchResultPanel
+                        token={token}
+                        meId={me?.id ?? null}
+                        players={ctx.players.map((id) => ({
+                          id,
+                          name: firstName(players.get(id)?.full_name) ?? "Jugador",
+                          level: players.get(id)?.level ?? null,
+                        }))}
+                        result={ctx.result}
+                        submitBlock={me ? submitBlock(ctx, me.id) : "Inicia sesión para ver o capturar el resultado."}
+                      />
                     )}
                     {!allPaid && !ended && (
                       <div className="mt-10 border-t pt-6" style={{ borderColor: "var(--line)" }}>
