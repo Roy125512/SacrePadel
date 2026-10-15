@@ -341,7 +341,7 @@ export default function ReceptionDashboard() {
       if (!b.customer_id) continue;
       const entry = map.get(b.customer_id) ?? { name: b.customer_name?.trim() || "Sin nombre", ingresos: 0, visitas: 0 };
       entry.visitas += 1;
-      if (b.payment_status === "PAID") entry.ingresos += b.paid_amount ?? 0;
+      if (b.payment_status === "PAID" || b.payment_status === "PARTIAL") entry.ingresos += b.paid_amount ?? 0;
       map.set(b.customer_id, entry);
     }
     return Array.from(map.values())

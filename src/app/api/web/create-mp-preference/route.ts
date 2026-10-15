@@ -10,12 +10,21 @@ import { MP_CHECKOUT_MINUTES } from "@/lib/mpBookings";
 import { DEMO } from "@/lib/demo/flag";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { dbErrorResponse } from "@/lib/apiError";
+import { debtMessage, findOutstandingDebt, prepareSplit, splitUrl } from "@/lib/splitPayments";
+import { SPLIT_PARTS_OPTIONS } from "@/lib/config";
 
 const BodySchema = z.object({
   booking_id: z.string().uuid(),
   full_name: z.string().trim().min(1).max(120),
   phone: z.string().trim().min(1).max(40),
   email: z.string().trim().email().max(200).optional().or(z.literal("")),
+  // Pago dividido: quien reserva paga solo su parte ahora.
+  split_parts: z
+    .number()
+    .int()
+    .refine((n) => (SPLIT_PARTS_OPTIONS as readonly number[]).includes(n))
+    .optional()
+    .nullable(),
 });
 
 export async function POST(req: Request) {
@@ -50,7 +59,7 @@ export async function POST(req: Request) {
     // 1) Read HOLD
     const { data: booking, error: readErr } = await supabaseAdmin
       .from("bookings")
-      .select("id, status, source, hold_expires_at, start_at, end_at, court_id, mp_preference_id, courts ( name )")
+      .select("id, status, source, hold_expires_at, start_at, end_at, court_id, mp_preference_id, split_token, courts ( name )")
       .eq("id", booking_id)
       .maybeSingle();
 
@@ -119,12 +128,25 @@ export async function POST(req: Request) {
     );
     if ("error" in customer) return dbErrorResponse("POST /api/web/create-mp-preference resolve customer", customer.error);
 
-    // 3) Compute amount server-side (never trust client)
-    const amount_mxn = computeExpectedAmountMXN(booking.start_at, booking.end_at);
+    // Partes sin pagar de un partido anterior: primero se cubren.
+    const debt = await findOutstandingDebt(customer.id);
+    if (debt) {
+      return NextResponse.json(
+        { error: debtMessage(debt), debt_url: debt.token ? splitUrl(debt.token) : null },
+        { status: 409 }
+      );
+    }
 
-    if (amount_mxn <= 0) {
+    // 3) Compute amount server-side (never trust client)
+    const total_mxn = computeExpectedAmountMXN(booking.start_at, booking.end_at);
+
+    if (total_mxn <= 0) {
       return NextResponse.json({ error: "Monto inválido." }, { status: 400 });
     }
+
+    // Pago dividido: se crean las partes y ahora solo se cobra la 1.
+    const parts = parsed.data.split_parts ?? null;
+    const { chargeNow: amount_mxn } = await prepareSplit(booking_id, total_mxn, parts, booking.split_token ?? null);
 
     const courtName = booking.courts?.name ?? "cancha";
     const origin = new URL(req.url).origin;
@@ -139,7 +161,9 @@ export async function POST(req: Request) {
       items: [
         {
           id: booking_id,
-          title: `Reserva ${courtName} — Sacré Pádel`,
+          title: parts
+            ? `Tu parte (1 de ${parts}) · Reserva ${courtName} — Sacré Pádel`
+            : `Reserva ${courtName} — Sacré Pádel`,
           quantity: 1,
           currency_id: "MXN",
           unit_price: amount_mxn,

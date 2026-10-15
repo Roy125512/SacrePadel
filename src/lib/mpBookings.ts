@@ -2,6 +2,7 @@ import { mpPayment } from "@/lib/mercadopago";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
 import { alertOwner, sendBookingConfirmationEmails, type EmailResult } from "@/lib/bookingNotifications";
+import { getShares, markOwnerSharePaid } from "@/lib/splitPayments";
 
 // Minutos que un HOLD con pago en línea iniciado se mantiene apartado. La
 // preferencia de Mercado Pago se crea con la MISMA fecha de expiración (ver
@@ -35,7 +36,7 @@ export async function finalizeMpBooking(
 
   const { data: booking, error } = await supabaseAdmin
     .from("bookings")
-    .select("id, status, payment_status, start_at, end_at")
+    .select("id, status, payment_status, start_at, end_at, split_parts")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -67,15 +68,18 @@ export async function finalizeMpBooking(
     return { ok: false, reason: "cancelled" };
   }
 
-  if (booking.payment_status !== "PAID") {
+  if (booking.payment_status === "UNPAID") {
     const paidAmount = Number(payment.transaction_amount ?? 0);
-    const expected = computeExpectedAmountMXN(booking.start_at, booking.end_at);
+    // Pago dividido: este pago es solo la parte de quien reservó.
+    const split = (booking.split_parts ?? 0) > 1;
+    const ownerShare = split ? (await getShares(bookingId)).find((s) => s.seq === 1) : undefined;
+    const expected = ownerShare ? ownerShare.amount : computeExpectedAmountMXN(booking.start_at, booking.end_at);
 
     const { data: updated, error: upErr } = await supabaseAdmin
       .from("bookings")
       .update({
         status: "CONFIRMED",
-        payment_status: "PAID",
+        payment_status: split ? "PARTIAL" : "PAID",
         payment_method: "MERCADOPAGO",
         paid_amount: paidAmount,
         paid_at: payment.date_approved ?? new Date().toISOString(),
@@ -84,7 +88,7 @@ export async function finalizeMpBooking(
       })
       .eq("id", bookingId)
       .neq("status", "CANCELLED")
-      .neq("payment_status", "PAID")
+      .eq("payment_status", "UNPAID")
       .select("id")
       .maybeSingle();
 
@@ -93,9 +97,11 @@ export async function finalizeMpBooking(
       return { ok: false, reason: "db_error" };
     }
 
+    if (updated && split) await markOwnerSharePaid(bookingId, payment, opts?.displayName ?? null);
+
     // Solo quien hizo la transición avisa (webhook y navegador pueden correr
     // a la vez).
-    if (updated && Math.round(paidAmount) !== Math.round(expected)) {
+    if (updated && Math.abs(paidAmount - expected) > 0.5) {
       await alertOwner("Monto pagado distinto al precio de la reserva", [
         `Reserva ${bookingId}: se cobraron $${paidAmount} MXN por Mercado Pago (pago ${payment.id}),`,
         `pero el precio de ese horario es $${expected} MXN.`,

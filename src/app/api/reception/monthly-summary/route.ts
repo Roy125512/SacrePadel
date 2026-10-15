@@ -67,7 +67,7 @@ export async function GET(req: Request) {
             horasVendidas += hoursBetween(b.start_at, b.end_at);
             reservas += 1;
           }
-          if (b.payment_status === "PAID") ingresos += Number(b.paid_amount ?? 0);
+          if (b.payment_status === "PAID" || b.payment_status === "PARTIAL") ingresos += Number(b.paid_amount ?? 0);
         }
 
         const capacity = activeCourts * (CLOSE_HOUR - OPEN_HOUR) * daysInMonth(year, month);

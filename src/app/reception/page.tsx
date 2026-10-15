@@ -31,6 +31,7 @@ import {
   formatDateMX,
   formatRangeES,
   isPaid,
+  pagoLabel,
   isPaidOnline,
   origenLabel,
   registradoPorLabel,
@@ -258,7 +259,7 @@ export default function ReceptionPage() {
     const horario = uniq(rows.map((b) => `${parseISOToLocalTime(b.start_at)} – ${parseISOToLocalTime(b.end_at)}`));
     const tipo = uniq(rows.map((b) => tipoLabel(b)));
     const estatus = uniq(rows.map((b) => statusLabelES(b.status)));
-    const pago = uniq(rows.map((b) => ((b.payment_status ?? "UNPAID") === "PAID" ? "Pagado" : "Pendiente")));
+    const pago = uniq(rows.map((b) => pagoLabel(b)));
     const monto = uniq(rows.map((b) => currencyMXN(b.amount ?? 0)));
     const origen = uniq(rows.map((b) => origenLabel(b.source)));
     const registradoPor = uniq(rows.map((b) => registradoPorLabel(b)));
@@ -285,7 +286,7 @@ export default function ReceptionPage() {
       const vHorario = `${parseISOToLocalTime(b.start_at)} – ${parseISOToLocalTime(b.end_at)}`;
       const vTipo = tipoLabel(b);
       const vEstatus = statusLabelES(b.status);
-      const vPago = (b.payment_status ?? "UNPAID") === "PAID" ? "Pagado" : "Pendiente";
+      const vPago = pagoLabel(b);
       const vMonto = currencyMXN(b.amount ?? 0);
       const vOrigen = origenLabel(b.source);
       const vRegistradoPor = registradoPorLabel(b);
@@ -390,8 +391,8 @@ export default function ReceptionPage() {
       );
 
       for (const b of bks) {
-        const pago = (b.payment_status ?? "UNPAID") === "PAID" ? "Pagado" : "Pendiente";
-        const paidAmount = (b.payment_status ?? "UNPAID") === "PAID" ? (b.paid_amount ?? "") : "";
+        const pago = pagoLabel(b);
+        const paidAmount = b.payment_status === "PAID" || b.payment_status === "PARTIAL" ? (b.paid_amount ?? "") : "";
 
         lines.push(
           [
@@ -1066,7 +1067,7 @@ export default function ReceptionPage() {
               ) : (
                 filteredRows.map((b) => {
                   const horario = `${parseISOToLocalTime(b.start_at)} – ${parseISOToLocalTime(b.end_at)}`;
-                  const pagoLabel = (b.payment_status ?? "UNPAID") === "PAID" ? "Pagado" : "Pendiente";
+                  const pagoLabelText = pagoLabel(b);
                   const clienteLabel = b.customer_name && b.customer_name.trim().length > 0 ? b.customer_name.trim() : "Sin asignar";
 
                   const statusTone =
@@ -1080,7 +1081,7 @@ export default function ReceptionPage() {
                       ? "neutral"
                       : "neutral";
 
-                  const payTone = pagoLabel === "Pagado" ? "ok" : "warn";
+                  const payTone = pagoLabelText === "Pagado" ? "ok" : "warn";
 
                   return (
                     <tr key={b.id} style={{ borderTop: "1px solid rgba(120,46,21,0.08)" }}>
@@ -1100,7 +1101,7 @@ export default function ReceptionPage() {
                       </td>
 
                       <td className="px-4 py-4">
-                        <Pill text={pagoLabel} tone={payTone} />
+                        <Pill text={pagoLabelText} tone={payTone} />
                       </td>
 
                       <td className="px-4 py-4">{currencyMXN(b.amount ?? 0)}</td>
@@ -1237,7 +1238,9 @@ export default function ReceptionPage() {
                                       if (
                                         isPaidOnline(b) &&
                                         !window.confirm(
-                                          `Esta reserva se pagó en línea ($${b.paid_amount ?? ""} MXN). Al cancelarla, Mercado Pago le devuelve el dinero al cliente automáticamente. ¿Continuar?`
+                                          b.payment_status === "PARTIAL"
+                                            ? `Pago dividido: se pagaron $${b.paid_amount ?? ""} MXN en línea. Al cancelarla, Mercado Pago le devuelve a cada quien lo que pagó. ¿Continuar?`
+                                            : `Esta reserva se pagó en línea ($${b.paid_amount ?? ""} MXN). Al cancelarla, Mercado Pago le devuelve el dinero al cliente automáticamente. ¿Continuar?`
                                         )
                                       )
                                         return;

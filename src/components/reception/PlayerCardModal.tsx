@@ -295,7 +295,7 @@ export default function PlayerCardModal({ customerId, onClose }: { customerId: s
                             <td className="px-3 py-3">{parseISOToLocalTime(rb.start_at)}</td>
                             <td className="px-3 py-3">{parseISOToLocalTime(rb.end_at)}</td>
                             <td className="px-3 py-3">{statusLabelES(rb.status as BookingStatus)}</td>
-                            <td className="px-3 py-3">{(rb.payment_status ?? "UNPAID") === "PAID" ? "Pagado" : "Pendiente"}</td>
+                            <td className="px-3 py-3">{rb.payment_status === "PAID" ? "Pagado" : rb.payment_status === "PARTIAL" ? "Parcial" : "Pendiente"}</td>
                             <td className="px-3 py-3">{currencyMXN(rb.paid_amount ?? 0)}</td>
                           </tr>
                         ))

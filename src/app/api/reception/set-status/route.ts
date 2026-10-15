@@ -35,10 +35,12 @@ export async function POST(req: Request) {
 
     const curStatus = current.status as string;
     const paid = (current.payment_status ?? "UNPAID") === "PAID";
+    // Pago dividido con alguna parte pagada en línea.
+    const partial = current.payment_status === "PARTIAL";
 
     if (status === "CANCELLED") {
       // Pagada en línea: se cancela y Mercado Pago reembolsa automáticamente.
-      if (paid && current.payment_method === "MERCADOPAGO") {
+      if ((paid || partial) && current.payment_method === "MERCADOPAGO") {
         const result = await cancelBooking(booking_id, "RECEPTION");
         if (!result.ok) return NextResponse.json({ error: result.message }, { status: result.reason === "db_error" ? 500 : 409 });
         return NextResponse.json({ ok: true, refund: result.refund, refunded_mxn: result.refundedMXN }, { status: 200 });
@@ -63,7 +65,8 @@ export async function POST(req: Request) {
       // Prioridad a cobrar: no permitir marcar "Asistió" si no está pagado.
       // NO_SHOW es la excepción — un cliente que nunca llegó tampoco pagó, y
       // aun así debe poder quedar registrado como no-show (no solo cancelado).
-      if (status === "COMPLETED" && !paid) {
+      // Pago dividido: lo que falte se cobra aparte (o queda como deuda de quien reservó).
+      if (status === "COMPLETED" && !paid && !partial) {
         return NextResponse.json({ error: "Primero debes cobrar antes de marcar asistencia." }, { status: 409 });
       }
     }

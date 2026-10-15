@@ -24,7 +24,7 @@ export default async function CancelarReservaPage({ searchParams }: { searchPara
   const { data: b } = UUID.test(token)
     ? await supabaseAdmin
         .from("bookings")
-        .select("start_at, end_at, status, payment_status, payment_method, paid_amount, refunded_amount, courts ( name )")
+        .select("start_at, end_at, status, payment_status, payment_method, paid_amount, refunded_amount, split_parts, split_token, courts ( name )")
         .eq("cancel_token", token)
         .maybeSingle()
     : { data: null };
@@ -50,7 +50,9 @@ export default async function CancelarReservaPage({ searchParams }: { searchPara
             const e = mxParts(b.end_at);
             const court = (b.courts as { name: string } | null)?.name ?? "Cancha";
             const block = customerCancelBlock(b);
-            const paidOnline = b.payment_status === "PAID" && b.payment_method === "MERCADOPAGO";
+            const paidOnline =
+              (b.payment_status === "PAID" || b.payment_status === "PARTIAL") && b.payment_method === "MERCADOPAGO";
+            const split = b.split_parts && b.split_token ? { parts: b.split_parts, url: `/reserva/pagar?t=${b.split_token}` } : null;
             return (
               <>
                 <h1 className="font-display mt-5 text-4xl leading-[1.05] sm:text-5xl">
@@ -66,7 +68,9 @@ export default async function CancelarReservaPage({ searchParams }: { searchPara
                       "Pago",
                       b.payment_status === "REFUNDED"
                         ? `Reembolsado ($${b.refunded_amount ?? b.paid_amount} MXN)`
-                        : paidOnline
+                        : split
+                          ? `Dividido entre ${split.parts} ($${b.paid_amount ?? 0} pagados)`
+                          : paidOnline
                           ? `Pagado en línea ($${b.paid_amount} MXN)`
                           : b.payment_status === "PAID"
                             ? "Pagado en recepción"
@@ -80,6 +84,14 @@ export default async function CancelarReservaPage({ searchParams }: { searchPara
                   ))}
                 </dl>
 
+                {split && b.status !== "CANCELLED" && b.payment_status === "PARTIAL" && (
+                  <p className="mt-6 text-sm">
+                    <Link href={split.url} className="font-semibold underline underline-offset-4">
+                      Ver quién ya pagó y compartir la liga de pago
+                    </Link>
+                  </p>
+                )}
+
                 {b.status === "CANCELLED" ? (
                   <p className="mt-8 leading-relaxed text-[var(--muted)]">
                     Esta reserva ya está cancelada.{" "}
@@ -88,7 +100,9 @@ export default async function CancelarReservaPage({ searchParams }: { searchPara
                 ) : block === null ? (
                   <>
                     <p className="mt-8 leading-relaxed text-[var(--muted)]">
-                      {paidOnline
+                      {split && paidOnline
+                        ? `Al cancelar, a cada quien le devolvemos lo que pagó ($${b.paid_amount} MXN en total).`
+                        : paidOnline
                         ? `Te devolvemos los $${b.paid_amount} MXN a tu método de pago en cuanto canceles.`
                         : "Al cancelar, el horario queda libre para otras personas."}{" "}
                       Puedes cancelar sin costo hasta {CANCEL_NOTICE_HOURS} h antes.

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { WebhookSignatureValidator, InvalidWebhookSignatureError } from "mercadopago";
 import { mpPayment } from "@/lib/mercadopago";
 import { finalizeMpBooking } from "@/lib/mpBookings";
+import { finalizeSharesPayment, SHARES_REF_PREFIX } from "@/lib/splitPayments";
 
 export async function POST(req: Request) {
   const url = new URL(req.url);
@@ -57,6 +58,15 @@ export async function POST(req: Request) {
   const booking_id = payment.external_reference;
   if (!booking_id) {
     console.warn("MP webhook: pago aprobado sin external_reference:", payment.id);
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
+
+  // Pago de partes de una reserva dividida (liga /reserva/pagar).
+  if (booking_id.startsWith(SHARES_REF_PREFIX)) {
+    const r = await finalizeSharesPayment(payment);
+    if (!r.ok && r.reason === "db_error") {
+      return NextResponse.json({ error: "Temporary error" }, { status: 500 });
+    }
     return NextResponse.json({ received: true }, { status: 200 });
   }
 

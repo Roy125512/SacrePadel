@@ -1,7 +1,14 @@
 "use client";
 
 import { formatDateES, parseISOToLocalTime, type PaymentMode, type SelectedSlot } from "./reservarUtils";
-import { CANCEL_NOTICE_HOURS } from "@/lib/config";
+import {
+  CANCEL_NOTICE_HOURS,
+  DEFAULT_SPLIT_PARTS,
+  SPLIT_DEBT_GRACE_HOURS,
+  SPLIT_PARTS_OPTIONS,
+  formatMXN,
+  splitAmounts,
+} from "@/lib/config";
 
 /**
  * Modal para confirmar la reserva: duración, precio, datos del cliente y
@@ -24,6 +31,9 @@ export default function BookingModal({
   phone,
   setPhone,
   error,
+  errorLink,
+  splitParts,
+  setSplitParts,
   paymentMode,
   setPaymentMode,
   saving,
@@ -48,6 +58,11 @@ export default function BookingModal({
   phone: string;
   setPhone: (v: string) => void;
   error: string | null;
+  /** Liga para resolver el error (p. ej. pagar una deuda de pago dividido). */
+  errorLink?: { href: string; label: string } | null;
+  /** null = pago completo; 2–4 = dividido entre ese número de jugadores. */
+  splitParts: number | null;
+  setSplitParts: (n: number | null) => void;
   paymentMode: PaymentMode;
   setPaymentMode: (mode: PaymentMode) => void;
   saving: boolean;
@@ -57,6 +72,7 @@ export default function BookingModal({
   onConfirmReception: () => void;
   onCancel: () => void;
 }) {
+  const shares = priceInfo && splitParts ? splitAmounts(priceInfo.total, splitParts) : null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto px-4 py-4 animate-fade-in"
     style={{ background: "rgba(30, 27, 24, 0.45)", backdropFilter: "blur(4px)" }}
@@ -205,12 +221,81 @@ export default function BookingModal({
                 }}
             >
                 {error}
+                {errorLink && (
+                <a href={errorLink.href} className="mt-1.5 block font-semibold underline underline-offset-2">
+                    {errorLink.label}
+                </a>
+                )}
             </div>
             )}
 
             {/* ===== PAYMENT: CHOOSE ===== */}
             {paymentMode === "choose" && (
             <div>
+                {/* Pago dividido (como Playtomic): cada jugador paga su parte */}
+                {priceInfo && (
+                <div className="mb-5">
+                    <div className="mb-2 text-sm font-medium" style={{ color: "var(--muted)" }}>
+                    ¿Cómo pagan?
+                    </div>
+                    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Cómo pagan">
+                    {[
+                        { on: !splitParts, title: "Pago completo", sub: `Tú pagas ${formatMXN(priceInfo.total)}`, pick: () => setSplitParts(null) },
+                        { on: !!splitParts, title: "Dividir el pago", sub: "Cada quien su parte", pick: () => setSplitParts(splitParts ?? DEFAULT_SPLIT_PARTS) },
+                    ].map((o) => (
+                        <button
+                        key={o.title}
+                        type="button"
+                        role="radio"
+                        aria-checked={o.on}
+                        onClick={o.pick}
+                        disabled={mpLoading || saving}
+                        className="rounded-md border px-3 py-2.5 text-left transition-colors"
+                        style={{
+                            borderColor: o.on ? "var(--brand)" : "rgba(120,46,21,0.15)",
+                            background: o.on ? "var(--brand-50)" : "var(--surface)",
+                        }}
+                        >
+                        <div className="text-sm font-semibold" style={{ color: o.on ? "var(--brand-800)" : "var(--foreground)" }}>
+                            {o.title}
+                        </div>
+                        <div className="text-xs" style={{ color: "var(--muted)" }}>{o.sub}</div>
+                        </button>
+                    ))}
+                    </div>
+
+                    {splitParts && shares && (
+                    <div className="mt-3 animate-slide-down rounded-md border px-3 py-3 text-xs leading-relaxed" style={{ borderColor: "var(--brand-200)", background: "var(--brand-50)", color: "var(--brand-800)" }}>
+                        <div className="flex items-center gap-2">
+                        <span>Entre</span>
+                        {SPLIT_PARTS_OPTIONS.map((n) => (
+                            <button
+                            key={n}
+                            type="button"
+                            onClick={() => setSplitParts(n)}
+                            aria-pressed={splitParts === n}
+                            className="h-8 w-8 rounded-full border text-sm font-semibold tabular-nums"
+                            style={{
+                                borderColor: splitParts === n ? "var(--brand)" : "var(--brand-200)",
+                                background: splitParts === n ? "var(--brand)" : "transparent",
+                                color: splitParts === n ? "#fff" : "var(--brand-800)",
+                            }}
+                            >
+                            {n}
+                            </button>
+                        ))}
+                        <span>jugadores</span>
+                        </div>
+                        <p className="mt-2.5">
+                        Ahora pagas tu parte: <b className="tabular-nums">{formatMXN(shares[0])}</b>. Te damos una liga para que cada
+                        quien pague la suya ({formatMXN(shares[shares.length - 1])}) desde su celular, sin cuenta. Lo que no se pague
+                        hasta {SPLIT_DEBT_GRACE_HOURS} h después del partido queda a tu cargo.
+                        </p>
+                    </div>
+                    )}
+                </div>
+                )}
+
                 <div className="mb-3 text-sm font-medium" style={{ color: "var(--muted)" }}>
                 Forma de pago
                 </div>
@@ -233,7 +318,7 @@ export default function BookingModal({
                         <line x1="1" y1="10" x2="23" y2="10" />
                     </svg>
                     <div className="font-display mt-3 text-base font-semibold" style={{ color: "var(--brand-800)" }}>
-                    {mpLoading ? "Preparando..." : "Pagar en línea"}
+                    {mpLoading ? "Preparando..." : shares ? `Pagar mi parte · ${formatMXN(shares[0])}` : "Pagar en línea"}
                     </div>
                     <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
                     Tarjeta o transferencia, con Mercado Pago
@@ -247,7 +332,8 @@ export default function BookingModal({
                     de que ya se habia hecho la reserva. */}
                 <button
                     onClick={() => setPaymentMode("reception")}
-                    disabled={saving || mpLoading || allowedDurations.length === 0}
+                    disabled={saving || mpLoading || allowedDurations.length === 0 || !!splitParts}
+                    title={splitParts ? "El pago dividido es en línea" : undefined}
                     className="group rounded-md border p-4 text-left transition-all duration-200 hover:shadow-sm disabled:opacity-50"
                     style={{
                     borderColor: "rgba(120,46,21,0.12)",
@@ -266,7 +352,7 @@ export default function BookingModal({
                     {saving ? "Confirmando..." : "Pagar en recepción"}
                     </div>
                     <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
-                    Efectivo o tarjeta al llegar
+                    {splitParts ? "Solo con pago completo" : "Efectivo o tarjeta al llegar"}
                     </div>
                 </button>
                 </div>

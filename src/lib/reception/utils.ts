@@ -102,6 +102,29 @@ export function isPaid(b: Booking) {
   return (b.payment_status ?? "UNPAID") === "PAID";
 }
 
+/** Pago dividido con alguna parte pagada y otras pendientes. */
+export function isPartial(b: Booking) {
+  return b.payment_status === "PARTIAL";
+}
+
+/** Etiqueta de la columna "Pago". */
+export function pagoLabel(b: Booking) {
+  if (isPaid(b)) return "Pagado";
+  if (isPartial(b)) return "Parcial";
+  return "Pendiente";
+}
+
+/** Cuánto entró ya (pagado completo o parcial). */
+function collected(b: Booking) {
+  return isPaid(b) || isPartial(b) ? (b.paid_amount ?? 0) : 0;
+}
+
+/** De lo cobrado, cuánto fue por Mercado Pago (el resto, en recepción). */
+function collectedOnline(b: Booking) {
+  if (typeof b.online_paid_amount === "number") return b.online_paid_amount;
+  return b.payment_method === "MERCADOPAGO" ? collected(b) : 0;
+}
+
 // ===== Reglas de bloqueo (recepción) =====
 export function isAttendanceFinal(b: Booking) {
   return b.status === "COMPLETED" || b.status === "NO_SHOW";
@@ -110,13 +133,13 @@ export function isAttendanceFinal(b: Booking) {
 export function canEditCustomer(b: Booking) {
   if (b.status === "CANCELLED") return false;
   if (isAttendanceFinal(b)) return false;
-  if (isPaid(b)) return false;
+  if (isPaid(b) || isPartial(b)) return false;
   return true;
 }
 
 /** Pagada en línea: al cancelar, Mercado Pago devuelve el dinero solo. */
 export function isPaidOnline(b: Booking) {
-  return isPaid(b) && b.payment_method === "MERCADOPAGO";
+  return (isPaid(b) || isPartial(b)) && b.payment_method === "MERCADOPAGO";
 }
 
 export function canCancelBooking(b: Booking) {
@@ -130,7 +153,8 @@ export function canCancelBooking(b: Booking) {
 
 export function canMarkAttendance(b: Booking) {
   if (b.status !== "CONFIRMED") return false;
-  if (!isPaid(b)) return false;
+  // Pago dividido: lo que falte se cobra aparte o queda a cargo de quien reservó.
+  if (!isPaid(b) && !isPartial(b)) return false;
   return true;
 }
 
@@ -165,11 +189,10 @@ export function parseISOToLocalTime24(iso: string) {
 /** Añade duration_hours y amount (esperado o pagado) a una reserva cruda de la API. */
 export function enrichBooking(b: Booking): Booking {
   const dur = hoursBetween(b.start_at, b.end_at);
-  const amount =
-    typeof b.paid_amount === "number" && (b.payment_status ?? "UNPAID") === "PAID"
-      ? b.paid_amount
-      : computeExpectedAmountMXN(b.start_at, b.end_at);
-  return { ...b, duration_hours: dur, amount };
+  const expected = computeExpectedAmountMXN(b.start_at, b.end_at);
+  const amount = typeof b.paid_amount === "number" && (b.payment_status ?? "UNPAID") === "PAID" ? b.paid_amount : expected;
+  const pending_amount = isPartial(b) ? Math.max(0, Math.round((expected - (b.paid_amount ?? 0)) * 100) / 100) : amount;
+  return { ...b, duration_hours: dur, amount, pending_amount };
 }
 
 export type CapacityOpts = { courts?: number; openHour?: number; closeHour?: number };
@@ -194,20 +217,24 @@ export function computeAggregateStats(rows: Booking[], days: number, opts?: Capa
   const closeHour = opts?.closeHour ?? CLOSE_HOUR;
 
   const confirmedOrCompleted = rows.filter((b) => b.status === "CONFIRMED" || b.status === "COMPLETED");
-  const paid = rows.filter((b) => b.payment_status === "PAID");
+  const paid = rows.filter((b) => isPaid(b) || isPartial(b));
   const pending = rows.filter((b) => canCharge(b));
 
-  const ingresos = paid.reduce((acc, b) => acc + (b.paid_amount ?? 0), 0);
-  const pendiente = pending.reduce((acc, b) => acc + (b.amount ?? 0), 0);
+  const ingresos = paid.reduce((acc, b) => acc + collected(b), 0);
+  const pendiente = pending.reduce((acc, b) => acc + (b.pending_amount ?? b.amount ?? 0), 0);
   const horasVendidas = confirmedOrCompleted.reduce((acc, b) => acc + (b.duration_hours ?? 0), 0);
 
   const capacityHours = courts * (closeHour - openHour) * days;
   const ocupacion = capacityHours > 0 ? (horasVendidas / capacityHours) * 100 : 0;
 
-  const efectivo = paid.filter((b) => b.payment_method === "CASH").reduce((acc, b) => acc + (b.paid_amount ?? 0), 0);
-  const tarjeta = paid.filter((b) => b.payment_method === "CARD").reduce((acc, b) => acc + (b.paid_amount ?? 0), 0);
-  const transfer = paid.filter((b) => b.payment_method === "TRANSFER").reduce((acc, b) => acc + (b.paid_amount ?? 0), 0);
-  const mercadopago = paid.filter((b) => b.payment_method === "MERCADOPAGO").reduce((acc, b) => acc + (b.paid_amount ?? 0), 0);
+  // Lo cobrado en recepción va al método de la reserva; lo de Mercado Pago,
+  // aparte (una reserva dividida puede tener las dos cosas).
+  const atClub = (m: string) =>
+    paid.filter((b) => b.payment_method === m).reduce((acc, b) => acc + collected(b) - collectedOnline(b), 0);
+  const efectivo = atClub("CASH");
+  const tarjeta = atClub("CARD");
+  const transfer = atClub("TRANSFER");
+  const mercadopago = paid.reduce((acc, b) => acc + collectedOnline(b), 0);
 
   const tarifaPromedio = horasVendidas > 0 ? ingresos / horasVendidas : 0;
 
@@ -262,8 +289,8 @@ export function buildDailySummary(
       map.get(ymd) ?? { ymd, reservas: 0, ingresos: 0, pendiente: 0, horasVendidas: 0, canceladas: 0, noShow: 0, completadas: 0 };
 
     bucket.reservas += 1;
-    if ((b.payment_status ?? "UNPAID") === "PAID") bucket.ingresos += b.paid_amount ?? 0;
-    if (canCharge(b)) bucket.pendiente += b.amount ?? 0;
+    bucket.ingresos += collected(b);
+    if (canCharge(b)) bucket.pendiente += b.pending_amount ?? b.amount ?? 0;
     if (b.status === "CONFIRMED" || b.status === "COMPLETED") bucket.horasVendidas += b.duration_hours ?? 0;
     if (b.status === "CANCELLED") bucket.canceladas += 1;
     if (b.status === "NO_SHOW") bucket.noShow += 1;

@@ -6,7 +6,7 @@
 import { DEMO_USERS } from "./session";
 
 type Row = Record<string, any>;
-type TableName = "bookings" | "customers" | "profiles" | "courts" | "booking_events";
+type TableName = "bookings" | "customers" | "profiles" | "courts" | "booking_events" | "booking_shares";
 type Store = Record<TableName, Row[]>;
 
 const g = globalThis as any;
@@ -36,6 +36,9 @@ function todayYMD() {
 function isoAt(ymd: string, hh: number, mm: number) {
   return `${ymd}T${pad2(hh)}:${pad2(mm)}:00-06:00`;
 }
+
+/** split_token de la reserva dividida de ejemplo: /reserva/pagar?t=… */
+export const DEMO_SPLIT_TOKEN = "5b1e5b1e-0000-4000-8000-000000000001";
 
 function seed(): Store {
   const courts: Row[] = [
@@ -130,7 +133,69 @@ function seed(): Store {
     },
   ];
 
-  return { bookings, customers, profiles, courts, booking_events: [] };
+  // Una reserva con pago dividido (2 de 4 partes pagadas) del cliente demo,
+  // mañana a las 19:00, para ver /reserva/pagar y "Mis reservas".
+  const demoClient = DEMO_USERS.find((u) => u.email === "cliente@demo.com");
+  const tomorrow = (() => {
+    const d = new Date(Date.now() + 86400_000);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  })();
+  const splitCustomer = {
+    id: uuid(),
+    full_name: demoClient?.full_name ?? "Cliente Demo",
+    phone_e164: demoClient?.phone_e164 ?? null,
+    email: demoClient?.email ?? null,
+    notes: null,
+    birthday: null,
+    player_notes: null,
+    sex: null,
+    division: null,
+    is_active: true,
+    created_at: nowIso(),
+  };
+  customers.push(splitCustomer);
+  const splitBookingId = uuid();
+  bookings.push({
+    id: splitBookingId,
+    court_id: "court-3",
+    start_at: isoAt(tomorrow, 19, 0),
+    end_at: isoAt(tomorrow, 20, 0),
+    status: "CONFIRMED",
+    source: "WEB",
+    kind: "STANDARD",
+    payment_status: "PARTIAL",
+    paid_amount: 200,
+    online_paid_amount: 200,
+    payment_method: "MERCADOPAGO",
+    paid_at: nowIso(),
+    customer_id: splitCustomer.id,
+    user_id: demoClient?.id ?? null,
+    contact_email: demoClient?.email ?? null,
+    hold_expires_at: null,
+    cancelled_by: null,
+    stripe_payment_intent_id: null,
+    cancel_token: uuid(),
+    split_parts: 4,
+    split_token: DEMO_SPLIT_TOKEN,
+    created_at: nowIso(),
+  });
+  const booking_shares: Row[] = [1, 2, 3, 4].map((seq) => ({
+    id: uuid(),
+    booking_id: splitBookingId,
+    seq,
+    amount: 100,
+    status: seq <= 2 ? "PAID" : "PENDING",
+    payer_name: seq === 1 ? (demoClient?.full_name ?? null) : seq === 2 ? "Ana Torres" : null,
+    payer_email: null,
+    payment_method: seq <= 2 ? "MERCADOPAGO" : null,
+    mp_payment_id: seq <= 2 ? `demo-pay-${seq}` : null,
+    paid_at: seq <= 2 ? nowIso() : null,
+    checkout_until: null,
+    refunded_at: null,
+    created_at: nowIso(),
+  }));
+
+  return { bookings, customers, profiles, courts, booking_events: [], booking_shares };
 }
 
 export function getStore(): Store {
@@ -467,6 +532,22 @@ class FakeQuery {
         refunded_at: null,
         mp_refund_id: null,
         cancelled_at: null,
+        split_parts: null,
+        split_token: null,
+        online_paid_amount: null,
+        ...base,
+      };
+    }
+    if (this.table === "booking_shares") {
+      return {
+        status: "PENDING",
+        payer_name: null,
+        payer_email: null,
+        payment_method: null,
+        mp_payment_id: null,
+        paid_at: null,
+        checkout_until: null,
+        refunded_at: null,
         ...base,
       };
     }
@@ -564,6 +645,11 @@ class FakeQuery {
           for (const r of matched) {
             const i = list.indexOf(r);
             if (i >= 0) list.splice(i, 1);
+          }
+          // ON DELETE CASCADE de booking_shares.booking_id
+          if (this.table === "bookings") {
+            const gone = new Set(matched.map((r) => r.id));
+            this.store.booking_shares = this.store.booking_shares.filter((s) => !gone.has(s.booking_id));
           }
         }
 

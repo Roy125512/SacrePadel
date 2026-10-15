@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   // cubrir extras cobrados junto con la cancha (renta de palas, etc.).
   const { data: priced, error: priceErr } = await supabaseAdmin
     .from("bookings")
-    .select("start_at, end_at")
+    .select("start_at, end_at, payment_status, paid_amount")
     .eq("id", booking_id)
     .maybeSingle();
   if (priceErr) {
@@ -51,6 +51,36 @@ export async function POST(req: Request) {
       },
       { status: 400 }
     );
+  }
+
+  // Pago dividido: recepción cobra lo que falta y con eso queda pagada.
+  if (priced.payment_status === "PARTIAL") {
+    const total = Math.round((Number(priced.paid_amount ?? 0) + paid_amount) * 100) / 100;
+    const { data: updated, error: updErr } = await supabaseAdmin
+      .from("bookings")
+      .update({ payment_status: "PAID", paid_amount: total, payment_method, paid_at: nowIso })
+      .eq("id", booking_id)
+      .in("status", ["CONFIRMED", "COMPLETED", "NO_SHOW"])
+      .eq("payment_status", "PARTIAL")
+      .eq("paid_amount", priced.paid_amount ?? 0)
+      .select("id,status,payment_status,paid_amount,payment_method,paid_at,start_at,end_at,court_id")
+      .maybeSingle();
+    if (updErr) {
+      console.error("POST /api/reception/pay partial", updErr);
+      return NextResponse.json({ error: "No se pudo registrar el pago." }, { status: 500 });
+    }
+    if (!updated) {
+      return NextResponse.json(
+        { error: "Alguien pagó una parte en línea mientras tanto. Actualiza y revisa cuánto falta." },
+        { status: 409 }
+      );
+    }
+    await supabaseAdmin
+      .from("booking_shares")
+      .update({ status: "PAID", payment_method, paid_at: nowIso, payer_name: "Recepción", checkout_until: null })
+      .eq("booking_id", booking_id)
+      .eq("status", "PENDING");
+    return NextResponse.json({ booking: updated }, { status: 200 });
   }
 
   // ✅ UPDATE atómico: solo cobra si está CONFIRMED/COMPLETED + UNPAID

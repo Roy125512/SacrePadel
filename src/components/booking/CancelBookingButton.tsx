@@ -42,7 +42,9 @@ export default function CancelBookingButton({
         return;
       }
       const msg =
-        j.refund === "refunded"
+        j.refund === "refunded" && j.split
+          ? `Listo, tu reserva se canceló. Devolvimos a cada quien lo que pagó ($${j.refunded_mxn} MXN en total); según el banco puede tardar de 2 a 10 días hábiles en verse.`
+          : j.refund === "refunded"
           ? `Listo, tu reserva se canceló. Te devolvimos $${j.refunded_mxn} MXN; según tu banco puede tardar de 2 a 10 días hábiles en verse.`
           : j.refund === "failed"
             ? "Listo, tu reserva se canceló. El reembolso lo hará el club manualmente y te avisaremos."

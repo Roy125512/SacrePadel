@@ -1,6 +1,6 @@
 // Reception domain types used by /reception UI and its API routes.
 export type BookingStatus = "HOLD" | "CONFIRMED" | "CANCELLED" | "NO_SHOW" | "COMPLETED";
-export type PaymentStatus = "UNPAID" | "PAID";
+export type PaymentStatus = "UNPAID" | "PARTIAL" | "PAID" | "REFUNDED";
 export type PaymentMethod = "CASH" | "CARD" | "TRANSFER" | "STRIPE" | "MERCADOPAGO";
 
 export type DateMode = "DAY" | "RANGE";
@@ -19,6 +19,9 @@ export type Booking = {
   paid_amount?: number;
   payment_method?: PaymentMethod | null;
   paid_at?: string | null;
+  /** Pago dividido: en cuántas partes y cuánto entró en línea. */
+  split_parts?: number | null;
+  online_paid_amount?: number | null;
 
   customer_id?: string | null;
   customer_name?: string | null;
@@ -30,6 +33,8 @@ export type Booking = {
 
   duration_hours?: number;
   amount?: number;
+  /** Lo que falta por cobrar (precio − pagado). */
+  pending_amount?: number;
 };
 
 export type ApiResponse = {

@@ -20,6 +20,8 @@ export type ConfirmedBooking = {
   courtName: string | null;
   dateYMD: string | null;
   startAt: string | null;
+  /** Pago dividido: liga para que los demás paguen su parte. */
+  split?: { url: string; parts: number; share_amount: number | null; paid_parts: number } | null;
 };
 
 export type EmailInfo = { sent: boolean; to: string | null; error: string | null };

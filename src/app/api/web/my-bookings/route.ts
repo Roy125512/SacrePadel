@@ -3,6 +3,9 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createClient } from "@/lib/supabaseServer";
 import { customerCancelBlock } from "@/lib/cancellation";
 import { dbErrorResponse } from "@/lib/apiError";
+import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
+import { SPLIT_DEBT_GRACE_HOURS } from "@/lib/config";
+import { splitUrl } from "@/lib/splitPayments";
 
 // "Mis reservas" del perfil: próximas y de los últimos 60 días, con si se
 // pueden cancelar en línea y por qué no.
@@ -15,7 +18,7 @@ export async function GET() {
     const since = new Date(Date.now() - 60 * 86400_000).toISOString();
     const { data, error } = await supabaseAdmin
       .from("bookings")
-      .select("id, start_at, end_at, status, payment_status, payment_method, paid_amount, refunded_amount, courts ( name )")
+      .select("id, start_at, end_at, status, payment_status, payment_method, paid_amount, refunded_amount, split_parts, split_token, courts ( name )")
       .eq("user_id", auth.user.id)
       .in("status", ["CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"])
       .gte("start_at", since)
@@ -37,6 +40,23 @@ export async function GET() {
         refunded_amount: b.refunded_amount,
         court_name: (b.courts as { name: string } | null)?.name ?? "Cancha",
         upcoming: new Date(b.end_at).getTime() > now,
+        // Pago dividido: liga para compartir y cuánto falta.
+        split:
+          b.split_parts && b.split_token
+            ? {
+                parts: b.split_parts,
+                url: splitUrl(b.split_token),
+                remaining:
+                  b.payment_status === "PARTIAL"
+                    ? Math.round((computeExpectedAmountMXN(b.start_at, b.end_at) - Number(b.paid_amount ?? 0)) * 100) / 100
+                    : 0,
+                // Ya pasó el plazo: lo que falta es deuda de quien reservó.
+                overdue:
+                  b.payment_status === "PARTIAL" &&
+                  b.status !== "CANCELLED" &&
+                  new Date(b.end_at).getTime() + SPLIT_DEBT_GRACE_HOURS * 3600_000 < now,
+              }
+            : null,
         can_cancel: block === null,
         cancel_block: block,
       };

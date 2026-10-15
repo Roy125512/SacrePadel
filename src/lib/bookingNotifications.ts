@@ -2,7 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendEmail } from "@/lib/mailer";
 import { buildBookingConfirmationEmail, buildOwnerNotificationEmail } from "@/lib/bookingEmail";
 import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
-import { CANCEL_NOTICE_HOURS } from "@/lib/config";
+import { CANCEL_NOTICE_HOURS, SPLIT_DEBT_GRACE_HOURS } from "@/lib/config";
 import { SITE } from "@/lib/site";
 
 export const TOLERANCE_MINUTES = 15;
@@ -52,7 +52,7 @@ export async function sendBookingConfirmationEmails(
     .eq("status", "CONFIRMED")
     .is("confirmation_email_sent_at", null)
     .select(
-      "id, start_at, end_at, payment_status, payment_method, paid_amount, contact_email, cancel_token, courts ( name ), customers:customer_id ( full_name, phone_e164 )"
+      "id, start_at, end_at, payment_status, payment_method, paid_amount, contact_email, cancel_token, split_parts, split_token, courts ( name ), customers:customer_id ( full_name, phone_e164 )"
     )
     .maybeSingle();
 
@@ -76,8 +76,18 @@ export async function sendBookingConfirmationEmails(
   const courtName = String(b.courts?.name ?? "Cancha");
   const fullName = opts?.displayName?.trim() || String(b.customers?.full_name ?? "").trim() || "Cliente";
   const phone = String(b.customers?.phone_e164 ?? "");
-  const paidOnline = b.payment_status === "PAID" && b.payment_method === "MERCADOPAGO";
-  const amountMXN = paidOnline ? Number(b.paid_amount ?? 0) : computeExpectedAmountMXN(b.start_at, b.end_at);
+  const paidOnline = (b.payment_status === "PAID" || b.payment_status === "PARTIAL") && b.payment_method === "MERCADOPAGO";
+  const totalMXN = computeExpectedAmountMXN(b.start_at, b.end_at);
+  const amountMXN = paidOnline ? Number(b.paid_amount ?? 0) : totalMXN;
+  const split =
+    b.split_parts && b.split_token
+      ? {
+          url: `${SITE.url}/reserva/pagar?t=${b.split_token}`,
+          parts: b.split_parts,
+          totalMXN,
+          graceHours: SPLIT_DEBT_GRACE_HOURS,
+        }
+      : undefined;
   const s = mxParts(b.start_at);
   const e = mxParts(b.end_at);
   const to = (b.contact_email as string | null) ?? null;
@@ -98,6 +108,7 @@ export async function sendBookingConfirmationEmails(
       amountMXN,
       cancelUrl: b.cancel_token ? `${SITE.url}/reserva/cancelar?t=${b.cancel_token}` : undefined,
       cancelNoticeHours: CANCEL_NOTICE_HOURS,
+      split,
     });
     const sent = await sendEmail({ to, subject: mail.subject, html: mail.html, text: mail.text });
     if (sent.ok) email_sent = true;

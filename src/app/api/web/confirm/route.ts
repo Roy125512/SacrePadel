@@ -9,6 +9,7 @@ import { finalizeMpBooking, settleMpHold } from "@/lib/mpBookings";
 import { DEMO } from "@/lib/demo/flag";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { dbErrorResponse } from "@/lib/apiError";
+import { debtMessage, findOutstandingDebt, getShares, splitUrl } from "@/lib/splitPayments";
 
 type ConfirmBody = {
   booking_id?: string;
@@ -142,7 +143,12 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json(
-        { booking: { id: booking_id }, tolerance_minutes: TOLERANCE_MINUTES, ...result.emails },
+        {
+          booking: { id: booking_id },
+          tolerance_minutes: TOLERANCE_MINUTES,
+          ...result.emails,
+          split: await splitInfo(booking_id),
+        },
         { status: 200 }
       );
     }
@@ -187,6 +193,14 @@ export async function POST(req: NextRequest) {
       user?.id ?? null
     );
     if ("error" in customer) return dbErrorResponse("POST /api/web/confirm resolve customer", customer.error);
+
+    const debt = await findOutstandingDebt(customer.id);
+    if (debt) {
+      return NextResponse.json(
+        { error: debtMessage(debt), debt_url: debt.token ? splitUrl(debt.token) : null },
+        { status: 409 }
+      );
+    }
 
     // Tope anti-abuso: "pagar en recepción" no requiere cuenta ni pago, así
     // que un mismo teléfono solo puede tener unas cuantas reservas web
@@ -237,4 +251,21 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     return dbErrorResponse("POST /api/web/confirm", e);
   }
+}
+
+/** Datos del pago dividido para la pantalla de "reserva confirmada". */
+async function splitInfo(bookingId: string) {
+  const { data } = await supabaseAdmin
+    .from("bookings")
+    .select("split_parts, split_token")
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (!data?.split_parts || !data.split_token) return null;
+  const shares = await getShares(bookingId).catch(() => []);
+  return {
+    url: splitUrl(data.split_token),
+    parts: data.split_parts,
+    share_amount: shares.find((s) => s.seq === 2)?.amount ?? null,
+    paid_parts: shares.filter((s) => s.status === "PAID").length,
+  };
 }

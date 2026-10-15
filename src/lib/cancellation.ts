@@ -6,6 +6,7 @@ import { buildCancellationEmail } from "@/lib/bookingEmail";
 import { alertOwner, mxParts } from "@/lib/bookingNotifications";
 import { withinCancelWindow } from "@/lib/config";
 import { DEMO } from "@/lib/demo/flag";
+import { refundSplitBooking } from "@/lib/splitPayments";
 
 /**
  * Cancelación de reservas con reembolso automático (como Playtomic):
@@ -22,7 +23,7 @@ import { DEMO } from "@/lib/demo/flag";
 export type CancelBy = "CUSTOMER" | "RECEPTION";
 
 export type CancelResult =
-  | { ok: true; refund: "none" | "refunded" | "failed"; refundedMXN: number | null }
+  | { ok: true; refund: "none" | "refunded" | "failed"; refundedMXN: number | null; split?: boolean }
   | { ok: false; reason: CancelRejection; message: string };
 
 export type CancelRejection = "not_found" | "not_cancellable" | "too_late" | "paid_at_club" | "conflict" | "db_error";
@@ -43,12 +44,13 @@ type BookingForCancel = {
   paid_amount: number | null;
   mp_payment_id: string | null;
   contact_email: string | null;
+  split_parts: number | null;
   courts: { name: string } | null;
   customers: { full_name: string | null } | null;
 };
 
 const SELECT =
-  "id, status, start_at, end_at, payment_status, payment_method, paid_amount, mp_payment_id, contact_email, courts ( name ), customers:customer_id ( full_name )";
+  "id, status, start_at, end_at, payment_status, payment_method, paid_amount, mp_payment_id, contact_email, split_parts, courts ( name ), customers:customer_id ( full_name )";
 
 const MESSAGES: Record<CancelRejection, string> = {
   not_found: "No encontramos esa reserva.",
@@ -113,7 +115,22 @@ export async function cancelBooking(bookingId: string, by: CancelBy): Promise<Ca
   // 2) Reembolso automático si pagó en línea.
   let refund: "none" | "refunded" | "failed" = "none";
   let refundedMXN: number | null = null;
-  if (b.payment_status === "PAID" && b.payment_method === "MERCADOPAGO" && b.mp_payment_id && !DEMO) {
+  // Pago dividido: a cada quien lo que pagó (sus correos van abajo).
+  let sharePayers: { email: string; name: string | null; amount: number }[] = [];
+  let ownerRefundMXN: number | null = null;
+  if (b.split_parts) {
+    const r = await refundSplitBooking(bookingId);
+    sharePayers = r.payers;
+    ownerRefundMXN = b.mp_payment_id ? (r.byPayment[b.mp_payment_id] ?? null) : null;
+    if (r.refundedMXN > 0 || r.failed) {
+      refund = r.failed ? "failed" : "refunded";
+      refundedMXN = r.refundedMXN;
+      await supabaseAdmin
+        .from("bookings")
+        .update({ payment_status: "REFUNDED", refunded_amount: r.refundedMXN, refunded_at: new Date().toISOString() })
+        .eq("id", bookingId);
+    }
+  } else if (b.payment_status === "PAID" && b.payment_method === "MERCADOPAGO" && b.mp_payment_id && !DEMO) {
     try {
       const r = await refunds.total({
         payment_id: b.mp_payment_id,
@@ -155,19 +172,39 @@ export async function cancelBooking(bookingId: string, by: CancelBy): Promise<Ca
       startTimeLocal: s.timeLocal,
       endTimeLocal: e.timeLocal,
       cancelledBy: by,
-      refundedMXN,
+      refundedMXN: b.split_parts ? ownerRefundMXN : refundedMXN,
       refundPending: refund === "failed",
     });
     const sent = await sendEmail({ to: b.contact_email, subject: mail.subject, html: mail.html, text: mail.text });
     if (!sent.ok) console.error("cancellation email failed", bookingId, sent.error);
   }
+  // Compañeros que pagaron su parte (con correo distinto al de quien reservó).
+  for (const p of sharePayers) {
+    if (p.email === b.contact_email) continue;
+    const mail = buildCancellationEmail({
+      fullName: (p.name ?? "").trim() || "Hola",
+      courtName,
+      dateLocal: s.dateLocal,
+      startTimeLocal: s.timeLocal,
+      endTimeLocal: e.timeLocal,
+      cancelledBy: by,
+      refundedMXN: p.amount,
+      sharedBooking: true,
+    });
+    await sendEmail({ to: p.email, subject: mail.subject, html: mail.html, text: mail.text }).catch(() => null);
+  }
+
   if (by === "CUSTOMER") {
     const notify = (process.env.NOTIFY_EMAIL ?? "").trim();
     if (notify) {
       const lines = [
         `${fullName} canceló su reserva.`,
         `Cancha: ${courtName} · ${s.dateLocal} · ${s.timeLocal}–${e.timeLocal}`,
-        refund === "refunded" ? `Se le reembolsaron $${refundedMXN} MXN por Mercado Pago.` : "No había pago en línea.",
+        refund === "refunded"
+          ? b.split_parts
+            ? `Pago dividido: se reembolsaron $${refundedMXN} MXN en total, a cada quien lo que pagó.`
+            : `Se le reembolsaron $${refundedMXN} MXN por Mercado Pago.`
+          : "No había pago en línea.",
         "El horario ya quedó libre para otras reservas.",
       ];
       await sendEmail({
@@ -179,5 +216,5 @@ export async function cancelBooking(bookingId: string, by: CancelBy): Promise<Ca
     }
   }
 
-  return { ok: true, refund, refundedMXN };
+  return { ok: true, refund, refundedMXN, split: !!b.split_parts };
 }

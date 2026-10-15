@@ -73,6 +73,9 @@ export default function ReservarClient() {
     const [paymentMode, setPaymentMode] = useState<PaymentMode>("choose");
     const [mpLoading, setMpLoading] = useState(false);
     const [mpError, setMpError] = useState<string | null>(null);
+    // Pago dividido: null = pago completo; 2–4 = entre ese número de jugadores.
+    const [splitParts, setSplitParts] = useState<number | null>(null);
+    const [errorLink, setErrorLink] = useState<{ href: string; label: string } | null>(null);
 
     useEffect(() => {
         if (isGuest) return;
@@ -186,9 +189,10 @@ export default function ReservarClient() {
             courtName: pending.court_name ?? null,
             dateYMD: pending.date_ymd ?? null,
             startAt: pending.start_at ?? null,
+            split: json?.split ?? null,
         });
         setToleranceOpen(true);
-        setSuccessMsg("Reserva confirmada y pagada en línea.");
+        setSuccessMsg(json?.split ? "Reserva confirmada. Pagaste tu parte en línea." : "Reserva confirmada y pagada en línea.");
         await loadAvailability(dateYMD);
         } finally {
         setSaving(false);
@@ -304,6 +308,8 @@ export default function ReservarClient() {
         // Reset payment state
         setPaymentMode("choose");
         setMpError(null);
+        setSplitParts(null);
+        setErrorLink(null);
 
         setModalOpen(true);
 
@@ -442,6 +448,8 @@ export default function ReservarClient() {
         setPhone("");
         setPaymentMode("choose");
         setMpError(null);
+        setSplitParts(null);
+        setErrorLink(null);
         setSaving(false);
         await loadAvailability(dateYMD);
         }
@@ -469,6 +477,7 @@ export default function ReservarClient() {
 
         setSaving(true);
         setError(null);
+        setErrorLink(null);
 
         try {
         const r = await fetch("/api/web/confirm", {
@@ -486,6 +495,7 @@ export default function ReservarClient() {
         const json = await r.json().catch(() => ({}));
         if (!r.ok) {
             setError(json?.error ?? `Error ${r.status}`);
+            setErrorLink(json?.debt_url ? { href: json.debt_url, label: "Pagar lo pendiente" } : null);
             // Back to the payment-options view so the user isn't stranded
             // with no visible way to retry.
             setPaymentMode("choose");
@@ -537,6 +547,7 @@ export default function ReservarClient() {
         setMpLoading(true);
         setMpError(null);
         setError(null);
+        setErrorLink(null);
 
         try {
         // Stashed here because Checkout Pro is a full-page redirect — this
@@ -567,12 +578,18 @@ export default function ReservarClient() {
             full_name: v.full_name,
             phone: v.phone_input,
             email: email.trim() || undefined,
+            split_parts: splitParts ?? undefined,
             }),
         });
 
         const json = await r.json().catch(() => ({}));
         if (!r.ok) {
+            if (json?.debt_url) {
+            setError(json.error);
+            setErrorLink({ href: json.debt_url, label: "Pagar lo pendiente" });
+            } else {
             setMpError(json?.error ?? `Error ${r.status}`);
+            }
             sessionStorage.removeItem(MP_PENDING_KEY);
             return;
         }
@@ -764,6 +781,9 @@ export default function ReservarClient() {
             phone={phone}
             setPhone={setPhone}
             error={error}
+            errorLink={errorLink}
+            splitParts={splitParts}
+            setSplitParts={setSplitParts}
             paymentMode={paymentMode}
             setPaymentMode={setPaymentMode}
             saving={saving}

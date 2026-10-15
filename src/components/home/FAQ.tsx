@@ -16,6 +16,10 @@ const QUESTIONS = [
     a: "Puedes pagar en línea con tarjeta al momento de apartar, o liquidar en efectivo/tarjeta directo en recepción al llegar.",
   },
   {
+    q: "¿Podemos dividir el pago entre los jugadores?",
+    a: "Sí. Al reservar elige “Dividir el pago” entre 2, 3 o 4: pagas solo tu parte y te damos una liga para mandarla por WhatsApp, para que cada quien pague la suya desde su celular, sin cuenta. Lo que no se pague hasta 2 horas después del partido queda a cargo de quien reservó.",
+  },
+  {
     q: "¿Qué pasa si llego tarde a mi horario?",
     a: "Cuentas con 15 minutos de tolerancia. Pasado ese tiempo, la cancha queda liberada para que otros puedan jugar.",
   },

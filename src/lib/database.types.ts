@@ -35,6 +35,9 @@ export type Database = {
           refunded_at: string | null;
           mp_refund_id: string | null;
           cancelled_at: string | null;
+          split_parts: number | null;
+          split_token: string | null;
+          online_paid_amount: number | null;
         };
         Insert: {
           id?: string;
@@ -64,6 +67,9 @@ export type Database = {
           refunded_at?: string | null;
           mp_refund_id?: string | null;
           cancelled_at?: string | null;
+          split_parts?: number | null;
+          split_token?: string | null;
+          online_paid_amount?: number | null;
         };
         Update: {
           id?: string;
@@ -93,6 +99,9 @@ export type Database = {
           refunded_at?: string | null;
           mp_refund_id?: string | null;
           cancelled_at?: string | null;
+          split_parts?: number | null;
+          split_token?: string | null;
+          online_paid_amount?: number | null;
         };
         Relationships: [
           {
@@ -107,6 +116,62 @@ export type Database = {
             columns: ["customer_id"];
             isOneToOne: false;
             referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      booking_shares: {
+        Row: {
+          id: string;
+          booking_id: string;
+          seq: number;
+          amount: number;
+          status: string;
+          payer_name: string | null;
+          payer_email: string | null;
+          payment_method: string | null;
+          mp_payment_id: string | null;
+          paid_at: string | null;
+          checkout_until: string | null;
+          refunded_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          booking_id: string;
+          seq: number;
+          amount: number;
+          status?: string;
+          payer_name?: string | null;
+          payer_email?: string | null;
+          payment_method?: string | null;
+          mp_payment_id?: string | null;
+          paid_at?: string | null;
+          checkout_until?: string | null;
+          refunded_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          booking_id?: string;
+          seq?: number;
+          amount?: number;
+          status?: string;
+          payer_name?: string | null;
+          payer_email?: string | null;
+          payment_method?: string | null;
+          mp_payment_id?: string | null;
+          paid_at?: string | null;
+          checkout_until?: string | null;
+          refunded_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "booking_shares_booking_id_fkey";
+            columns: ["booking_id"];
+            isOneToOne: false;
+            referencedRelation: "bookings";
             referencedColumns: ["id"];
           },
         ];

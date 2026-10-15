@@ -20,6 +20,8 @@ export function buildBookingConfirmationEmail(a: {
   /** Liga para cancelar en línea (política de cancelación). */
   cancelUrl?: string;
   cancelNoticeHours?: number;
+  /** Pago dividido: liga para que los demás paguen su parte. */
+  split?: { url: string; parts: number; totalMXN: number; graceHours: number };
 }) {
   const club = a.clubName ?? "Sacré Pádel";
   const tol = a.toleranceMinutes ?? 15;
@@ -37,9 +39,14 @@ export function buildBookingConfirmationEmail(a: {
   const subject = `Confirmación de reserva - ${club}`;
 
   const paidOnline = (a.paymentMethod === "STRIPE" || a.paymentMethod === "MERCADOPAGO") && a.amountMXN;
-  const paymentLine = paidOnline
-    ? `Pagado en línea ($${a.amountMXN} MXN).`
-    : "Pago en recepción.";
+  const paymentLine = a.split
+    ? `Pagaste tu parte ($${a.amountMXN} de $${a.split.totalMXN} MXN, dividido entre ${a.split.parts}).`
+    : paidOnline
+      ? `Pagado en línea ($${a.amountMXN} MXN).`
+      : "Pago en recepción.";
+  const splitText = a.split
+    ? `Comparte esta liga con tus compañeros para que cada quien pague su parte: ${a.split.url}\nLo que no se pague hasta ${a.split.graceHours} h después del partido queda a tu cargo.`
+    : null;
 
   const text = [
     `Hola ${a.fullName},`,
@@ -51,6 +58,7 @@ export function buildBookingConfirmationEmail(a: {
     "",
     `Tienes ${tol} minutos de tolerancia.`,
     paymentLine,
+    ...(splitText ? ["", splitText] : []),
     "",
     cancelText,
   ].join("\n");
@@ -109,8 +117,22 @@ export function buildBookingConfirmationEmail(a: {
                     <div><b>Fecha:</b> ${esc(a.dateLocal)}</div>
                     <div><b>Horario:</b> ${esc(a.startTimeLocal)} – ${esc(a.endTimeLocal)}</div>
                     <div style="margin-top:10px;"><b>Tolerancia:</b> ${tol} min</div>
-                    <div><b>Pago:</b> ${paidOnline ? `Pagado en línea ($${a.amountMXN} MXN)` : "en recepción"}</div>
+                    <div><b>Pago:</b> ${
+                      a.split
+                        ? `Tu parte pagada ($${a.amountMXN} de $${a.split.totalMXN} MXN)`
+                        : paidOnline
+                          ? `Pagado en línea ($${a.amountMXN} MXN)`
+                          : "en recepción"
+                    }</div>
                   </div>
+${a.split
+  ? `
+                  <div style="margin-top:12px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;font-size:13px;color:#111;line-height:1.5;">
+                    <b>Pago dividido entre ${a.split.parts}.</b> Comparte esta liga para que cada quien pague su parte:<br/>
+                    <a href="${esc(a.split.url)}" style="color:#9A6A45;font-weight:700;">Pagar mi parte de la cancha</a><br/>
+                    <span style="color:#6b7280;font-size:12px;">Lo que no se pague hasta ${a.split.graceHours} h después del partido queda a tu cargo.</span>
+                  </div>`
+  : ""}
 
                   <div style="margin-top:12px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;font-size:12px;color:#6b7280;line-height:1.5;">
                     ${
@@ -374,10 +396,16 @@ export function buildCancellationEmail(a: {
   refundedMXN: number | null;
   /** true si el reembolso automático falló y el club lo hará a mano. */
   refundPending?: boolean;
+  /** Para un compañero que pagó su parte de una reserva dividida. */
+  sharedBooking?: boolean;
 }) {
   const club = a.clubName ?? "Sacré Pádel";
   const subject = `Reserva cancelada - ${club}`;
-  const who = a.cancelledBy === "CUSTOMER" ? "Cancelaste tu reserva" : "El club canceló tu reserva";
+  const who = a.sharedBooking
+    ? "Se canceló la reserva en la que pagaste tu parte"
+    : a.cancelledBy === "CUSTOMER"
+      ? "Cancelaste tu reserva"
+      : "El club canceló tu reserva";
   const refundLine = a.refundPending
     ? "Tu reembolso está en proceso: el club lo hará manualmente y te avisará."
     : a.refundedMXN
@@ -419,6 +447,72 @@ export function buildCancellationEmail(a: {
                 </div>
                 ${refundLine ? `<div style="${font}color:#374151;font-size:14px;line-height:1.6;margin-top:14px;">${esc(refundLine)}</div>` : ""}
                 <div style="${font}color:#374151;font-size:14px;line-height:1.6;margin-top:14px;">Cuando quieras, <a href="https://sacrepadel.com/reservar" style="color:#9A6A45;font-weight:700;">reserva otra vez</a>.</div>
+                <div style="${font}color:#9ca3af;font-size:12px;margin-top:18px;">© ${new Date().getFullYear()} ${esc(club)}</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return { subject, text, html };
+}
+
+/**
+ * Recibo para quien pagó su parte de una reserva dividida (paidMXN), o aviso a
+ * quien reservó de que ya pagaron todos (paidMXN null).
+ */
+export function buildSharePaidEmail(a: {
+  clubName?: string;
+  fullName: string;
+  courtName: string;
+  dateLocal: string;
+  startTimeLocal: string;
+  endTimeLocal: string;
+  paidMXN: number | null;
+  parts: number;
+  allPaid: boolean;
+}) {
+  const club = a.clubName ?? "Sacré Pádel";
+  const receipt = a.paidMXN != null;
+  const subject = receipt ? `Pagaste tu parte - ${club}` : `Ya pagaron todos - ${club}`;
+  const head = receipt ? "Pago recibido" : "Ya pagaron todos";
+  const body = receipt
+    ? `Recibimos $${a.paidMXN} MXN (${a.parts === 1 ? "1 parte" : `${a.parts} partes`}) de la cancha.${a.allPaid ? " Con esto ya está todo pagado." : ""}`
+    : "Tus compañeros ya pagaron su parte: la cancha está completamente pagada.";
+
+  const text = [
+    `Hola ${a.fullName},`,
+    "",
+    body,
+    `Cancha: ${a.courtName}`,
+    `Fecha: ${a.dateLocal}`,
+    `Horario: ${a.startTimeLocal} - ${a.endTimeLocal}`,
+    "",
+    "¡Nos vemos en la cancha!",
+  ].join("\n");
+
+  const font = "font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;";
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f4f0e9;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f0e9;padding:24px 0;">
+      <tr>
+        <td align="center" style="padding:0 12px;">
+          <table role="presentation" width="520" cellspacing="0" cellpadding="0" style="width:520px;max-width:520px;background:#ffffff;border:1px solid #ded6c9;">
+            <tr>
+              <td style="padding:22px 22px;">
+                <div style="${font}color:#9A6A45;font-size:11px;letter-spacing:3px;text-transform:uppercase;">${esc(club)}</div>
+                <div style="${font}color:#13110E;font-size:20px;font-weight:700;margin-top:10px;">${esc(head)}</div>
+                <div style="${font}color:#374151;font-size:14px;line-height:1.6;margin-top:8px;">Hola <b>${esc(a.fullName)}</b>, ${esc(body)}</div>
+                <div style="border-top:1px solid #ded6c9;border-bottom:1px solid #ded6c9;padding:12px 0;margin-top:14px;${font}color:#13110E;font-size:14px;line-height:1.7;">
+                  <div><b>Cancha:</b> ${esc(a.courtName)}</div>
+                  <div><b>Fecha:</b> ${esc(a.dateLocal)}</div>
+                  <div><b>Horario:</b> ${esc(a.startTimeLocal)} – ${esc(a.endTimeLocal)}</div>
+                </div>
+                <div style="${font}color:#374151;font-size:14px;line-height:1.6;margin-top:14px;">¡Nos vemos en la cancha!</div>
                 <div style="${font}color:#9ca3af;font-size:12px;margin-top:18px;">© ${new Date().getFullYear()} ${esc(club)}</div>
               </td>
             </tr>

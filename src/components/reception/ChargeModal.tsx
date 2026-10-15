@@ -16,7 +16,8 @@ export default function ChargeModal({
   onPaid: () => void | Promise<void>;
 }) {
   const [chargeMethod, setChargeMethod] = useState<PaymentMethod>("CASH");
-  const [chargeAmount, setChargeAmount] = useState<number>(booking.amount ?? 0);
+  // Pago dividido: solo lo que falta.
+  const [chargeAmount, setChargeAmount] = useState<number>(booking.pending_amount ?? booking.amount ?? 0);
   const [chargeSaving, setChargeSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,6 +53,11 @@ export default function ChargeModal({
         <div className="mt-1 text-sm" style={{ color: "rgba(30,27,24,0.60)" }}>
           {booking.court_name} · {parseISOToLocalTime(booking.start_at)} – {parseISOToLocalTime(booking.end_at)}
         </div>
+        {booking.payment_status === "PARTIAL" && (
+          <div className="mt-2 text-sm" style={{ color: "rgba(30,27,24,0.75)" }}>
+            Pago dividido: ya se pagaron ${booking.paid_amount ?? 0} en línea. Cobra lo que falta.
+          </div>
+        )}
 
         {error && (
           <div className="mt-3 rounded-md border px-3 py-2 text-sm" style={{ borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.08)", color: "rgb(153,27,27)" }}>

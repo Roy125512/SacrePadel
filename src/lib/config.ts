@@ -34,3 +34,29 @@ export function withinCancelWindow(startAt: string | Date, nowMs = Date.now()): 
   const start = typeof startAt === "string" ? new Date(startAt).getTime() : startAt.getTime();
   return start - nowMs >= CANCEL_NOTICE_HOURS * 3600_000;
 }
+
+// Pago dividido (como Playtomic): quien reserva paga solo su parte y comparte
+// una liga para que cada compañero pague la suya. Lo que no se haya pagado
+// estas horas después de terminar el partido queda a cargo de quien reservó,
+// y no puede volver a reservar hasta cubrirlo.
+export const SPLIT_PARTS_OPTIONS = [2, 3, 4] as const;
+export const DEFAULT_SPLIT_PARTS = 4 as const;
+export const SPLIT_DEBT_GRACE_HOURS = 2 as const;
+
+/**
+ * Reparte `total` (MXN) en `parts` partes con centavos exactos; los centavos
+ * que sobran van a la parte 1 (la de quien reserva). 350 / 3 → 116.68, 116.66, 116.66.
+ */
+export function splitAmounts(total: number, parts: number): number[] {
+  const cents = Math.round(total * 100);
+  const base = Math.floor(cents / parts);
+  const out = Array.from({ length: parts }, () => base);
+  out[0] += cents - base * parts;
+  return out.map((c) => c / 100);
+}
+
+/** "$112.50" / "$350" — pesos con centavos solo cuando los hay. */
+export function formatMXN(n: number): string {
+  const v = Math.round(n * 100) / 100;
+  return `$${Number.isInteger(v) ? v : v.toFixed(2)}`;
+}

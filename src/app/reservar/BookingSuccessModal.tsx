@@ -1,7 +1,8 @@
 "use client";
 
 import { WHATSAPP_PHONE } from "@/components/WhatsAppButton";
-import { CANCEL_NOTICE_HOURS } from "@/lib/config";
+import { CANCEL_NOTICE_HOURS, SPLIT_DEBT_GRACE_HOURS, formatMXN } from "@/lib/config";
+import ShareSplitLink from "@/components/booking/ShareSplitLink";
 import { formatDateES, parseISOToLocalTime, type ConfirmedBooking, type EmailInfo } from "./reservarUtils";
 
 /** "Reserva confirmada": tolerancia, estado del correo y aviso por WhatsApp. */
@@ -45,6 +46,32 @@ export default function BookingSuccessModal({
             para llegar a tu cancha.
             </p>
         </div>
+
+        {/* Pago dividido: lo primero es mandar la liga al grupo */}
+        {confirmedBooking?.split && (
+        <div className="px-6 pb-3">
+            <div className="rounded-xl p-4 text-sm" style={{ background: "var(--dark)", color: "#F6F0E6" }}>
+            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em]" style={{ color: "var(--brand-highlight)" }}>
+                Pago dividido · {confirmedBooking.split.paid_parts} de {confirmedBooking.split.parts} pagado
+            </p>
+            <p className="mt-2 leading-relaxed" style={{ color: "rgba(246,240,230,0.85)" }}>
+                Manda esta liga a tus compañeros para que cada quien pague su parte
+                {confirmedBooking.split.share_amount ? ` (${formatMXN(confirmedBooking.split.share_amount)})` : ""}. Lo que
+                no se pague hasta {SPLIT_DEBT_GRACE_HOURS} h después del partido queda a tu cargo.
+            </p>
+            <div className="mt-3">
+                <ShareSplitLink
+                url={confirmedBooking.split.url}
+                message={`Ya reservé ${confirmedBooking.courtName ?? "cancha"}${
+                    confirmedBooking.dateYMD ? ` el ${formatDateES(confirmedBooking.dateYMD)}` : ""
+                }${confirmedBooking.startAt ? ` a las ${parseISOToLocalTime(confirmedBooking.startAt)}` : ""} en Sacré Pádel. Paga tu parte aquí:`}
+                compact
+                onDark
+                />
+            </div>
+            </div>
+        </div>
+        )}
 
         {/* Email info */}
         <div className="px-6 pb-2">

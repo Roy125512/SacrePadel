@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CANCEL_NOTICE_HOURS } from "@/lib/config";
+import { CANCEL_NOTICE_HOURS, formatMXN } from "@/lib/config";
 import { SITE } from "@/lib/site";
 import CancelBookingButton from "@/components/booking/CancelBookingButton";
+import ShareSplitLink from "@/components/booking/ShareSplitLink";
 
 type MyBooking = {
   id: string;
@@ -19,6 +20,7 @@ type MyBooking = {
   upcoming: boolean;
   can_cancel: boolean;
   cancel_block: string | null;
+  split: { parts: number; url: string; remaining: number; overdue: boolean } | null;
 };
 
 const TZ = "America/Mexico_City";
@@ -31,6 +33,8 @@ function statusLabel(b: MyBooking) {
   if (b.status === "CANCELLED") return b.payment_status === "REFUNDED" ? `Cancelada · reembolsados $${b.refunded_amount}` : "Cancelada";
   if (b.status === "COMPLETED") return "Jugada";
   if (b.status === "NO_SHOW") return "No asististe";
+  if (b.split && b.payment_status === "PARTIAL") return `Pago dividido · faltan ${formatMXN(b.split.remaining)}`;
+  if (b.split && b.payment_status === "PAID") return "Pago dividido · todo pagado";
   if (b.payment_status === "PAID") return b.payment_method === "MERCADOPAGO" ? `Pagada en línea · $${b.paid_amount}` : "Pagada";
   return "Pago en recepción";
 }
@@ -58,6 +62,7 @@ export default function MyBookings() {
 
   const upcoming = (items ?? []).filter((b) => b.upcoming && b.status === "CONFIRMED").reverse();
   const past = (items ?? []).filter((b) => !(b.upcoming && b.status === "CONFIRMED")).slice(0, 8);
+  const debts = (items ?? []).filter((b) => b.split?.overdue);
 
   return (
     <section id="mis-reservas" className="mt-12 scroll-mt-24">
@@ -67,6 +72,18 @@ export default function MyBookings() {
           {notice}
         </p>
       )}
+
+      {debts.map((b) => (
+        <div key={b.id} role="alert" className="mt-4 border-l-2 border-amber-600 bg-amber-50/60 px-4 py-3 text-sm">
+          <p>
+            Tienes <b>{formatMXN(b.split!.remaining)} MXN</b> pendientes del partido del {fmtDay(b.start_at)}: las partes
+            que no se pagaron quedaron a tu cargo. Cúbrelas para volver a reservar.
+          </p>
+          <a href={b.split!.url} className="mt-2 inline-block font-semibold underline underline-offset-4">
+            Pagar lo pendiente
+          </a>
+        </div>
+      ))}
 
       {failed ? (
         <p className="mt-4 text-sm text-[var(--muted)]">No pudimos cargar tus reservas. Recarga la página.</p>
@@ -92,11 +109,20 @@ export default function MyBookings() {
                     </div>
                   </div>
                   <div className="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{statusLabel(b)}</div>
+                  {b.split && b.payment_status === "PARTIAL" && (
+                    <div className="mt-4">
+                      <ShareSplitLink
+                        url={b.split.url}
+                        message={`Paga tu parte de la cancha (${fmtDay(b.start_at)} ${fmtTime(b.start_at)}) en Sacré Pádel:`}
+                        compact
+                      />
+                    </div>
+                  )}
                   <div className="mt-4">
                     {b.can_cancel ? (
                       <CancelBookingButton
                         bookingId={b.id}
-                        paidOnline={b.payment_status === "PAID" && b.payment_method === "MERCADOPAGO"}
+                        paidOnline={(b.payment_status === "PAID" || b.payment_status === "PARTIAL") && b.payment_method === "MERCADOPAGO"}
                         onDone={(msg) => {
                           setNotice(msg);
                           void load();
