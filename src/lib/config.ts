@@ -60,3 +60,32 @@ export function formatMXN(n: number): string {
   const v = Math.round(n * 100) / 100;
   return `$${Number.isInteger(v) ? v : v.toFixed(2)}`;
 }
+
+// Partidos abiertos (como Playtomic): una reserva dividida entre 4 que se
+// publica para que otros jugadores se unan. El nivel usa las divisiones del
+// perfil: 1 = 1ra (la más alta) … 6 = 6ta.
+export const MATCH_PLAYERS = 4 as const;
+export const DIVISIONS = [
+  { n: 1, code: "1ra", label: "Avanzado / Competitivo" },
+  { n: 2, code: "2da", label: "Avanzado" },
+  { n: 3, code: "3ra", label: "Intermedio alto" },
+  { n: 4, code: "4ta", label: "Intermedio" },
+  { n: 5, code: "5ta", label: "Intermedio bajo" },
+  { n: 6, code: "6ta", label: "Principiante" },
+] as const;
+export type MatchGender = "ANY" | "MALE" | "FEMALE";
+export type MatchType = "FRIENDLY" | "COMPETITIVE";
+export const MATCH_GENDER_LABEL: Record<MatchGender, string> = { ANY: "Abierto a todos", MALE: "Varonil", FEMALE: "Femenil" };
+export const MATCH_TYPE_LABEL: Record<MatchType, string> = { FRIENDLY: "Amistoso", COMPETITIVE: "Competitivo" };
+
+/** "4ta" → 4; null si no es una división conocida. */
+export function divisionNumber(code: string | null | undefined): number | null {
+  return DIVISIONS.find((d) => d.code === (code ?? "").trim())?.n ?? null;
+}
+
+/** "3ra – 5ta", "4ta" o "Todos los niveles". */
+export function levelRangeLabel(min: number | null | undefined, max: number | null | undefined): string {
+  if (!min || !max || (min === 1 && max === 6)) return "Todos los niveles";
+  const code = (n: number) => DIVISIONS.find((d) => d.n === n)?.code ?? String(n);
+  return min === max ? code(min) : `${code(min)} – ${code(max)}`;
+}

@@ -8,6 +8,7 @@ const LINKS = [
   { href: "#faq", label: "Preguntas" },
   { href: "#galeria", label: "Fotos" },
   { href: "#ubicacion", label: "Cómo llegar" },
+  { href: "/partidos", label: "Partidos" },
 ];
 
 export default function SectionNav() {

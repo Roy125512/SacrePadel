@@ -1,9 +1,11 @@
 "use client";
 
-import { formatDateES, parseISOToLocalTime, type PaymentMode, type SelectedSlot } from "./reservarUtils";
+import { formatDateES, parseISOToLocalTime, type OpenMatchSettings, type PaymentMode, type SelectedSlot } from "./reservarUtils";
 import {
   CANCEL_NOTICE_HOURS,
   DEFAULT_SPLIT_PARTS,
+  DIVISIONS,
+  MATCH_PLAYERS,
   SPLIT_DEBT_GRACE_HOURS,
   SPLIT_PARTS_OPTIONS,
   formatMXN,
@@ -34,6 +36,8 @@ export default function BookingModal({
   errorLink,
   splitParts,
   setSplitParts,
+  openMatch,
+  setOpenMatch,
   paymentMode,
   setPaymentMode,
   saving,
@@ -63,6 +67,9 @@ export default function BookingModal({
   /** null = pago completo; 2–4 = dividido entre ese número de jugadores. */
   splitParts: number | null;
   setSplitParts: (n: number | null) => void;
+  /** Partido abierto (se publica en /partidos); null = no. */
+  openMatch: OpenMatchSettings | null;
+  setOpenMatch: (m: OpenMatchSettings | null) => void;
   paymentMode: PaymentMode;
   setPaymentMode: (mode: PaymentMode) => void;
   saving: boolean;
@@ -72,7 +79,8 @@ export default function BookingModal({
   onConfirmReception: () => void;
   onCancel: () => void;
 }) {
-  const shares = priceInfo && splitParts ? splitAmounts(priceInfo.total, splitParts) : null;
+  const parts = openMatch ? MATCH_PLAYERS : splitParts;
+  const shares = priceInfo && parts ? splitAmounts(priceInfo.total, parts) : null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto px-4 py-4 animate-fade-in"
     style={{ background: "rgba(30, 27, 24, 0.45)", backdropFilter: "blur(4px)" }}
@@ -238,10 +246,36 @@ export default function BookingModal({
                     <div className="mb-2 text-sm font-medium" style={{ color: "var(--muted)" }}>
                     ¿Cómo pagan?
                     </div>
-                    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Cómo pagan">
+                    <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Cómo pagan">
                     {[
-                        { on: !splitParts, title: "Pago completo", sub: `Tú pagas ${formatMXN(priceInfo.total)}`, pick: () => setSplitParts(null) },
-                        { on: !!splitParts, title: "Dividir el pago", sub: "Cada quien su parte", pick: () => setSplitParts(splitParts ?? DEFAULT_SPLIT_PARTS) },
+                        {
+                        on: !splitParts && !openMatch,
+                        title: "Pago completo",
+                        sub: `Tú pagas ${formatMXN(priceInfo.total)}`,
+                        pick: () => {
+                            setOpenMatch(null);
+                            setSplitParts(null);
+                        },
+                        },
+                        {
+                        on: !!splitParts && !openMatch,
+                        title: "Dividir el pago",
+                        sub: "Cada quien su parte",
+                        pick: () => {
+                            setOpenMatch(null);
+                            setSplitParts(splitParts ?? DEFAULT_SPLIT_PARTS);
+                        },
+                        },
+                        {
+                        on: !!openMatch,
+                        title: "Partido abierto",
+                        sub: isGuest ? "Requiere cuenta" : "Que se unan otros",
+                        locked: isGuest,
+                        pick: () => {
+                            setSplitParts(null);
+                            setOpenMatch(openMatch ?? { type: "FRIENDLY", gender: "ANY", level_min: 1, level_max: 6 });
+                        },
+                        },
                     ].map((o) => (
                         <button
                         key={o.title}
@@ -249,8 +283,8 @@ export default function BookingModal({
                         role="radio"
                         aria-checked={o.on}
                         onClick={o.pick}
-                        disabled={mpLoading || saving}
-                        className="rounded-md border px-3 py-2.5 text-left transition-colors"
+                        disabled={mpLoading || saving || !!o.locked}
+                        className="rounded-md border px-2.5 py-2.5 text-left transition-colors disabled:opacity-50"
                         style={{
                             borderColor: o.on ? "var(--brand)" : "rgba(120,46,21,0.15)",
                             background: o.on ? "var(--brand-50)" : "var(--surface)",
@@ -264,7 +298,93 @@ export default function BookingModal({
                     ))}
                     </div>
 
-                    {splitParts && shares && (
+                    {openMatch && shares && (
+                    <div className="mt-3 animate-slide-down space-y-3 rounded-md border px-3 py-3 text-xs leading-relaxed" style={{ borderColor: "var(--brand-200)", background: "var(--brand-50)", color: "var(--brand-800)" }}>
+                        {(
+                        [
+                            {
+                            label: "Tipo",
+                            key: "type",
+                            opts: [
+                                ["FRIENDLY", "Amistoso"],
+                                ["COMPETITIVE", "Competitivo"],
+                            ],
+                            },
+                            {
+                            label: "Para",
+                            key: "gender",
+                            opts: [
+                                ["ANY", "Todos"],
+                                ["MALE", "Varonil"],
+                                ["FEMALE", "Femenil"],
+                            ],
+                            },
+                        ] as const
+                        ).map((row) => (
+                        <div key={row.key} className="flex flex-wrap items-center gap-1.5">
+                            <span className="w-12 shrink-0">{row.label}</span>
+                            {row.opts.map(([v, l]) => {
+                            const on = openMatch[row.key] === v;
+                            return (
+                                <button
+                                key={v}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => setOpenMatch({ ...openMatch, [row.key]: v })}
+                                className="rounded-full border px-2.5 py-1 font-semibold"
+                                style={{
+                                    borderColor: on ? "var(--brand)" : "var(--brand-200)",
+                                    background: on ? "var(--brand)" : "transparent",
+                                    color: on ? "#fff" : "var(--brand-800)",
+                                }}
+                                >
+                                {l}
+                                </button>
+                            );
+                            })}
+                        </div>
+                        ))}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="w-12 shrink-0">Nivel</span>
+                        <select
+                            aria-label="Nivel desde"
+                            className="rounded border bg-white px-1.5 py-1"
+                            style={{ borderColor: "var(--brand-200)" }}
+                            value={openMatch.level_min}
+                            onChange={(e) => {
+                            const v = Number(e.target.value);
+                            setOpenMatch({ ...openMatch, level_min: v, level_max: Math.max(v, openMatch.level_max) });
+                            }}
+                        >
+                            {DIVISIONS.map((d) => (
+                            <option key={d.n} value={d.n}>{d.code}</option>
+                            ))}
+                        </select>
+                        <span>a</span>
+                        <select
+                            aria-label="Nivel hasta"
+                            className="rounded border bg-white px-1.5 py-1"
+                            style={{ borderColor: "var(--brand-200)" }}
+                            value={openMatch.level_max}
+                            onChange={(e) => {
+                            const v = Number(e.target.value);
+                            setOpenMatch({ ...openMatch, level_max: v, level_min: Math.min(v, openMatch.level_min) });
+                            }}
+                        >
+                            {DIVISIONS.map((d) => (
+                            <option key={d.n} value={d.n}>{d.code}</option>
+                            ))}
+                        </select>
+                        </div>
+                        <p>
+                        Ahora pagas tu lugar: <b className="tabular-nums">{formatMXN(shares[0])}</b>. Publicamos el partido en{" "}
+                        <b>Partidos</b> para que se unan 3 jugadores, cada uno pagando el suyo ({formatMXN(shares[1])}). Si no se
+                        llena, lo que falte queda a tu cargo, o cancela sin costo hasta {CANCEL_NOTICE_HOURS} h antes.
+                        </p>
+                    </div>
+                    )}
+
+                    {splitParts && !openMatch && shares && (
                     <div className="mt-3 animate-slide-down rounded-md border px-3 py-3 text-xs leading-relaxed" style={{ borderColor: "var(--brand-200)", background: "var(--brand-50)", color: "var(--brand-800)" }}>
                         <div className="flex items-center gap-2">
                         <span>Entre</span>
@@ -318,7 +438,13 @@ export default function BookingModal({
                         <line x1="1" y1="10" x2="23" y2="10" />
                     </svg>
                     <div className="font-display mt-3 text-base font-semibold" style={{ color: "var(--brand-800)" }}>
-                    {mpLoading ? "Preparando..." : shares ? `Pagar mi parte · ${formatMXN(shares[0])}` : "Pagar en línea"}
+                    {mpLoading
+                      ? "Preparando..."
+                      : openMatch && shares
+                        ? `Pagar mi lugar · ${formatMXN(shares[0])}`
+                        : shares
+                          ? `Pagar mi parte · ${formatMXN(shares[0])}`
+                          : "Pagar en línea"}
                     </div>
                     <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
                     Tarjeta o transferencia, con Mercado Pago
@@ -332,8 +458,8 @@ export default function BookingModal({
                     de que ya se habia hecho la reserva. */}
                 <button
                     onClick={() => setPaymentMode("reception")}
-                    disabled={saving || mpLoading || allowedDurations.length === 0 || !!splitParts}
-                    title={splitParts ? "El pago dividido es en línea" : undefined}
+                    disabled={saving || mpLoading || allowedDurations.length === 0 || !!splitParts || !!openMatch}
+                    title={splitParts || openMatch ? "El pago dividido es en línea" : undefined}
                     className="group rounded-md border p-4 text-left transition-all duration-200 hover:shadow-sm disabled:opacity-50"
                     style={{
                     borderColor: "rgba(120,46,21,0.12)",
@@ -352,7 +478,7 @@ export default function BookingModal({
                     {saving ? "Confirmando..." : "Pagar en recepción"}
                     </div>
                     <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
-                    {splitParts ? "Solo con pago completo" : "Efectivo o tarjeta al llegar"}
+                    {splitParts || openMatch ? "Solo con pago completo" : "Efectivo o tarjeta al llegar"}
                     </div>
                 </button>
                 </div>

@@ -21,12 +21,20 @@ export type ConfirmedBooking = {
   dateYMD: string | null;
   startAt: string | null;
   /** Pago dividido: liga para que los demás paguen su parte. */
-  split?: { url: string; parts: number; share_amount: number | null; paid_parts: number } | null;
+  split?: { url: string; parts: number; share_amount: number | null; paid_parts: number; open_match?: boolean } | null;
 };
 
 export type EmailInfo = { sent: boolean; to: string | null; error: string | null };
 
 export type PaymentMode = "choose" | "reception";
+
+/** Ajustes de un partido abierto al crearlo. */
+export type OpenMatchSettings = {
+  type: "FRIENDLY" | "COMPETITIVE";
+  gender: "ANY" | "MALE" | "FEMALE";
+  level_min: number;
+  level_max: number;
+};
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");

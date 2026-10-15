@@ -6,6 +6,7 @@ import { CANCEL_NOTICE_HOURS, formatMXN } from "@/lib/config";
 import { SITE } from "@/lib/site";
 import CancelBookingButton from "@/components/booking/CancelBookingButton";
 import ShareSplitLink from "@/components/booking/ShareSplitLink";
+import { LeaveMatchButton } from "@/app/reserva/pagar/MatchActions";
 
 type MyBooking = {
   id: string;
@@ -20,7 +21,17 @@ type MyBooking = {
   upcoming: boolean;
   can_cancel: boolean;
   cancel_block: string | null;
-  split: { parts: number; url: string; remaining: number; overdue: boolean } | null;
+  split: { open_match: boolean; parts: number; url: string; remaining: number; missing: number; overdue: boolean } | null;
+};
+
+type JoinedMatch = {
+  id: string;
+  start_at: string;
+  end_at: string;
+  status: string;
+  token: string | null;
+  court_name: string;
+  upcoming: boolean;
 };
 
 const TZ = "America/Mexico_City";
@@ -33,6 +44,9 @@ function statusLabel(b: MyBooking) {
   if (b.status === "CANCELLED") return b.payment_status === "REFUNDED" ? `Cancelada · reembolsados $${b.refunded_amount}` : "Cancelada";
   if (b.status === "COMPLETED") return "Jugada";
   if (b.status === "NO_SHOW") return "No asististe";
+  if (b.split?.open_match && b.payment_status === "PARTIAL")
+    return `Partido abierto · ${b.split.missing === 1 ? "falta 1 jugador" : `faltan ${b.split.missing} jugadores`}`;
+  if (b.split?.open_match && b.payment_status === "PAID") return "Partido abierto · completo";
   if (b.split && b.payment_status === "PARTIAL") return `Pago dividido · faltan ${formatMXN(b.split.remaining)}`;
   if (b.split && b.payment_status === "PAID") return "Pago dividido · todo pagado";
   if (b.payment_status === "PAID") return b.payment_method === "MERCADOPAGO" ? `Pagada en línea · $${b.paid_amount}` : "Pagada";
@@ -42,6 +56,7 @@ function statusLabel(b: MyBooking) {
 /** "Mis reservas" del perfil: próximas (con cancelar) y recientes. */
 export default function MyBookings() {
   const [items, setItems] = useState<MyBooking[] | null>(null);
+  const [joined, setJoined] = useState<JoinedMatch[]>([]);
   const [failed, setFailed] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -51,6 +66,7 @@ export default function MyBookings() {
       if (!r.ok) throw new Error(String(r.status));
       const j = await r.json();
       setItems(j.bookings ?? []);
+      setJoined(j.joined ?? []);
     } catch {
       setFailed(true);
     }
@@ -143,6 +159,39 @@ export default function MyBookings() {
                 </li>
               ))}
             </ul>
+          )}
+
+          {joined.some((m) => m.upcoming && m.status === "CONFIRMED") && (
+            <>
+              <p className="mt-8 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">
+                Partidos a los que te uniste
+              </p>
+              <ul className="mt-3 divide-y border-y" style={{ borderColor: "var(--line)" }}>
+                {joined
+                  .filter((m) => m.upcoming && m.status === "CONFIRMED")
+                  .map((m) => (
+                    <li key={m.id} className="py-5" style={{ borderColor: "var(--line)" }}>
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                        <div className="font-display text-2xl first-letter:uppercase">{fmtDay(m.start_at)}</div>
+                        <div className="tabular-nums">
+                          {fmtTime(m.start_at)} – {fmtTime(m.end_at)} · {m.court_name}
+                        </div>
+                      </div>
+                      {m.token && (
+                        <>
+                          <Link
+                            href={`/reserva/pagar?t=${m.token}`}
+                            className="mt-1 inline-block text-xs uppercase tracking-[0.18em] text-[var(--muted)] underline underline-offset-4"
+                          >
+                            Ver partido
+                          </Link>
+                          <LeaveMatchButton token={m.token} />
+                        </>
+                      )}
+                    </li>
+                  ))}
+              </ul>
+            </>
           )}
 
           {past.length > 0 && (

@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
 async function splitInfo(bookingId: string) {
   const { data } = await supabaseAdmin
     .from("bookings")
-    .select("split_parts, split_token")
+    .select("split_parts, split_token, is_open_match")
     .eq("id", bookingId)
     .maybeSingle();
   if (!data?.split_parts || !data.split_token) return null;
@@ -267,5 +267,6 @@ async function splitInfo(bookingId: string) {
     parts: data.split_parts,
     share_amount: shares.find((s) => s.seq === 2)?.amount ?? null,
     paid_parts: shares.filter((s) => s.status === "PAID").length,
+    open_match: !!data.is_open_match,
   };
 }

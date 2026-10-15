@@ -6,13 +6,16 @@ import { claimSharesForCheckout, releaseShares, sharesRef } from "@/lib/splitPay
 import { DEMO } from "@/lib/demo/flag";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { dbErrorResponse } from "@/lib/apiError";
+import { createClient } from "@/lib/supabaseServer";
+import { joinBlock } from "@/lib/openMatches";
 
 // Un compañero paga su parte (o varias) de una reserva dividida, sin cuenta,
 // desde la liga /reserva/pagar?t=<split_token>.
 const BodySchema = z.object({
   token: z.string().uuid(),
   count: z.number().int().min(1).max(3),
-  name: z.string().trim().min(1).max(120),
+  // En partidos abiertos el nombre sale del perfil.
+  name: z.string().trim().max(120).optional().default(""),
   email: z.string().trim().email().max(200).optional().or(z.literal("")),
 });
 
@@ -29,15 +32,13 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: "Escribe tu nombre (y un correo válido, si lo pones)." }, { status: 400 });
     }
-    if (DEMO) {
-      return NextResponse.json({ error: "El pago en línea no está disponible en modo demo." }, { status: 503 });
-    }
-    const { token, count, name } = parsed.data;
-    const email = parsed.data.email || null;
+    const { token } = parsed.data;
+    let { count, name } = parsed.data;
+    let email = parsed.data.email || null;
 
     const { data: booking, error } = await supabaseAdmin
       .from("bookings")
-      .select("id, status, payment_status, courts ( name )")
+      .select("id, status, payment_status, user_id, is_open_match, match_gender, match_level_min, match_level_max, courts ( name )")
       .eq("split_token", token)
       .maybeSingle();
     if (error) return dbErrorResponse("POST /api/web/split/checkout fetch", error);
@@ -50,6 +51,43 @@ export async function POST(req: NextRequest) {
     }
     if (booking.payment_status !== "PARTIAL") {
       return NextResponse.json({ error: "Esta reserva todavía no está confirmada." }, { status: 409 });
+    }
+
+    // Partido abierto: un lugar por jugador, con cuenta y cumpliendo nivel y género.
+    let userId: string | null = null;
+    if (booking.is_open_match) {
+      const supabase = await createClient();
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user) return NextResponse.json({ error: "Inicia sesión para unirte al partido." }, { status: 401 });
+      userId = auth.user.id;
+      if (booking.user_id === userId) {
+        return NextResponse.json({ error: "Tú creaste este partido." }, { status: 409 });
+      }
+      const { data: already } = await supabaseAdmin
+        .from("booking_shares")
+        .select("id")
+        .eq("booking_id", booking.id)
+        .eq("user_id", userId)
+        .eq("status", "PAID")
+        .limit(1);
+      if ((already ?? []).length > 0) return NextResponse.json({ error: "Ya estás en este partido." }, { status: 409 });
+      const { data: prof } = await supabaseAdmin
+        .from("profiles")
+        .select("full_name, sex, division")
+        .eq("id", userId)
+        .maybeSingle();
+      const block = joinBlock(booking, { sex: prof?.sex ?? null, division: prof?.division ?? null });
+      if (block) return NextResponse.json({ error: block }, { status: 409 });
+      count = 1;
+      email = email || auth.user.email || null;
+      name = prof?.full_name?.trim() || name || auth.user.email?.split("@")[0] || "Jugador";
+    } else if (!name) {
+      return NextResponse.json({ error: "Escribe tu nombre para que sepan quién pagó." }, { status: 400 });
+    }
+
+    // En modo demo se valida todo lo anterior, pero no hay Mercado Pago.
+    if (DEMO) {
+      return NextResponse.json({ error: "El pago en línea no está disponible en modo demo." }, { status: 503 });
     }
 
     const claim = await claimSharesForCheckout(booking.id, count);
@@ -65,14 +103,16 @@ export async function POST(req: NextRequest) {
           items: [
             {
               id: booking.id,
-              title: `${count === 1 ? "Tu parte" : `${count} partes`} · ${court} — Sacré Pádel`,
+              title: booking.is_open_match
+                ? `Tu lugar en el partido · ${court} — Sacré Pádel`
+                : `${count === 1 ? "Tu parte" : `${count} partes`} · ${court} — Sacré Pádel`,
               quantity: 1,
               currency_id: "MXN",
               unit_price: claim.amount,
             },
           ],
           external_reference: sharesRef(booking.id, claim.shareIds),
-          metadata: { payer_name: name, payer_email: email ?? "" },
+          metadata: { payer_name: name, payer_email: email ?? "", user_id: userId ?? "" },
           ...(email ? { payer: { email } } : {}),
           back_urls: { success: back, pending: back, failure: back },
           notification_url: `${origin}/api/mercadopago/webhook`,

@@ -38,6 +38,7 @@ export type Share = {
   payer_name: string | null;
   payment_method: string | null;
   checkout_until: string | null;
+  user_id: string | null;
 };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -61,7 +62,7 @@ export function splitUrl(token: string) {
 export async function getShares(bookingId: string): Promise<Share[]> {
   const { data, error } = await supabaseAdmin
     .from("booking_shares")
-    .select("id, seq, amount, status, payer_name, payment_method, checkout_until")
+    .select("id, seq, amount, status, payer_name, payment_method, checkout_until, user_id")
     .eq("booking_id", bookingId)
     .order("seq", { ascending: true });
   if (error) throw error;
@@ -183,6 +184,7 @@ export async function releaseShares(shareIds: string[]) {
 
 /** Marca la parte 1 (la de quien reserva) como pagada con el pago de la reserva. */
 export async function markOwnerSharePaid(bookingId: string, payment: MpPayment, payerName: string | null) {
+  const { data: b } = await supabaseAdmin.from("bookings").select("user_id").eq("id", bookingId).maybeSingle();
   await supabaseAdmin
     .from("booking_shares")
     .update({
@@ -191,6 +193,7 @@ export async function markOwnerSharePaid(bookingId: string, payment: MpPayment, 
       mp_payment_id: String(payment.id),
       paid_at: payment.date_approved ?? new Date().toISOString(),
       payer_name: payerName,
+      user_id: b?.user_id ?? null,
     })
     .eq("booking_id", bookingId)
     .eq("seq", 1)
@@ -200,7 +203,7 @@ export async function markOwnerSharePaid(bookingId: string, payment: MpPayment, 
 
 export type SharesFinalizeResult =
   | { ok: true; assigned: number; extraRefunded: number }
-  | { ok: false; reason: "not_approved" | "bad_reference" | "not_found" | "cancelled" | "db_error" };
+  | { ok: false; reason: "not_approved" | "bad_reference" | "not_found" | "cancelled" | "duplicate" | "db_error" };
 
 /**
  * Registra un pago aprobado de partes. Idempotente (webhook + regreso del
@@ -212,9 +215,11 @@ export async function finalizeSharesPayment(payment: MpPayment): Promise<SharesF
   const ref = parseSharesRef(payment.external_reference);
   if (!ref) return { ok: false, reason: "bad_reference" };
   const paymentId = String(payment.id);
-  const meta = (payment.metadata ?? {}) as { payer_name?: string; payer_email?: string };
+  const meta = (payment.metadata ?? {}) as { payer_name?: string; payer_email?: string; user_id?: string };
   const payerName = (meta.payer_name ?? "").trim().slice(0, 120) || null;
   const payerEmail = (meta.payer_email ?? "").trim().slice(0, 200) || null;
+  // Partidos abiertos: quién ocupa el lugar.
+  const userId = /^[0-9a-f-]{36}$/i.test(meta.user_id ?? "") ? meta.user_id! : null;
 
   const { data: booking, error } = await supabaseAdmin
     .from("bookings")
@@ -245,6 +250,21 @@ export async function finalizeSharesPayment(payment: MpPayment): Promise<SharesF
     return { ok: false, reason: "cancelled" };
   }
 
+  // Ya está en el partido (pagó dos veces, p. ej. desde dos pestañas).
+  if (userId) {
+    const { data: dup } = await supabaseAdmin
+      .from("booking_shares")
+      .select("id")
+      .eq("booking_id", ref.bookingId)
+      .eq("user_id", userId)
+      .eq("status", "PAID")
+      .limit(1);
+    if ((dup ?? []).length > 0) {
+      await refundWhole(paymentId, `Un jugador pagó dos veces su lugar en el partido ${ref.bookingId}.`);
+      return { ok: false, reason: "duplicate" };
+    }
+  }
+
   const paidFields = {
     status: "PAID",
     payment_method: "MERCADOPAGO",
@@ -252,6 +272,7 @@ export async function finalizeSharesPayment(payment: MpPayment): Promise<SharesF
     paid_at: payment.date_approved ?? new Date().toISOString(),
     payer_name: payerName,
     payer_email: payerEmail,
+    user_id: userId,
     checkout_until: null,
   };
 

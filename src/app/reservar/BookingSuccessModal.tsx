@@ -52,12 +52,24 @@ export default function BookingSuccessModal({
         <div className="px-6 pb-3">
             <div className="rounded-xl p-4 text-sm" style={{ background: "var(--dark)", color: "#F6F0E6" }}>
             <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em]" style={{ color: "var(--brand-highlight)" }}>
-                Pago dividido · {confirmedBooking.split.paid_parts} de {confirmedBooking.split.parts} pagado
+                {confirmedBooking.split.open_match
+                ? `Partido abierto · ${confirmedBooking.split.paid_parts} de ${confirmedBooking.split.parts} jugadores`
+                : `Pago dividido · ${confirmedBooking.split.paid_parts} de ${confirmedBooking.split.parts} pagado`}
             </p>
             <p className="mt-2 leading-relaxed" style={{ color: "rgba(246,240,230,0.85)" }}>
-                Manda esta liga a tus compañeros para que cada quien pague su parte
-                {confirmedBooking.split.share_amount ? ` (${formatMXN(confirmedBooking.split.share_amount)})` : ""}. Lo que
-                no se pague hasta {SPLIT_DEBT_GRACE_HOURS} h después del partido queda a tu cargo.
+                {confirmedBooking.split.open_match ? (
+                <>
+                    Tu partido ya está publicado en <a href="/partidos" className="underline underline-offset-2">Partidos</a>.
+                    También puedes mandarlo a tus amigos para que se unan
+                    {confirmedBooking.split.share_amount ? ` (${formatMXN(confirmedBooking.split.share_amount)} c/u)` : ""}.
+                </>
+                ) : (
+                <>
+                    Manda esta liga a tus compañeros para que cada quien pague su parte
+                    {confirmedBooking.split.share_amount ? ` (${formatMXN(confirmedBooking.split.share_amount)})` : ""}.
+                </>
+                )}{" "}
+                Lo que no se pague hasta {SPLIT_DEBT_GRACE_HOURS} h después del partido queda a tu cargo.
             </p>
             <div className="mt-3">
                 <ShareSplitLink

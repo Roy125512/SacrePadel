@@ -12,6 +12,7 @@ import {
   type ConfirmedBooking,
   type CourtAvailability,
   type EmailInfo,
+  type OpenMatchSettings,
   type PaymentMode,
   type SelectedSlot,
   type Slot,
@@ -75,6 +76,7 @@ export default function ReservarClient() {
     const [mpError, setMpError] = useState<string | null>(null);
     // Pago dividido: null = pago completo; 2–4 = entre ese número de jugadores.
     const [splitParts, setSplitParts] = useState<number | null>(null);
+    const [openMatch, setOpenMatch] = useState<OpenMatchSettings | null>(null);
     const [errorLink, setErrorLink] = useState<{ href: string; label: string } | null>(null);
 
     useEffect(() => {
@@ -309,6 +311,7 @@ export default function ReservarClient() {
         setPaymentMode("choose");
         setMpError(null);
         setSplitParts(null);
+        setOpenMatch(null);
         setErrorLink(null);
 
         setModalOpen(true);
@@ -449,6 +452,7 @@ export default function ReservarClient() {
         setPaymentMode("choose");
         setMpError(null);
         setSplitParts(null);
+        setOpenMatch(null);
         setErrorLink(null);
         setSaving(false);
         await loadAvailability(dateYMD);
@@ -578,7 +582,8 @@ export default function ReservarClient() {
             full_name: v.full_name,
             phone: v.phone_input,
             email: email.trim() || undefined,
-            split_parts: splitParts ?? undefined,
+            split_parts: openMatch ? undefined : (splitParts ?? undefined),
+            open_match: openMatch ?? undefined,
             }),
         });
 
@@ -784,6 +789,8 @@ export default function ReservarClient() {
             errorLink={errorLink}
             splitParts={splitParts}
             setSplitParts={setSplitParts}
+            openMatch={openMatch}
+            setOpenMatch={setOpenMatch}
             paymentMode={paymentMode}
             setPaymentMode={setPaymentMode}
             saving={saving}

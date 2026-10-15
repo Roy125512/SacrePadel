@@ -52,7 +52,7 @@ export async function sendBookingConfirmationEmails(
     .eq("status", "CONFIRMED")
     .is("confirmation_email_sent_at", null)
     .select(
-      "id, start_at, end_at, payment_status, payment_method, paid_amount, contact_email, cancel_token, split_parts, split_token, courts ( name ), customers:customer_id ( full_name, phone_e164 )"
+      "id, start_at, end_at, payment_status, payment_method, paid_amount, contact_email, cancel_token, split_parts, split_token, is_open_match, courts ( name ), customers:customer_id ( full_name, phone_e164 )"
     )
     .maybeSingle();
 
@@ -86,6 +86,7 @@ export async function sendBookingConfirmationEmails(
           parts: b.split_parts,
           totalMXN,
           graceHours: SPLIT_DEBT_GRACE_HOURS,
+          openMatch: !!b.is_open_match,
         }
       : undefined;
   const s = mxParts(b.start_at);

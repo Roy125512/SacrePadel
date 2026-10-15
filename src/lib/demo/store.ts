@@ -39,6 +39,8 @@ function isoAt(ymd: string, hh: number, mm: number) {
 
 /** split_token de la reserva dividida de ejemplo: /reserva/pagar?t=… */
 export const DEMO_SPLIT_TOKEN = "5b1e5b1e-0000-4000-8000-000000000001";
+/** split_token del partido abierto de ejemplo. */
+export const DEMO_MATCH_TOKEN = "5b1e5b1e-0000-4000-8000-000000000002";
 
 function seed(): Store {
   const courts: Row[] = [
@@ -192,8 +194,63 @@ function seed(): Store {
     paid_at: seq <= 2 ? nowIso() : null,
     checkout_until: null,
     refunded_at: null,
+    user_id: seq === 1 ? (demoClient?.id ?? null) : null,
     created_at: nowIso(),
   }));
+
+  // Un partido abierto (2 de 4) de otros jugadores, pasado mañana a las
+  // 18:00, para ver /partidos y unirse como el cliente demo.
+  const mateo = { id: "33333333-3333-4333-8333-333333333333", full_name: "Mateo Ruiz", sex: "M", division: "4ta" };
+  const sofia = { id: "44444444-4444-4444-8444-444444444444", full_name: "Sofía Garza", sex: "F", division: "5ta" };
+  for (const p of [mateo, sofia]) {
+    profiles.push({ ...p, role: "customer", phone_e164: null, birth_date: null, notes: null, updated_at: nowIso() });
+  }
+  const mateoCustomer = { ...splitCustomer, id: uuid(), full_name: mateo.full_name, phone_e164: "+524521150033", email: null };
+  customers.push(mateoCustomer);
+  const in2days = (() => {
+    const d = new Date(Date.now() + 2 * 86400_000);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  })();
+  const matchId = uuid();
+  bookings.push({
+    ...bookings[bookings.length - 1],
+    id: matchId,
+    court_id: "court-2",
+    start_at: isoAt(in2days, 18, 0),
+    end_at: isoAt(in2days, 19, 30),
+    customer_id: mateoCustomer.id,
+    user_id: mateo.id,
+    contact_email: null,
+    paid_amount: 300,
+    online_paid_amount: 300,
+    cancel_token: uuid(),
+    split_parts: 4,
+    split_token: DEMO_MATCH_TOKEN,
+    is_open_match: true,
+    match_type: "FRIENDLY",
+    match_gender: "ANY",
+    match_level_min: 3,
+    match_level_max: 6,
+  });
+  for (const seq of [1, 2, 3, 4]) {
+    const who = seq === 1 ? mateo : seq === 2 ? sofia : null;
+    booking_shares.push({
+      id: uuid(),
+      booking_id: matchId,
+      seq,
+      amount: 150,
+      status: who ? "PAID" : "PENDING",
+      payer_name: who?.full_name ?? null,
+      payer_email: null,
+      payment_method: who ? "MERCADOPAGO" : null,
+      mp_payment_id: who ? `demo-match-${seq}` : null,
+      paid_at: who ? nowIso() : null,
+      checkout_until: null,
+      refunded_at: null,
+      user_id: who?.id ?? null,
+      created_at: nowIso(),
+    });
+  }
 
   return { bookings, customers, profiles, courts, booking_events: [], booking_shares };
 }
@@ -535,6 +592,11 @@ class FakeQuery {
         split_parts: null,
         split_token: null,
         online_paid_amount: null,
+        is_open_match: false,
+        match_type: null,
+        match_gender: null,
+        match_level_min: null,
+        match_level_max: null,
         ...base,
       };
     }
@@ -548,6 +610,7 @@ class FakeQuery {
         paid_at: null,
         checkout_until: null,
         refunded_at: null,
+        user_id: null,
         ...base,
       };
     }

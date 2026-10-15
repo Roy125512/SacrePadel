@@ -11,7 +11,7 @@ import { DEMO } from "@/lib/demo/flag";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { dbErrorResponse } from "@/lib/apiError";
 import { debtMessage, findOutstandingDebt, prepareSplit, splitUrl } from "@/lib/splitPayments";
-import { SPLIT_PARTS_OPTIONS } from "@/lib/config";
+import { MATCH_PLAYERS, SPLIT_PARTS_OPTIONS } from "@/lib/config";
 
 const BodySchema = z.object({
   booking_id: z.string().uuid(),
@@ -23,6 +23,17 @@ const BodySchema = z.object({
     .number()
     .int()
     .refine((n) => (SPLIT_PARTS_OPTIONS as readonly number[]).includes(n))
+    .optional()
+    .nullable(),
+  // Partido abierto: se publica en /partidos para que otros se unan.
+  open_match: z
+    .object({
+      type: z.enum(["FRIENDLY", "COMPETITIVE"]),
+      gender: z.enum(["ANY", "MALE", "FEMALE"]),
+      level_min: z.number().int().min(1).max(6),
+      level_max: z.number().int().min(1).max(6),
+    })
+    .refine((m) => m.level_min <= m.level_max)
     .optional()
     .nullable(),
 });
@@ -144,9 +155,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Monto inválido." }, { status: 400 });
     }
 
+    // Partido abierto: siempre entre 4 y solo con cuenta (para saber quién juega).
+    const openMatch = parsed.data.open_match ?? null;
+    if (openMatch && !userId) {
+      return NextResponse.json({ error: "Inicia sesión para crear un partido abierto." }, { status: 401 });
+    }
+
     // Pago dividido: se crean las partes y ahora solo se cobra la 1.
-    const parts = parsed.data.split_parts ?? null;
+    const parts = openMatch ? MATCH_PLAYERS : (parsed.data.split_parts ?? null);
     const { chargeNow: amount_mxn } = await prepareSplit(booking_id, total_mxn, parts, booking.split_token ?? null);
+    const { error: matchErr } = await supabaseAdmin
+      .from("bookings")
+      .update({
+        is_open_match: !!openMatch,
+        match_type: openMatch?.type ?? null,
+        match_gender: openMatch?.gender ?? null,
+        match_level_min: openMatch?.level_min ?? null,
+        match_level_max: openMatch?.level_max ?? null,
+      })
+      .eq("id", booking_id);
+    if (matchErr) return dbErrorResponse("POST /api/web/create-mp-preference open match", matchErr);
 
     const courtName = booking.courts?.name ?? "cancha";
     const origin = new URL(req.url).origin;
@@ -161,7 +189,9 @@ export async function POST(req: Request) {
       items: [
         {
           id: booking_id,
-          title: parts
+          title: openMatch
+            ? `Partido abierto: tu lugar (1 de 4) · ${courtName} — Sacré Pádel`
+            : parts
             ? `Tu parte (1 de ${parts}) · Reserva ${courtName} — Sacré Pádel`
             : `Reserva ${courtName} — Sacré Pádel`,
           quantity: 1,

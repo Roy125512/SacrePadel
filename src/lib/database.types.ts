@@ -38,6 +38,11 @@ export type Database = {
           split_parts: number | null;
           split_token: string | null;
           online_paid_amount: number | null;
+          is_open_match: boolean;
+          match_type: string | null;
+          match_gender: string | null;
+          match_level_min: number | null;
+          match_level_max: number | null;
         };
         Insert: {
           id?: string;
@@ -70,6 +75,11 @@ export type Database = {
           split_parts?: number | null;
           split_token?: string | null;
           online_paid_amount?: number | null;
+          is_open_match?: boolean;
+          match_type?: string | null;
+          match_gender?: string | null;
+          match_level_min?: number | null;
+          match_level_max?: number | null;
         };
         Update: {
           id?: string;
@@ -102,6 +112,11 @@ export type Database = {
           split_parts?: number | null;
           split_token?: string | null;
           online_paid_amount?: number | null;
+          is_open_match?: boolean;
+          match_type?: string | null;
+          match_gender?: string | null;
+          match_level_min?: number | null;
+          match_level_max?: number | null;
         };
         Relationships: [
           {
@@ -135,6 +150,7 @@ export type Database = {
           checkout_until: string | null;
           refunded_at: string | null;
           created_at: string;
+          user_id: string | null;
         };
         Insert: {
           id?: string;
@@ -150,6 +166,7 @@ export type Database = {
           checkout_until?: string | null;
           refunded_at?: string | null;
           created_at?: string;
+          user_id?: string | null;
         };
         Update: {
           id?: string;
@@ -165,6 +182,7 @@ export type Database = {
           checkout_until?: string | null;
           refunded_at?: string | null;
           created_at?: string;
+          user_id?: string | null;
         };
         Relationships: [
           {

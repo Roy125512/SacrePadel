@@ -120,6 +120,7 @@ export default function Hero() {
           <a href="#el-club" className="transition hover:text-[var(--dark-foreground)]">El club</a>
           <a href="#tarifas" className="transition hover:text-[var(--dark-foreground)]">Tarifas</a>
           <a href="#ubicacion" className="transition hover:text-[var(--dark-foreground)]">Ubicación</a>
+          <Link href="/partidos" className="transition hover:text-[var(--dark-foreground)]">Partidos</Link>
           {hasSession ? (
             <>
               {canAccessReception && (

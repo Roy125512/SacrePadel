@@ -20,6 +20,10 @@ const QUESTIONS = [
     a: "Sí. Al reservar elige “Dividir el pago” entre 2, 3 o 4: pagas solo tu parte y te damos una liga para mandarla por WhatsApp, para que cada quien pague la suya desde su celular, sin cuenta. Lo que no se pague hasta 2 horas después del partido queda a cargo de quien reservó.",
   },
   {
+    q: "¿No tengo con quién jugar?",
+    a: "Únete a un partido abierto en la sección Partidos: eliges uno de tu nivel y pagas solo tu lugar. También puedes crear el tuyo al reservar (opción “Partido abierto”) y lo publicamos para que se unan otros jugadores. Puedes salirte sin costo hasta 24 horas antes.",
+  },
+  {
     q: "¿Qué pasa si llego tarde a mi horario?",
     a: "Cuentas con 15 minutos de tolerancia. Pasado ese tiempo, la cancha queda liberada para que otros puedan jugar.",
   },

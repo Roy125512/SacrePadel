@@ -21,7 +21,7 @@ export function buildBookingConfirmationEmail(a: {
   cancelUrl?: string;
   cancelNoticeHours?: number;
   /** Pago dividido: liga para que los demás paguen su parte. */
-  split?: { url: string; parts: number; totalMXN: number; graceHours: number };
+  split?: { url: string; parts: number; totalMXN: number; graceHours: number; openMatch?: boolean };
 }) {
   const club = a.clubName ?? "Sacré Pádel";
   const tol = a.toleranceMinutes ?? 15;
@@ -44,7 +44,9 @@ export function buildBookingConfirmationEmail(a: {
     : paidOnline
       ? `Pagado en línea ($${a.amountMXN} MXN).`
       : "Pago en recepción.";
-  const splitText = a.split
+  const splitText = a.split?.openMatch
+    ? `Tu partido abierto ya está publicado en https://sacrepadel.com/partidos para que se unan jugadores de tu nivel. También puedes mandarlo a tus amigos: ${a.split.url}\nLo que no se llene hasta ${a.split.graceHours} h después del partido queda a tu cargo.`
+    : a.split
     ? `Comparte esta liga con tus compañeros para que cada quien pague su parte: ${a.split.url}\nLo que no se pague hasta ${a.split.graceHours} h después del partido queda a tu cargo.`
     : null;
 
@@ -128,8 +130,13 @@ export function buildBookingConfirmationEmail(a: {
 ${a.split
   ? `
                   <div style="margin-top:12px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;font-size:13px;color:#111;line-height:1.5;">
-                    <b>Pago dividido entre ${a.split.parts}.</b> Comparte esta liga para que cada quien pague su parte:<br/>
-                    <a href="${esc(a.split.url)}" style="color:#9A6A45;font-weight:700;">Pagar mi parte de la cancha</a><br/>
+                    ${
+                      a.split.openMatch
+                        ? `<b>Partido abierto.</b> Ya está publicado para que se unan jugadores de tu nivel; también puedes mandarlo a tus amigos:<br/>
+                    <a href="${esc(a.split.url)}" style="color:#9A6A45;font-weight:700;">Ver mi partido</a><br/>`
+                        : `<b>Pago dividido entre ${a.split.parts}.</b> Comparte esta liga para que cada quien pague su parte:<br/>
+                    <a href="${esc(a.split.url)}" style="color:#9A6A45;font-weight:700;">Pagar mi parte de la cancha</a><br/>`
+                    }
                     <span style="color:#6b7280;font-size:12px;">Lo que no se pague hasta ${a.split.graceHours} h después del partido queda a tu cargo.</span>
                   </div>`
   : ""}
