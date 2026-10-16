@@ -10,6 +10,7 @@ const LINKS = [
   { href: "#ubicacion", label: "Cómo llegar" },
   { href: "/partidos", label: "Partidos" },
   { href: "/torneos", label: "Torneos" },
+  { href: "/clases", label: "Clases" },
 ];
 
 export default function SectionNav() {

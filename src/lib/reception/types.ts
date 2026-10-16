@@ -24,6 +24,9 @@ export type Booking = {
   online_paid_amount?: number | null;
   /** Palas rentadas al reservar ($50 c/u). */
   paddle_rentals?: number;
+  /** Clase con entrenador: precio de la clase y nombre del entrenador. */
+  list_price?: number | null;
+  coach_name?: string | null;
 
   customer_id?: string | null;
   customer_name?: string | null;

@@ -45,6 +45,9 @@ export type Database = {
           match_level_max: number | null;
           paddle_rentals: number;
           event_id: string | null;
+          coach_id: string | null;
+          list_price: number | null;
+          class_type: string | null;
         };
         Insert: {
           id?: string;
@@ -84,6 +87,9 @@ export type Database = {
           match_level_max?: number | null;
           paddle_rentals?: number;
           event_id?: string | null;
+          coach_id?: string | null;
+          list_price?: number | null;
+          class_type?: string | null;
         };
         Update: {
           id?: string;
@@ -123,8 +129,18 @@ export type Database = {
           match_level_max?: number | null;
           paddle_rentals?: number;
           event_id?: string | null;
+          coach_id?: string | null;
+          list_price?: number | null;
+          class_type?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "bookings_coach_id_fkey";
+            columns: ["coach_id"];
+            isOneToOne: false;
+            referencedRelation: "coaches";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "bookings_court_id_fkey";
             columns: ["court_id"];
@@ -199,6 +215,39 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      coaches: {
+        Row: {
+          id: string;
+          name: string;
+          bio: string | null;
+          rate_individual: number;
+          rate_pair: number | null;
+          weekly_hours: Json;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          bio?: string | null;
+          rate_individual: number;
+          rate_pair?: number | null;
+          weekly_hours?: Json;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          bio?: string | null;
+          rate_individual?: number;
+          rate_pair?: number | null;
+          weekly_hours?: Json;
+          active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       courts: {
         Row: {

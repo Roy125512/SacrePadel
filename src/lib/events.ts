@@ -26,7 +26,7 @@ export type EventKind = "AMERICANA" | "TORNEO" | "SOCIAL";
 export const EVENT_KIND_LABEL: Record<EventKind, string> = {
   AMERICANA: "Americana",
   TORNEO: "Torneo",
-  SOCIAL: "Social",
+  SOCIAL: "Clínica",
 };
 
 export type EventRow = {

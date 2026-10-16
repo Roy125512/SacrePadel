@@ -27,7 +27,7 @@ type Ev = {
 };
 
 const TZ = "America/Mexico_City";
-const KIND = { AMERICANA: "Americana", TORNEO: "Torneo", SOCIAL: "Social" } as const;
+const KIND = { AMERICANA: "Americana", TORNEO: "Torneo", SOCIAL: "Clínica" } as const;
 const STATUS = { OPEN: "Inscripciones abiertas", CLOSED: "Inscripciones cerradas", CANCELLED: "Cancelado", FINISHED: "Terminado" } as const;
 const fmt = (iso: string) =>
   new Date(iso).toLocaleString("es-MX", { timeZone: TZ, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
@@ -357,7 +357,7 @@ function NewEventForm({ courts, onCreated, onError }: { courts: Court[]; onCreat
         <select className="input" value={f.kind} onChange={(e) => set("kind", e.target.value as Ev["kind"])}>
           <option value="AMERICANA">Americana (individual, parejas que rotan)</option>
           <option value="TORNEO">Torneo</option>
-          <option value="SOCIAL">Social / clínica</option>
+          <option value="SOCIAL">Clínica / clase grupal</option>
         </select>
       </div>
       <div>

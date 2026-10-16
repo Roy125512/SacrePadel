@@ -7,7 +7,7 @@ import { DEMO_USERS } from "./session";
 import { generateAmericana } from "@/lib/americana";
 
 type Row = Record<string, any>;
-type TableName = "bookings" | "customers" | "profiles" | "courts" | "booking_events" | "booking_shares" | "match_results" | "events" | "event_registrations" | "slot_alerts";
+type TableName = "bookings" | "customers" | "profiles" | "courts" | "booking_events" | "booking_shares" | "match_results" | "events" | "event_registrations" | "slot_alerts" | "coaches";
 type Store = Record<TableName, Row[]>;
 
 const g = globalThis as any;
@@ -414,7 +414,28 @@ function seed(): Store {
   events.push({ ...base, id: pastId, title: "Americana de bienvenida", starts_at: isoAt(dayIn(-6), 18, 0), ends_at: isoAt(dayIn(-6), 21, 0), status: "FINISHED", rounds });
   for (const [uid, n] of players8) reg(pastId, uid, n);
 
-  return { bookings, customers, profiles, courts, booking_events: [], booking_shares, match_results, events, event_registrations, slot_alerts: [] };
+  return { bookings, customers, profiles, courts, booking_events: [], booking_shares, match_results, events, event_registrations, slot_alerts: [], coaches: [
+    {
+      id: "88888888-8888-4888-8888-888888888881",
+      name: "Andrés Villa",
+      bio: "Entrenador certificado. Técnica, bandeja y salida de pared; de principiante a 3ra.",
+      rate_individual: 550,
+      rate_pair: 750,
+      weekly_hours: [1, 2, 3, 4, 5].map((dow) => ({ dow, start: "07:00", end: "12:00" })).concat([{ dow: 6, start: "09:00", end: "13:00" }]),
+      active: true,
+      created_at: nowIso(),
+    },
+    {
+      id: "88888888-8888-4888-8888-888888888882",
+      name: "Lucía Herrera",
+      bio: "Exjugadora de torneo. Táctica y juego en pareja.",
+      rate_individual: 600,
+      rate_pair: null,
+      weekly_hours: [2, 4].map((dow) => ({ dow, start: "17:00", end: "21:00" })),
+      active: true,
+      created_at: nowIso(),
+    },
+  ] };
 }
 
 export function getStore(): Store {
@@ -427,6 +448,7 @@ const RELATIONS: Record<string, Record<string, { table: TableName; localKey: str
   bookings: {
     courts: { table: "courts", localKey: "court_id" },
     customers: { table: "customers", localKey: "customer_id" },
+    coaches: { table: "coaches", localKey: "coach_id" },
   },
 };
 
@@ -761,6 +783,9 @@ class FakeQuery {
         match_level_max: null,
         paddle_rentals: 0,
         event_id: null,
+        coach_id: null,
+        list_price: null,
+        class_type: null,
         ...base,
       };
     }

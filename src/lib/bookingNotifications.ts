@@ -53,7 +53,7 @@ export async function sendBookingConfirmationEmails(
     .eq("status", "CONFIRMED")
     .is("confirmation_email_sent_at", null)
     .select(
-      "id, start_at, end_at, payment_status, payment_method, paid_amount, contact_email, cancel_token, split_parts, split_token, is_open_match, paddle_rentals, courts ( name ), customers:customer_id ( full_name, phone_e164 )"
+      "id, start_at, end_at, payment_status, payment_method, paid_amount, contact_email, cancel_token, split_parts, split_token, is_open_match, paddle_rentals, list_price, coaches ( name ), courts ( name ), customers:customer_id ( full_name, phone_e164 )"
     )
     .maybeSingle();
 
@@ -74,11 +74,12 @@ export async function sendBookingConfirmationEmails(
   }
 
   const b = claimed;
-  const courtName = String(b.courts?.name ?? "Cancha");
+  const coachName = (b.coaches as { name: string } | null)?.name ?? null;
+  const courtName = `${String(b.courts?.name ?? "Cancha")}${coachName ? ` · Clase con ${coachName}` : ""}`;
   const fullName = opts?.displayName?.trim() || String(b.customers?.full_name ?? "").trim() || "Cliente";
   const phone = String(b.customers?.phone_e164 ?? "");
   const paidOnline = (b.payment_status === "PAID" || b.payment_status === "PARTIAL") && b.payment_method === "MERCADOPAGO";
-  const totalMXN = computeExpectedAmountMXN(b.start_at, b.end_at);
+  const totalMXN = b.list_price != null ? Number(b.list_price) : computeExpectedAmountMXN(b.start_at, b.end_at);
   const amountMXN = paidOnline ? Number(b.paid_amount ?? 0) : totalMXN;
   const split =
     b.split_parts && b.split_token

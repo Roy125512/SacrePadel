@@ -122,6 +122,7 @@ export default function Hero() {
           <a href="#ubicacion" className="transition hover:text-[var(--dark-foreground)]">Ubicación</a>
           <Link href="/partidos" className="transition hover:text-[var(--dark-foreground)]">Partidos</Link>
           <Link href="/torneos" className="transition hover:text-[var(--dark-foreground)]">Torneos</Link>
+          <Link href="/clases" className="transition hover:text-[var(--dark-foreground)]">Clases</Link>
           {hasSession ? (
             <>
               {canAccessReception && (

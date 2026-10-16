@@ -967,6 +967,9 @@ export default function ReceptionPage() {
             <Link href="/reception/eventos" className="btn-secondary">
               Torneos y americanas
             </Link>
+            <Link href="/reception/clases" className="btn-secondary">
+              Clases
+            </Link>
           </div>
 
           <div className="flex gap-2">

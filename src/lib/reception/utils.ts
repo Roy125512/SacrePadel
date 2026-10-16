@@ -94,6 +94,7 @@ export function asistenciaLabel(b: Booking) {
 
 export function tipoLabel(b: Booking) {
   if (b.kind === "EVENT") return "Evento";
+  if (b.kind === "CLASS") return b.coach_name ? `Clase · ${b.coach_name}` : "Clase";
   if (b.session_type === "CLASS") return "Clase";
   if (b.session_type === "MATCH") return "Reta";
   return "Reserva";
@@ -191,7 +192,10 @@ export function parseISOToLocalTime24(iso: string) {
 export function enrichBooking(b: Booking): Booking {
   const dur = hoursBetween(b.start_at, b.end_at);
   // Lo que se cobra: cancha + palas rentadas al reservar.
-  const expected = computeExpectedAmountMXN(b.start_at, b.end_at) + paddleRentalTotal(b.paddle_rentals);
+  const expected =
+    b.list_price != null
+      ? Number(b.list_price) // clase con entrenador
+      : computeExpectedAmountMXN(b.start_at, b.end_at) + paddleRentalTotal(b.paddle_rentals);
   const amount = typeof b.paid_amount === "number" && (b.payment_status ?? "UNPAID") === "PAID" ? b.paid_amount : expected;
   const pending_amount = isPartial(b) ? Math.max(0, Math.round((expected - (b.paid_amount ?? 0)) * 100) / 100) : amount;
   return { ...b, duration_hours: dur, amount, pending_amount };

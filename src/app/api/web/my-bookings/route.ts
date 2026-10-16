@@ -18,7 +18,7 @@ export async function GET() {
     const since = new Date(Date.now() - 60 * 86400_000).toISOString();
     const { data, error } = await supabaseAdmin
       .from("bookings")
-      .select("id, start_at, end_at, status, payment_status, payment_method, paid_amount, refunded_amount, split_parts, split_token, is_open_match, courts ( name )")
+      .select("id, start_at, end_at, status, payment_status, payment_method, paid_amount, refunded_amount, split_parts, split_token, is_open_match, coaches ( name ), courts ( name )")
       .eq("user_id", auth.user.id)
       .in("status", ["CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"])
       .gte("start_at", since)
@@ -38,7 +38,9 @@ export async function GET() {
         payment_method: b.payment_method,
         paid_amount: b.paid_amount,
         refunded_amount: b.refunded_amount,
-        court_name: (b.courts as { name: string } | null)?.name ?? "Cancha",
+        court_name: `${(b.courts as { name: string } | null)?.name ?? "Cancha"}${
+          (b.coaches as { name: string } | null)?.name ? ` · Clase con ${(b.coaches as { name: string }).name}` : ""
+        }`,
         upcoming: new Date(b.end_at).getTime() > now,
         // Pago dividido: liga para compartir y cuánto falta.
         split:

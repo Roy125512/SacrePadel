@@ -32,6 +32,10 @@ const QUESTIONS = [
     a: "Sí. En la sección Torneos ves los próximos: te inscribes y pagas en línea, y si no puedes ir cancelas sin costo hasta 24 horas antes. En las americanas te inscribes solo; en cada ronda juegas con una pareja distinta y la tabla se actualiza con cada marcador.",
   },
   {
+    q: "¿Dan clases?",
+    a: "Sí. En la sección Clases eliges entrenador, día y hora (individual o en pareja, de 60 o 90 minutos) y te apartamos la cancha. Pagas en línea o en recepción, y puedes cancelar sin costo hasta 24 horas antes. También hay clínicas grupales.",
+  },
+  {
     q: "¿Puedo rentar pala?",
     a: "Sí, por $50. Agrégala al reservar: si pagas en línea se cobra junto con la cancha y te la tenemos lista en recepción.",
   },

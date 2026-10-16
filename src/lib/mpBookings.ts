@@ -36,7 +36,7 @@ export async function finalizeMpBooking(
 
   const { data: booking, error } = await supabaseAdmin
     .from("bookings")
-    .select("id, status, payment_status, start_at, end_at, split_parts, paddle_rentals")
+    .select("id, status, payment_status, start_at, end_at, split_parts, paddle_rentals, list_price")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -76,7 +76,9 @@ export async function finalizeMpBooking(
     // Con pago completo, las palas rentadas van en el mismo cobro.
     const expected = ownerShare
       ? ownerShare.amount
-      : computeExpectedAmountMXN(booking.start_at, booking.end_at) + paddleRentalTotal(booking.paddle_rentals);
+      : booking.list_price != null
+        ? Number(booking.list_price) // clase con entrenador
+        : computeExpectedAmountMXN(booking.start_at, booking.end_at) + paddleRentalTotal(booking.paddle_rentals);
 
     const { data: updated, error: upErr } = await supabaseAdmin
       .from("bookings")

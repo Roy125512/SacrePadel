@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   // cubrir extras cobrados junto con la cancha (renta de palas, etc.).
   const { data: priced, error: priceErr } = await supabaseAdmin
     .from("bookings")
-    .select("start_at, end_at, payment_status, paid_amount")
+    .select("start_at, end_at, payment_status, paid_amount, list_price")
     .eq("id", booking_id)
     .maybeSingle();
   if (priceErr) {
@@ -42,7 +42,8 @@ export async function POST(req: Request) {
   }
   if (!priced) return NextResponse.json({ error: "Reserva no encontrada." }, { status: 404 });
 
-  const expected = computeExpectedAmountMXN(priced.start_at, priced.end_at);
+  const expected =
+    priced.list_price != null ? Number(priced.list_price) : computeExpectedAmountMXN(priced.start_at, priced.end_at);
   const maxAllowed = expected * 2;
   if (paid_amount > maxAllowed) {
     return NextResponse.json(
