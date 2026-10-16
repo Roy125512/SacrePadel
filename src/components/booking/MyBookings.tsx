@@ -7,6 +7,7 @@ import { SITE } from "@/lib/site";
 import CancelBookingButton from "@/components/booking/CancelBookingButton";
 import ShareSplitLink from "@/components/booking/ShareSplitLink";
 import { LeaveMatchButton } from "@/app/reserva/pagar/MatchActions";
+import AddToCalendar from "@/components/booking/AddToCalendar";
 
 type MyBooking = {
   id: string;
@@ -125,6 +126,16 @@ export default function MyBookings() {
                     </div>
                   </div>
                   <div className="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{statusLabel(b)}</div>
+                  <AddToCalendar
+                    className="mt-2 text-[var(--muted)]"
+                    event={{
+                      uid: `${b.id}@sacrepadel.com`,
+                      title: `${b.split?.open_match ? "Partido" : "Pádel"} · ${b.court_name} — Sacré Pádel`,
+                      start: b.start_at,
+                      end: b.end_at,
+                      details: b.split?.url ?? "",
+                    }}
+                  />
                   {b.split && b.payment_status === "PARTIAL" && (
                     <div className="mt-4">
                       <ShareSplitLink
@@ -177,6 +188,15 @@ export default function MyBookings() {
                           {fmtTime(m.start_at)} – {fmtTime(m.end_at)} · {m.court_name}
                         </div>
                       </div>
+                      <AddToCalendar
+                        className="mt-2 text-[var(--muted)]"
+                        event={{
+                          uid: `${m.id}@sacrepadel.com`,
+                          title: `Partido · ${m.court_name} — Sacré Pádel`,
+                          start: m.start_at,
+                          end: m.end_at,
+                        }}
+                      />
                       {m.token && (
                         <>
                           <Link

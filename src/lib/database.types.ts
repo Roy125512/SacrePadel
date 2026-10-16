@@ -43,6 +43,7 @@ export type Database = {
           match_gender: string | null;
           match_level_min: number | null;
           match_level_max: number | null;
+          paddle_rentals: number;
         };
         Insert: {
           id?: string;
@@ -80,6 +81,7 @@ export type Database = {
           match_gender?: string | null;
           match_level_min?: number | null;
           match_level_max?: number | null;
+          paddle_rentals?: number;
         };
         Update: {
           id?: string;
@@ -117,6 +119,7 @@ export type Database = {
           match_gender?: string | null;
           match_level_min?: number | null;
           match_level_max?: number | null;
+          paddle_rentals?: number;
         };
         Relationships: [
           {

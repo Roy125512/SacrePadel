@@ -18,6 +18,7 @@ type ConfirmBody = {
   email?: string; // invitado (opcional)
   payment_method?: "RECEPTION" | "MERCADOPAGO";
   mp_payment_id?: string; // requerido cuando payment_method === "MERCADOPAGO"
+  paddles?: number; // renta de pala (se cobra en recepción)
 };
 
 const MAX_UNPAID_WEB_BOOKINGS_PER_CUSTOMER = 2;
@@ -232,6 +233,7 @@ export async function POST(req: NextRequest) {
         user_id: user?.id ?? null,
         contact_email,
         hold_expires_at: null,
+        paddle_rentals: Math.max(0, Math.min(4, Math.trunc(Number(body.paddles) || 0))),
       })
       .eq("id", booking_id)
       .eq("status", "HOLD")

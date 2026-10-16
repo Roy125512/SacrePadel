@@ -22,6 +22,8 @@ export type Booking = {
   /** Pago dividido: en cuántas partes y cuánto entró en línea. */
   split_parts?: number | null;
   online_paid_amount?: number | null;
+  /** Palas rentadas al reservar ($50 c/u). */
+  paddle_rentals?: number;
 
   customer_id?: string | null;
   customer_name?: string | null;

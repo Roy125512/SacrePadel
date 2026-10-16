@@ -1094,7 +1094,14 @@ export default function ReceptionPage() {
                       <td className="px-4 py-4" style={{ color: "rgba(30,27,24,0.85)" }}>
                         {horario}
                       </td>
-                      <td className="px-4 py-4">{tipoLabel(b)}</td>
+                      <td className="px-4 py-4">
+                        {tipoLabel(b)}
+                        {(b.paddle_rentals ?? 0) > 0 && (
+                          <span className="block text-xs" style={{ color: "rgba(120,46,21,0.9)" }}>
+                            {b.paddle_rentals} {b.paddle_rentals === 1 ? "pala" : "palas"}
+                          </span>
+                        )}
+                      </td>
 
                       <td className="px-4 py-4">
                         <Pill text={statusLabelES(b.status)} tone={statusTone} />

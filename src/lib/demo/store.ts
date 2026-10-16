@@ -666,6 +666,7 @@ class FakeQuery {
         match_gender: null,
         match_level_min: null,
         match_level_max: null,
+        paddle_rentals: 0,
         ...base,
       };
     }

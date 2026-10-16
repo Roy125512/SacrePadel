@@ -1,5 +1,6 @@
 "use client";
 
+import { MAX_PADDLE_RENTALS, PADDLE_RENTAL_PRICE } from "@/lib/pricing-shared";
 import { formatDateES, parseISOToLocalTime, type OpenMatchSettings, type PaymentMode, type SelectedSlot } from "./reservarUtils";
 import {
   CANCEL_NOTICE_HOURS,
@@ -38,6 +39,8 @@ export default function BookingModal({
   setSplitParts,
   openMatch,
   setOpenMatch,
+  paddles,
+  setPaddles,
   paymentMode,
   setPaymentMode,
   saving,
@@ -70,6 +73,9 @@ export default function BookingModal({
   /** Partido abierto (se publica en /partidos); null = no. */
   openMatch: OpenMatchSettings | null;
   setOpenMatch: (m: OpenMatchSettings | null) => void;
+  /** Palas a rentar ($50 c/u). */
+  paddles: number;
+  setPaddles: (n: number) => void;
   paymentMode: PaymentMode;
   setPaymentMode: (mode: PaymentMode) => void;
   saving: boolean;
@@ -162,6 +168,50 @@ export default function BookingModal({
                     <span className="text-sm font-medium" style={{ color: "var(--muted)" }}>
                     MXN
                     </span>
+                </div>
+            </div>
+            )}
+
+            {/* Renta de pala */}
+            {priceInfo && selectedEndAt && (
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                <div className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+                    ¿Rentas pala?
+                </div>
+                <div className="text-xs" style={{ color: "var(--muted)" }}>
+                    ${PADDLE_RENTAL_PRICE} c/u
+                    {paddles > 0 && (splitParts || openMatch || paymentMode === "reception")
+                    ? " · se paga en recepción"
+                    : paddles > 0
+                        ? ` · total con palas $${priceInfo.total + paddles * PADDLE_RENTAL_PRICE}`
+                        : ""}
+                </div>
+                </div>
+                <div className="flex items-center gap-2" role="group" aria-label="Palas a rentar">
+                <button
+                    type="button"
+                    aria-label="Una pala menos"
+                    className="h-8 w-8 rounded-full border text-base leading-none disabled:opacity-40"
+                    style={{ borderColor: "var(--brand-200)" }}
+                    onClick={() => setPaddles(Math.max(0, paddles - 1))}
+                    disabled={paddles === 0 || mpLoading || saving}
+                >
+                    −
+                </button>
+                <span className="w-5 text-center text-sm font-semibold tabular-nums" aria-live="polite">
+                    {paddles}
+                </span>
+                <button
+                    type="button"
+                    aria-label="Una pala más"
+                    className="h-8 w-8 rounded-full border text-base leading-none disabled:opacity-40"
+                    style={{ borderColor: "var(--brand-200)" }}
+                    onClick={() => setPaddles(Math.min(MAX_PADDLE_RENTALS, paddles + 1))}
+                    disabled={paddles === MAX_PADDLE_RENTALS || mpLoading || saving}
+                >
+                    +
+                </button>
                 </div>
             </div>
             )}

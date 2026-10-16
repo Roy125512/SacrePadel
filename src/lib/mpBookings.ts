@@ -1,6 +1,6 @@
 import { mpPayment } from "@/lib/mercadopago";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
+import { computeExpectedAmountMXN, paddleRentalTotal } from "@/lib/pricing-shared";
 import { alertOwner, sendBookingConfirmationEmails, type EmailResult } from "@/lib/bookingNotifications";
 import { getShares, markOwnerSharePaid } from "@/lib/splitPayments";
 
@@ -36,7 +36,7 @@ export async function finalizeMpBooking(
 
   const { data: booking, error } = await supabaseAdmin
     .from("bookings")
-    .select("id, status, payment_status, start_at, end_at, split_parts")
+    .select("id, status, payment_status, start_at, end_at, split_parts, paddle_rentals")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -73,7 +73,10 @@ export async function finalizeMpBooking(
     // Pago dividido: este pago es solo la parte de quien reservó.
     const split = (booking.split_parts ?? 0) > 1;
     const ownerShare = split ? (await getShares(bookingId)).find((s) => s.seq === 1) : undefined;
-    const expected = ownerShare ? ownerShare.amount : computeExpectedAmountMXN(booking.start_at, booking.end_at);
+    // Con pago completo, las palas rentadas van en el mismo cobro.
+    const expected = ownerShare
+      ? ownerShare.amount
+      : computeExpectedAmountMXN(booking.start_at, booking.end_at) + paddleRentalTotal(booking.paddle_rentals);
 
     const { data: updated, error: upErr } = await supabaseAdmin
       .from("bookings")

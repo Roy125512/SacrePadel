@@ -3,7 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createClient } from "@/lib/supabaseServer";
 import { mpPreference } from "@/lib/mercadopago";
-import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
+import { computeExpectedAmountMXN, MAX_PADDLE_RENTALS, PADDLE_RENTAL_PRICE } from "@/lib/pricing-shared";
 import { normalizePhoneToE164 } from "@/lib/phone";
 import { profileCustomerFields, resolveWebCustomer } from "@/lib/customers";
 import { MP_CHECKOUT_MINUTES } from "@/lib/mpBookings";
@@ -25,6 +25,8 @@ const BodySchema = z.object({
     .refine((n) => (SPLIT_PARTS_OPTIONS as readonly number[]).includes(n))
     .optional()
     .nullable(),
+  // Renta de pala: con pago completo se cobra aquí; si no, en recepción.
+  paddles: z.number().int().min(0).max(MAX_PADDLE_RENTALS).optional().default(0),
   // Partido abierto: se publica en /partidos para que otros se unan.
   open_match: z
     .object({
@@ -172,6 +174,7 @@ export async function POST(req: Request) {
         match_gender: openMatch?.gender ?? null,
         match_level_min: openMatch?.level_min ?? null,
         match_level_max: openMatch?.level_max ?? null,
+        paddle_rentals: parsed.data.paddles,
       })
       .eq("id", booking_id);
     if (matchErr) return dbErrorResponse("POST /api/web/create-mp-preference open match", matchErr);
@@ -198,6 +201,18 @@ export async function POST(req: Request) {
           currency_id: "MXN",
           unit_price: amount_mxn,
         },
+        // Con pago completo, las palas van en el mismo cobro.
+        ...(!parts && parsed.data.paddles > 0
+          ? [
+              {
+                id: `${booking_id}-palas`,
+                title: `Renta de pala — Sacré Pádel`,
+                quantity: parsed.data.paddles,
+                currency_id: "MXN",
+                unit_price: PADDLE_RENTAL_PRICE,
+              },
+            ]
+          : []),
       ],
       external_reference: booking_id,
       back_urls: {

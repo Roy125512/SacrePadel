@@ -4,6 +4,7 @@ import { buildBookingConfirmationEmail, buildOwnerNotificationEmail } from "@/li
 import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
 import { CANCEL_NOTICE_HOURS, SPLIT_DEBT_GRACE_HOURS } from "@/lib/config";
 import { SITE } from "@/lib/site";
+import { googleCalendarUrl } from "@/lib/calendar";
 
 export const TOLERANCE_MINUTES = 15;
 
@@ -52,7 +53,7 @@ export async function sendBookingConfirmationEmails(
     .eq("status", "CONFIRMED")
     .is("confirmation_email_sent_at", null)
     .select(
-      "id, start_at, end_at, payment_status, payment_method, paid_amount, contact_email, cancel_token, split_parts, split_token, is_open_match, courts ( name ), customers:customer_id ( full_name, phone_e164 )"
+      "id, start_at, end_at, payment_status, payment_method, paid_amount, contact_email, cancel_token, split_parts, split_token, is_open_match, paddle_rentals, courts ( name ), customers:customer_id ( full_name, phone_e164 )"
     )
     .maybeSingle();
 
@@ -110,6 +111,16 @@ export async function sendBookingConfirmationEmails(
       cancelUrl: b.cancel_token ? `${SITE.url}/reserva/cancelar?t=${b.cancel_token}` : undefined,
       cancelNoticeHours: CANCEL_NOTICE_HOURS,
       split,
+      paddles: b.paddle_rentals ?? 0,
+      calendar: {
+        google: googleCalendarUrl({
+          title: `Pádel · ${courtName} — Sacré Pádel`,
+          start: b.start_at,
+          end: b.end_at,
+          details: split?.url ?? SITE.url,
+        }),
+        ics: b.cancel_token ? `${SITE.url}/api/calendar?t=${b.cancel_token}` : undefined,
+      },
     });
     const sent = await sendEmail({ to, subject: mail.subject, html: mail.html, text: mail.text });
     if (sent.ok) email_sent = true;

@@ -50,3 +50,10 @@ export function priceLabelForRange(startIso: string, endIso: string): string {
   if (startH >= SWITCH_HOUR) return `$${EVENING_RATE} / hora`;
   return `Tarifa mixta (${DAY_RATE}/${EVENING_RATE})`;
 }
+
+export const MAX_PADDLE_RENTALS = 4;
+
+/** Lo que se cobra por las palas rentadas. */
+export function paddleRentalTotal(paddles: number | null | undefined): number {
+  return Math.max(0, Math.min(MAX_PADDLE_RENTALS, paddles ?? 0)) * PADDLE_RENTAL_PRICE;
+}

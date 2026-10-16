@@ -3,6 +3,7 @@
 import { WHATSAPP_PHONE } from "@/components/WhatsAppButton";
 import { CANCEL_NOTICE_HOURS, SPLIT_DEBT_GRACE_HOURS, formatMXN } from "@/lib/config";
 import ShareSplitLink from "@/components/booking/ShareSplitLink";
+import AddToCalendar from "@/components/booking/AddToCalendar";
 import { formatDateES, parseISOToLocalTime, type ConfirmedBooking, type EmailInfo } from "./reservarUtils";
 
 /** "Reserva confirmada": tolerancia, estado del correo y aviso por WhatsApp. */
@@ -181,6 +182,19 @@ export default function BookingSuccessModal({
             </a>
             </div>
         </div>
+
+        {confirmedBooking?.startAt && confirmedBooking.endAt && (
+        <div className="px-6 pb-1 pt-1 text-center" style={{ color: "var(--foreground)" }}>
+            <AddToCalendar
+            event={{
+                title: `Pádel · ${confirmedBooking.courtName ?? "Cancha"} — Sacré Pádel`,
+                start: confirmedBooking.startAt,
+                end: confirmedBooking.endAt,
+                details: confirmedBooking.split?.url ?? "",
+            }}
+            />
+        </div>
+        )}
 
         {/* CTA button */}
         <div className="px-6 pt-2 pb-6">

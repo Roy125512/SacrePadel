@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import AppHeader from "@/components/AppHeader";
@@ -42,7 +42,11 @@ export const metadata: Metadata = {
     shortcut: "/favicon.ico",
     apple: "/apple-icon.png",
   },
+  // Instalada en iPhone ("Agregar a inicio"): abre a pantalla completa.
+  appleWebApp: { capable: true, title: "Sacré", statusBarStyle: "black-translucent" },
 };
+
+export const viewport: Viewport = { themeColor: "#13110E" };
 
 
 

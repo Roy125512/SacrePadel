@@ -77,6 +77,7 @@ export default function ReservarClient() {
     // Pago dividido: null = pago completo; 2–4 = entre ese número de jugadores.
     const [splitParts, setSplitParts] = useState<number | null>(null);
     const [openMatch, setOpenMatch] = useState<OpenMatchSettings | null>(null);
+    const [paddles, setPaddles] = useState(0);
     const [errorLink, setErrorLink] = useState<{ href: string; label: string } | null>(null);
 
     useEffect(() => {
@@ -154,6 +155,7 @@ export default function ReservarClient() {
             email?: string;
             court_name?: string;
             start_at?: string;
+            end_at?: string;
             date_ymd?: string;
         }
     ) {
@@ -191,6 +193,7 @@ export default function ReservarClient() {
             courtName: pending.court_name ?? null,
             dateYMD: pending.date_ymd ?? null,
             startAt: pending.start_at ?? null,
+            endAt: pending.end_at ?? null,
             split: json?.split ?? null,
         });
         setToleranceOpen(true);
@@ -312,6 +315,7 @@ export default function ReservarClient() {
         setMpError(null);
         setSplitParts(null);
         setOpenMatch(null);
+        setPaddles(0);
         setErrorLink(null);
 
         setModalOpen(true);
@@ -453,6 +457,7 @@ export default function ReservarClient() {
         setMpError(null);
         setSplitParts(null);
         setOpenMatch(null);
+        setPaddles(0);
         setErrorLink(null);
         setSaving(false);
         await loadAvailability(dateYMD);
@@ -493,6 +498,7 @@ export default function ReservarClient() {
             phone: v.phone_input,
             email: isGuest ? email.trim() : email.trim() || undefined,
             payment_method: payMethod,
+            paddles,
             }),
         });
 
@@ -521,6 +527,7 @@ export default function ReservarClient() {
             courtName: selected.court_name,
             dateYMD,
             startAt: selected.start_at,
+            endAt: selectedEndAt,
         });
 
         setModalOpen(false);
@@ -566,6 +573,7 @@ export default function ReservarClient() {
             email: isGuest ? email.trim() : email.trim() || undefined,
             court_name: selected?.court_name ?? undefined,
             start_at: selected?.start_at ?? undefined,
+            end_at: selectedEndAt ?? undefined,
             date_ymd: dateYMD,
             })
         );
@@ -584,6 +592,7 @@ export default function ReservarClient() {
             email: email.trim() || undefined,
             split_parts: openMatch ? undefined : (splitParts ?? undefined),
             open_match: openMatch ?? undefined,
+            paddles,
             }),
         });
 
@@ -791,6 +800,8 @@ export default function ReservarClient() {
             setSplitParts={setSplitParts}
             openMatch={openMatch}
             setOpenMatch={setOpenMatch}
+            paddles={paddles}
+            setPaddles={setPaddles}
             paymentMode={paymentMode}
             setPaymentMode={setPaymentMode}
             saving={saving}

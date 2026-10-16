@@ -22,6 +22,10 @@ export function buildBookingConfirmationEmail(a: {
   cancelNoticeHours?: number;
   /** Pago dividido: liga para que los demás paguen su parte. */
   split?: { url: string; parts: number; totalMXN: number; graceHours: number; openMatch?: boolean };
+  /** Ligas para agregar al calendario. */
+  calendar?: { google: string; ics?: string };
+  /** Palas rentadas. */
+  paddles?: number;
 }) {
   const club = a.clubName ?? "Sacré Pádel";
   const tol = a.toleranceMinutes ?? 15;
@@ -60,9 +64,11 @@ export function buildBookingConfirmationEmail(a: {
     "",
     `Tienes ${tol} minutos de tolerancia.`,
     paymentLine,
+    ...(a.paddles ? [`Renta de pala: ${a.paddles} (la tenemos lista en recepción).`] : []),
     ...(splitText ? ["", splitText] : []),
     "",
     cancelText,
+    ...(a.calendar ? ["", `Agregar a tu calendario: ${a.calendar.google}`] : []),
   ].join("\n");
 
   const html = `<!doctype html>
@@ -126,6 +132,7 @@ export function buildBookingConfirmationEmail(a: {
                           ? `Pagado en línea ($${a.amountMXN} MXN)`
                           : "en recepción"
                     }</div>
+                    ${a.paddles ? `<div><b>Renta de pala:</b> ${a.paddles} (lista en recepción)</div>` : ""}
                   </div>
 ${a.split
   ? `
@@ -151,6 +158,16 @@ ${a.split
                     }
                   </div>
                 </div>
+
+                ${
+                  a.calendar
+                    ? `<div style="margin-top:14px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;font-size:13px;color:#374151;">
+                  Agregar a mi calendario: <a href="${esc(a.calendar.google)}" style="color:#9A6A45;font-weight:700;">Google</a>${
+                        a.calendar.ics ? ` · <a href="${esc(a.calendar.ics)}" style="color:#9A6A45;font-weight:700;">iPhone / Outlook</a>` : ""
+                      }
+                </div>`
+                    : ""
+                }
 
                 <div style="height:16px"></div>
 

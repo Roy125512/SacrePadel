@@ -1,5 +1,5 @@
 import type { Booking, BookingStatus } from "./types";
-import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
+import { computeExpectedAmountMXN, paddleRentalTotal } from "@/lib/pricing-shared";
 
 import { OPEN_HOUR, CLOSE_HOUR } from "@/lib/config";
 import { addDaysToYMD, BUSINESS_TZ, ymdInBusinessTZ } from "@/lib/businessTime";
@@ -189,7 +189,8 @@ export function parseISOToLocalTime24(iso: string) {
 /** Añade duration_hours y amount (esperado o pagado) a una reserva cruda de la API. */
 export function enrichBooking(b: Booking): Booking {
   const dur = hoursBetween(b.start_at, b.end_at);
-  const expected = computeExpectedAmountMXN(b.start_at, b.end_at);
+  // Lo que se cobra: cancha + palas rentadas al reservar.
+  const expected = computeExpectedAmountMXN(b.start_at, b.end_at) + paddleRentalTotal(b.paddle_rentals);
   const amount = typeof b.paid_amount === "number" && (b.payment_status ?? "UNPAID") === "PAID" ? b.paid_amount : expected;
   const pending_amount = isPartial(b) ? Math.max(0, Math.round((expected - (b.paid_amount ?? 0)) * 100) / 100) : amount;
   return { ...b, duration_hours: dur, amount, pending_amount };

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Mail, MapPin, Phone } from "lucide-react";
 import ReservarButton from "@/components/ReservarButton";
+import InstallAppButton from "@/components/InstallAppButton";
 import { WHATSAPP_PHONE } from "@/components/WhatsAppButton";
 
 const WHATSAPP_FOOTER_LINK = `https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(
@@ -108,6 +109,17 @@ export default function Footer() {
                 >
                   Perfil
                 </Link>
+              </li>
+              <li>
+                <Link
+                  href="/partidos"
+                  className="text-[rgba(246,240,230,0.8)] transition hover:text-[var(--dark-foreground)]"
+                >
+                  Partidos
+                </Link>
+              </li>
+              <li>
+                <InstallAppButton className="text-[rgba(246,240,230,0.8)] transition hover:text-[var(--dark-foreground)]" />
               </li>
             </ul>
           </div>

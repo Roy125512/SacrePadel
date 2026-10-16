@@ -26,6 +26,7 @@ import MatchResultPanel from "./MatchResultPanel";
 import { matchContext, submitBlock } from "@/lib/levels";
 import { formatLevel } from "@/lib/levels-shared";
 import ShareSplitLink from "@/components/booking/ShareSplitLink";
+import AddToCalendar from "@/components/booking/AddToCalendar";
 
 export const metadata: Metadata = { title: "Pagar mi parte", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -278,6 +279,16 @@ export default async function PagarPartePage({ searchParams }: { searchParams: P
                     ) : iAmIn ? (
                       <>
                         <p className="mt-8 leading-relaxed">Ya estás en este partido. ¡Nos vemos en la cancha!</p>
+                        <AddToCalendar
+                          className="mt-2 text-[var(--muted)]"
+                          event={{
+                            uid: `${b.id}@sacrepadel.com`,
+                            title: `Partido · ${court} — Sacré Pádel`,
+                            start: b.start_at,
+                            end: b.end_at,
+                            details: splitUrl(token),
+                          }}
+                        />
                         {withinCancelWindow(b.start_at, now) ? (
                           <LeaveMatchButton token={token} />
                         ) : (
