@@ -4,9 +4,11 @@ import { requireReceptionAccess } from "@/lib/guards/reception";
 import { BUSINESS_TZ_OFFSET } from "@/lib/config";
 import { dbErrorResponse } from "@/lib/apiError";
 import { fetchAllRows } from "@/lib/fetchAll";
+import { loadPricing } from "@/lib/pricingSettings";
 
 
 export async function GET(req: Request) {
+  const offPeak = await loadPricing();
   const gate = await requireReceptionAccess({ asJson: true });
   if (!gate.ok) return gate.res;
 
@@ -133,6 +135,7 @@ export async function GET(req: Request) {
       timezone_offset: BUSINESS_TZ_OFFSET,
       count: bookings.length,
       bookings,
+      off_peak: offPeak,
     },
     { status: 200 }
   );

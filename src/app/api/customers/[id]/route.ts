@@ -4,6 +4,7 @@ import { requireReceptionAccess } from "@/lib/guards/reception";
 import { dbErrorResponse } from "@/lib/apiError";
 import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
 import type { TablesUpdate } from "@/lib/database.types";
+import { loadPricing } from "@/lib/pricingSettings";
 
 function clampInt(v: unknown, def: number, min: number, max: number) {
   const n = Number(v);
@@ -15,6 +16,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  await loadPricing();
   const gate = await requireReceptionAccess({ asJson: true, nextPath: "/reception" });
   if (!gate.ok) return gate.res;
 

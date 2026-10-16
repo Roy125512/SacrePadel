@@ -28,6 +28,7 @@ import { formatLevel } from "@/lib/levels-shared";
 import ShareSplitLink from "@/components/booking/ShareSplitLink";
 import AddToCalendar from "@/components/booking/AddToCalendar";
 import { NotifyMeButton } from "@/components/booking/NotifyMe";
+import { loadPricing } from "@/lib/pricingSettings";
 
 export const metadata: Metadata = { title: "Pagar mi parte", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -53,6 +54,7 @@ type Search = {
  * de Mercado Pago (registra el pago aunque el webhook todavía no llegue).
  */
 export default async function PagarPartePage({ searchParams }: { searchParams: Promise<Search> }) {
+  await loadPricing();
   const sp = await searchParams;
   const token = (sp.t ?? "").trim();
   const valid = UUID.test(token);

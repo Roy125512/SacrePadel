@@ -13,7 +13,7 @@ import type {
   FilterKey,
 } from "@/lib/reception/types";
 
-import { DAY_RATE, EVENING_RATE, OFF_PEAK_RATE } from "@/lib/pricing-shared";
+import { DAY_RATE, EVENING_RATE, getOffPeakConfig, setOffPeakConfig } from "@/lib/pricing-shared";
 
 import {
   addDaysYMD,
@@ -213,6 +213,9 @@ export default function ReceptionPage() {
       }
 
       const typed = (body ?? {}) as ApiResponse;
+      // Horas valle vigentes, antes de calcular montos.
+      const offPeak = (typed as { off_peak?: unknown }).off_peak;
+      if (offPeak) setOffPeakConfig(offPeak);
       const enriched = (typed.bookings ?? []).map(enrichBooking);
 
       setRows(enriched);
@@ -932,7 +935,8 @@ export default function ReceptionPage() {
               <span style={{ color: "var(--foreground)", fontWeight: 600 }}>{stats.totalReservas}</span> · Pendientes de cobro:{" "}
               <span style={{ color: "var(--foreground)", fontWeight: 600 }}>{stats.pendientesCount}</span> · Tarifa/hora:{" "}
               <span style={{ color: "var(--foreground)", fontWeight: 600 }}>
-                {currencyMXN(DAY_RATE)} día · {currencyMXN(EVENING_RATE)} noche · {currencyMXN(OFF_PEAK_RATE)} valle
+                {currencyMXN(DAY_RATE)} día · {currencyMXN(EVENING_RATE)} noche
+                {getOffPeakConfig().enabled ? ` · ${currencyMXN(getOffPeakConfig().rate)} valle` : ""}
               </span>
             </div>
 
@@ -969,6 +973,9 @@ export default function ReceptionPage() {
             </Link>
             <Link href="/reception/clases" className="btn-secondary">
               Clases
+            </Link>
+            <Link href="/reception/tarifas" className="btn-secondary">
+              Horas valle
             </Link>
           </div>
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeExpectedAmountMXN, isOffPeak, priceLabelForRange, rateAtISO } from "@/lib/pricing-shared";
+import { computeExpectedAmountMXN, isOffPeak, normalizeOffPeak, offPeakLabel, priceLabelForRange, rateAtISO, setOffPeakConfig, DEFAULT_OFF_PEAK } from "@/lib/pricing-shared";
 
 // Las horas van con offset -06:00 (Pátzcuaro). Los tests corren con el
 // proceso en UTC (vitest.config.ts) para asegurar que el precio no depende
@@ -60,5 +60,22 @@ describe("horas valle", () => {
   it("en fin de semana no hay hora valle", () => {
     expect(rateAtISO("2026-10-10T08:00:00-06:00")).toBe(350);
     expect(isOffPeak("2026-10-10T08:00:00-06:00")).toBe(false);
+  });
+});
+
+describe("horas valle ajustables", () => {
+  it("el dueño cambia precio, días y horario", () => {
+    setOffPeakConfig({ enabled: true, rate: 300, days: [6, 0], startHour: 13, endHour: 16 });
+    expect(rateAtISO("2026-10-10T14:00:00-06:00")).toBe(300); // sábado
+    expect(rateAtISO(at("08:00"))).toBe(350); // martes ya no es valle
+    expect(offPeakLabel()).toBe("Dom, Sáb 13:00 — 16:00");
+    setOffPeakConfig({ ...DEFAULT_OFF_PEAK, enabled: false });
+    expect(rateAtISO(at("08:00"))).toBe(350);
+    setOffPeakConfig(DEFAULT_OFF_PEAK);
+    expect(rateAtISO(at("08:00"))).toBe(280);
+    expect(offPeakLabel()).toBe("Lun–Vie 07:00 — 10:00");
+  });
+  it("una configuración inválida no rompe los precios", () => {
+    expect(normalizeOffPeak({ rate: -5, days: [], startHour: 10, endHour: 7 })).toEqual(DEFAULT_OFF_PEAK);
   });
 });

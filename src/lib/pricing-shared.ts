@@ -8,21 +8,51 @@ export const EVENING_RATE = 400; // 18:00 - 21:59
 export const SWITCH_HOUR = 18;
 
 // Horas valle (como Playtomic): tarifa más baja en horarios que se llenan
-// poco, para animar a jugar temprano entre semana.
-export const OFF_PEAK_RATE = 280;
-export const OFF_PEAK_DAYS = [1, 2, 3, 4, 5] as const; // lunes a viernes
-export const OFF_PEAK_START_HOUR = 7;
-export const OFF_PEAK_END_HOUR = 10; // hasta las 10:00
+// poco. El dueño la ajusta desde recepción (/reception/tarifas); se guarda en
+// club_settings y el servidor la carga con loadPricing() (lib/pricingSettings).
+// En el navegador llega con la disponibilidad / las reservas y se aplica con
+// setOffPeakConfig(). Mientras no haya nada guardado, aplica la de abajo.
+export type OffPeakConfig = { enabled: boolean; rate: number; days: number[]; startHour: number; endHour: number };
+export const DEFAULT_OFF_PEAK: OffPeakConfig = { enabled: true, rate: 280, days: [1, 2, 3, 4, 5], startHour: 7, endHour: 10 };
+
+let offPeak: OffPeakConfig = DEFAULT_OFF_PEAK;
+
+/** Valida y limpia una configuración (de la base de datos o del formulario). */
+export function normalizeOffPeak(c: unknown): OffPeakConfig {
+  const x = (c ?? {}) as Partial<OffPeakConfig>;
+  const rate = Number(x.rate);
+  const startHour = Math.trunc(Number(x.startHour));
+  const endHour = Math.trunc(Number(x.endHour));
+  const days = Array.isArray(x.days) ? [...new Set(x.days.map(Number).filter((d) => d >= 0 && d <= 6))].sort() : [];
+  const ok = rate > 0 && rate <= 5000 && startHour >= 0 && endHour <= 24 && endHour > startHour && days.length > 0;
+  if (!ok) return { ...DEFAULT_OFF_PEAK, enabled: x.enabled === false ? false : DEFAULT_OFF_PEAK.enabled };
+  return { enabled: x.enabled !== false, rate, days, startHour, endHour };
+}
+
+export function setOffPeakConfig(c: unknown) {
+  offPeak = normalizeOffPeak(c);
+}
+
+export function getOffPeakConfig(): OffPeakConfig {
+  return offPeak;
+}
 
 /** ¿Este momento es hora valle? (en la hora del club) */
-export function isOffPeak(d: Date | string): boolean {
+export function isOffPeak(d: Date | string, cfg: OffPeakConfig = offPeak): boolean {
+  if (!cfg.enabled) return false;
   const date = typeof d === "string" ? new Date(d) : d;
   const h = hourInBusinessTZ(date);
-  return (
-    (OFF_PEAK_DAYS as readonly number[]).includes(weekdayInBusinessTZ(date)) &&
-    h >= OFF_PEAK_START_HOUR &&
-    h < OFF_PEAK_END_HOUR
-  );
+  return cfg.days.includes(weekdayInBusinessTZ(date)) && h >= cfg.startHour && h < cfg.endHour;
+}
+
+const DAY_SHORT = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+/** "Lun–Vie 07:00 — 10:00" */
+export function offPeakLabel(cfg: OffPeakConfig = offPeak): string {
+  const d = cfg.days;
+  const consecutive = d.length > 1 && d.every((x, i) => i === 0 || x === d[i - 1] + 1);
+  const days = consecutive ? `${DAY_SHORT[d[0]]}–${DAY_SHORT[d[d.length - 1]]}` : d.map((x) => DAY_SHORT[x]).join(", ");
+  const hh = (n: number) => `${String(n).padStart(2, "0")}:00`;
+  return `${days} ${hh(cfg.startHour)} — ${hh(cfg.endHour)}`;
 }
 
 // Renta de pala en el club. Venta de palas y pelotas también disponible,
@@ -39,7 +69,7 @@ export function rateAtISO(iso: string): number {
 
 /** Rate per hour for a given Date, evaluated in business local time. */
 export function rateAtDate(d: Date): number {
-  if (isOffPeak(d)) return OFF_PEAK_RATE;
+  if (isOffPeak(d)) return offPeak.rate;
   return hourInBusinessTZ(d) >= SWITCH_HOUR ? EVENING_RATE : DAY_RATE;
 }
 
@@ -69,7 +99,8 @@ export function priceLabelForRange(startIso: string, endIso: string): string {
   for (let t = startMs; t < endMs; t += 15 * 60_000) rates.add(rateAtDate(new Date(t)));
   const list = [...rates].sort((a, b) => a - b);
   if (list.length === 0) return "";
-  if (list.length === 1) return list[0] === OFF_PEAK_RATE ? `$${OFF_PEAK_RATE} / hora · hora valle` : `$${list[0]} / hora`;
+  const valley = offPeak.enabled && isOffPeak(new Date(startMs));
+  if (list.length === 1) return valley && list[0] === offPeak.rate ? `$${list[0]} / hora · hora valle` : `$${list[0]} / hora`;
   return `Tarifa mixta (${list.join("/")})`;
 }
 

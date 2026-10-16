@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireReceptionAccess } from "@/lib/guards/reception";
 import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
+import { loadPricing } from "@/lib/pricingSettings";
 
 
 const BodySchema = z.object({
@@ -12,6 +13,7 @@ const BodySchema = z.object({
 });
 
 export async function POST(req: Request) {
+  await loadPricing();
   const gate = await requireReceptionAccess({ asJson: true, nextPath: "/reception" });
   if (!gate.ok) return gate.res;
 

@@ -67,3 +67,21 @@ describe("ranking", () => {
     expect(ranking.publicName("Roy")).toBe("Roy");
   });
 });
+
+describe("horas valle guardadas", () => {
+  it("se guardan y se cargan desde club_settings", async () => {
+    const { saveOffPeak, loadPricing } = await import("@/lib/pricingSettings");
+    const { rateAtISO, setOffPeakConfig, DEFAULT_OFF_PEAK } = await import("@/lib/pricing-shared");
+    await saveOffPeak({ enabled: true, rate: 250, days: [1], startHour: 7, endHour: 9 }, "owner");
+    expect(rateAtISO("2026-10-05T08:00:00-06:00")).toBe(250); // lunes
+    const { data } = await db.from("club_settings").select("value").eq("key", "off_peak").single();
+    expect(data.value).toMatchObject({ rate: 250, days: [1] });
+    // Otro proceso (sin el dato en memoria), pasados los 30 s: lo lee de la base.
+    setOffPeakConfig(DEFAULT_OFF_PEAK);
+    const now = Date.now();
+    const spy = vi.spyOn(Date, "now").mockReturnValue(now + 60_000);
+    expect((await loadPricing()).rate).toBe(250);
+    spy.mockRestore();
+    setOffPeakConfig(DEFAULT_OFF_PEAK);
+  });
+});

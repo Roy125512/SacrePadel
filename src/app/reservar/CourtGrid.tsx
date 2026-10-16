@@ -1,6 +1,6 @@
 "use client";
 
-import { isOffPeak, OFF_PEAK_RATE } from "@/lib/pricing-shared";
+import { getOffPeakConfig, isOffPeak } from "@/lib/pricing-shared";
 import { cx, parseISOToLocalTime, type CourtAvailability, type SelectedSlot, type Slot } from "./reservarUtils";
 
 /** Cuadrícula de horarios por cancha. */
@@ -21,7 +21,7 @@ export default function CourtGrid({
     {anyOffPeak && (
     <p className="mt-6 flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
         <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: "rgb(4,120,87)" }} />
-        Hora valle: ${OFF_PEAK_RATE} la hora
+        Hora valle: ${getOffPeakConfig().rate} la hora
     </p>
     )}
     <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">

@@ -6,6 +6,7 @@ import { toIsoAt } from "@/lib/availability";
 import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
 import { normalizePhoneToE164 } from "@/lib/phone";
 import { dbErrorResponse } from "@/lib/apiError";
+import { loadPricing } from "@/lib/pricingSettings";
 
 // WHATSAPP se acepta por compatibilidad con el modal viejo, pero ya no se
 // ofrece como opción separada — ver origenLabel() en reception/utils.ts,
@@ -13,6 +14,7 @@ import { dbErrorResponse } from "@/lib/apiError";
 const ORIGINS = new Set(["PHONE", "WHATSAPP", "WALK_IN"]);
 
 export async function POST(req: Request) {
+  await loadPricing();
   const gate = await requireReceptionAccess({ asJson: true });
   if (!gate.ok) return gate.res;
 

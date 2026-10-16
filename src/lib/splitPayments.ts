@@ -8,6 +8,7 @@ import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
 import { SPLIT_DEBT_GRACE_HOURS, formatMXN, splitAmounts } from "@/lib/config";
 import { SITE } from "@/lib/site";
 import { DEMO } from "@/lib/demo/flag";
+import { loadPricing } from "@/lib/pricingSettings";
 
 /**
  * Pago dividido (como el "sistema de deuda" de Playtomic en México):
@@ -452,6 +453,7 @@ export type Debt = { bookingId: string; token: string | null; remaining: number;
  * SPLIT_DEBT_GRACE_HOURS: quedan a su cargo y bloquean nuevas reservas.
  */
 export async function findOutstandingDebt(customerId: string): Promise<Debt | null> {
+  await loadPricing();
   const cutoff = new Date(Date.now() - SPLIT_DEBT_GRACE_HOURS * 3600_000).toISOString();
   const { data, error } = await supabaseAdmin
     .from("bookings")

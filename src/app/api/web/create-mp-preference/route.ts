@@ -12,6 +12,7 @@ import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { dbErrorResponse } from "@/lib/apiError";
 import { debtMessage, findOutstandingDebt, prepareSplit, splitUrl } from "@/lib/splitPayments";
 import { MATCH_PLAYERS, SPLIT_PARTS_OPTIONS } from "@/lib/config";
+import { loadPricing } from "@/lib/pricingSettings";
 
 const BodySchema = z.object({
   booking_id: z.string().uuid(),
@@ -41,6 +42,7 @@ const BodySchema = z.object({
 });
 
 export async function POST(req: Request) {
+  await loadPricing();
   try {
     const rl = await rateLimit(`create-mp-preference:${clientIp(req)}`, 10, 60_000);
     if (!rl.ok) {

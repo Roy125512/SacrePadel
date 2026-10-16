@@ -7,7 +7,7 @@ import { DEMO_USERS } from "./session";
 import { generateAmericana } from "@/lib/americana";
 
 type Row = Record<string, any>;
-type TableName = "bookings" | "customers" | "profiles" | "courts" | "booking_events" | "booking_shares" | "match_results" | "events" | "event_registrations" | "slot_alerts" | "coaches";
+type TableName = "bookings" | "customers" | "profiles" | "courts" | "booking_events" | "booking_shares" | "match_results" | "events" | "event_registrations" | "slot_alerts" | "coaches" | "club_settings";
 type Store = Record<TableName, Row[]>;
 
 const g = globalThis as any;
@@ -414,7 +414,7 @@ function seed(): Store {
   events.push({ ...base, id: pastId, title: "Americana de bienvenida", starts_at: isoAt(dayIn(-6), 18, 0), ends_at: isoAt(dayIn(-6), 21, 0), status: "FINISHED", rounds });
   for (const [uid, n] of players8) reg(pastId, uid, n);
 
-  return { bookings, customers, profiles, courts, booking_events: [], booking_shares, match_results, events, event_registrations, slot_alerts: [], coaches: [
+  return { bookings, customers, profiles, courts, booking_events: [], booking_shares, match_results, events, event_registrations, slot_alerts: [], club_settings: [], coaches: [
     {
       id: "88888888-8888-4888-8888-888888888881",
       name: "Andrés Villa",

@@ -6,10 +6,12 @@ import { dbErrorResponse } from "@/lib/apiError";
 import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
 import { SPLIT_DEBT_GRACE_HOURS } from "@/lib/config";
 import { splitUrl } from "@/lib/splitPayments";
+import { loadPricing } from "@/lib/pricingSettings";
 
 // "Mis reservas" del perfil: próximas y de los últimos 60 días, con si se
 // pueden cancelar en línea y por qué no.
 export async function GET() {
+  await loadPricing();
   try {
     const supabase = await createClient();
     const { data: auth } = await supabase.auth.getUser();

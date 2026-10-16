@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import { DAY_RATE, EVENING_RATE, SWITCH_HOUR, PADDLE_RENTAL_PRICE, OFF_PEAK_RATE, OFF_PEAK_START_HOUR, OFF_PEAK_END_HOUR } from "@/lib/pricing-shared";
+import { DAY_RATE, EVENING_RATE, SWITCH_HOUR, PADDLE_RENTAL_PRICE, DEFAULT_OFF_PEAK, offPeakLabel, type OffPeakConfig } from "@/lib/pricing-shared";
 import ReservarButton from "@/components/ReservarButton";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 
@@ -9,14 +9,10 @@ function fmtHour(h: number) {
   return `${String(h).padStart(2, "0")}:00`;
 }
 
-export default function PricingTeaser() {
+export default function PricingTeaser({ offPeak = DEFAULT_OFF_PEAK }: { offPeak?: OffPeakConfig }) {
   const revealRef = useScrollReveal<HTMLDivElement>();
   const rows = [
-    {
-      label: "Hora valle",
-      hours: `Lun–Vie ${fmtHour(OFF_PEAK_START_HOUR)} — ${fmtHour(OFF_PEAK_END_HOUR)}`,
-      price: OFF_PEAK_RATE,
-    },
+    ...(offPeak.enabled ? [{ label: "Hora valle", hours: offPeakLabel(offPeak), price: offPeak.rate }] : []),
     { label: "Día", hours: `${fmtHour(7)} — ${fmtHour(SWITCH_HOUR)}`, price: DAY_RATE },
     { label: "Noche", hours: `${fmtHour(SWITCH_HOUR)} — ${fmtHour(22)}`, price: EVENING_RATE },
   ];

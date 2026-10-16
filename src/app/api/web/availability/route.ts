@@ -3,8 +3,10 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { BUSINESS_TZ_OFFSET, OPEN_HOUR, CLOSE_HOUR, STEP_MINUTES, MIN_BOOKING_MINUTES } from "@/lib/config";
 import { buildSlots, fetchActiveCourts, fetchBlockingBookings, overlapsIso, toIsoAt } from "@/lib/availability";
 import { dbErrorResponse } from "@/lib/apiError";
+import { loadPricing } from "@/lib/pricingSettings";
 
 export async function GET(req: Request) {
+  const offPeak = await loadPricing();
   const { searchParams } = new URL(req.url);
   const date = (searchParams.get("date") || "").trim();
 
@@ -69,6 +71,8 @@ export async function GET(req: Request) {
         open_hour: OPEN_HOUR,
         close_hour: CLOSE_HOUR,
         availability,
+        // Horas valle vigentes (el navegador las usa para precios y la cuadrícula).
+        off_peak: offPeak,
       },
       { status: 200 }
     );

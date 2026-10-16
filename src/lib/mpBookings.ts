@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { computeExpectedAmountMXN, paddleRentalTotal } from "@/lib/pricing-shared";
 import { alertOwner, sendBookingConfirmationEmails, type EmailResult } from "@/lib/bookingNotifications";
 import { getShares, markOwnerSharePaid } from "@/lib/splitPayments";
+import { loadPricing } from "@/lib/pricingSettings";
 
 // Minutos que un HOLD con pago en línea iniciado se mantiene apartado. La
 // preferencia de Mercado Pago se crea con la MISMA fecha de expiración (ver
@@ -31,6 +32,7 @@ export async function finalizeMpBooking(
   payment: MpPayment,
   opts?: { displayName?: string }
 ): Promise<FinalizeResult> {
+  await loadPricing();
   if (payment.status !== "approved") return { ok: false, reason: "not_approved" };
   if (payment.external_reference !== bookingId) return { ok: false, reason: "wrong_booking" };
 

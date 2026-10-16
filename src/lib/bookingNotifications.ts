@@ -5,6 +5,7 @@ import { computeExpectedAmountMXN } from "@/lib/pricing-shared";
 import { CANCEL_NOTICE_HOURS, SPLIT_DEBT_GRACE_HOURS } from "@/lib/config";
 import { SITE } from "@/lib/site";
 import { googleCalendarUrl } from "@/lib/calendar";
+import { loadPricing } from "@/lib/pricingSettings";
 
 export const TOLERANCE_MINUTES = 15;
 
@@ -46,6 +47,7 @@ export async function sendBookingConfirmationEmails(
   bookingId: string,
   opts?: { displayName?: string }
 ): Promise<EmailResult> {
+  await loadPricing();
   const { data: claimed, error: claimErr } = await supabaseAdmin
     .from("bookings")
     .update({ confirmation_email_sent_at: new Date().toISOString() })

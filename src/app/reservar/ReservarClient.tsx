@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { useRouter, useSearchParams } from "next/navigation";
-import { computeExpectedAmountMXN, priceLabelForRange } from "@/lib/pricing-shared";
+import { computeExpectedAmountMXN, priceLabelForRange, setOffPeakConfig } from "@/lib/pricing-shared";
 import {
   addMinutesIso,
   formatDateES,
@@ -231,6 +231,8 @@ export default function ReservarClient() {
             if (!silent) setError(json?.error ?? `Error ${r.status}`);
             return;
         }
+        // Horas valle vigentes (las ajusta el dueño desde recepción).
+        if (json?.off_peak) setOffPeakConfig(json.off_peak);
         setData(json as AvailabilityResponse);
         } catch (e) {
         if (!silent) setError(errorMessage(e, "Error desconocido"));
