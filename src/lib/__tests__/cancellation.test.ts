@@ -24,7 +24,7 @@ async function newBooking(hoursFromNow: number, extra: Record<string, unknown> =
   const { data, error } = await db
     .from("bookings")
     .insert({
-      court_id: "court-3",
+      court_id: "court-cancel-test",
       start_at: start.toISOString(),
       end_at: new Date(start.getTime() + H).toISOString(),
       status: "CONFIRMED",

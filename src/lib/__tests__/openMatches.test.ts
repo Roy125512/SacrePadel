@@ -35,7 +35,7 @@ async function openMatch(startMs = Date.parse("2030-05-01T01:00:00Z") + day++ * 
   const { data: b } = await db
     .from("bookings")
     .insert({
-      court_id: "court-1",
+      court_id: "court-match-test",
       start_at: start.toISOString(),
       end_at: new Date(start.getTime() + H).toISOString(),
       status: "HOLD",

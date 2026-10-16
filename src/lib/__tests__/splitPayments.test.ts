@@ -31,7 +31,7 @@ async function newBooking(startMs: number, extra: Record<string, unknown> = {}, 
   const { data, error } = await db
     .from("bookings")
     .insert({
-      court_id: "court-4",
+      court_id: "court-split-test",
       start_at: start.toISOString(),
       end_at: new Date(start.getTime() + H).toISOString(),
       status: "HOLD",
@@ -147,7 +147,7 @@ describe("pago dividido", () => {
     const { data: c } = await db.from("customers").insert({ full_name: "Deudor", phone_e164: "+524520000999" }).select("id").single();
     expect(await sp.findOutstandingDebt(c.id)).toBeNull();
     // Terminó hace 1 h: todavía no es deuda.
-    await confirmedSplit(Date.now() - 2 * H, 4, { customer_id: c.id, court_id: "court-1" }, true);
+    await confirmedSplit(Date.now() - 2 * H, 4, { customer_id: c.id, court_id: "court-split-test-2" }, true);
     // Terminó hace mucho más de 2 h.
     const old = await confirmedSplit(Date.parse("2025-01-06T01:00:00Z"), 4, { customer_id: c.id });
     const debt = await sp.findOutstandingDebt(c.id);
