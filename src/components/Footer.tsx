@@ -127,6 +127,14 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link
+                  href="/ranking"
+                  className="text-[rgba(246,240,230,0.8)] transition hover:text-[var(--dark-foreground)]"
+                >
+                  Ranking
+                </Link>
+              </li>
+              <li>
                 <InstallAppButton className="text-[rgba(246,240,230,0.8)] transition hover:text-[var(--dark-foreground)]" />
               </li>
             </ul>

@@ -27,6 +27,7 @@ import { matchContext, submitBlock } from "@/lib/levels";
 import { formatLevel } from "@/lib/levels-shared";
 import ShareSplitLink from "@/components/booking/ShareSplitLink";
 import AddToCalendar from "@/components/booking/AddToCalendar";
+import { NotifyMeButton } from "@/components/booking/NotifyMe";
 
 export const metadata: Metadata = { title: "Pagar mi parte", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -299,10 +300,13 @@ export default async function PagarPartePage({ searchParams }: { searchParams: P
                         )}
                       </>
                     ) : allPaid || ended ? (
-                      <p className="mt-8 leading-relaxed text-[var(--muted)]">
-                        {ended ? "Este partido ya se jugó." : "Este partido ya está completo."}{" "}
-                        <Link href="/partidos" className="underline underline-offset-4">Ver otros partidos</Link>.
-                      </p>
+                      <>
+                        <p className="mt-8 leading-relaxed text-[var(--muted)]">
+                          {ended ? "Este partido ya se jugó." : "Este partido ya está completo."}{" "}
+                          <Link href="/partidos" className="underline underline-offset-4">Ver otros partidos</Link>.
+                        </p>
+                        {!ended && me && <NotifyMeButton body={{ kind: "MATCH", token }} />}
+                      </>
                     ) : !me ? (
                       <div className="mt-8">
                         <Link

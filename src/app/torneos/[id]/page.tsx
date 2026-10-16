@@ -19,6 +19,7 @@ import { DEMO } from "@/lib/demo/flag";
 import { RegisterButton, CancelRegistrationButton } from "./EventActions";
 import AddToCalendar from "@/components/booking/AddToCalendar";
 import ShareSplitLink from "@/components/booking/ShareSplitLink";
+import { NotifyMeButton } from "@/components/booking/NotifyMe";
 import { SITE } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -193,7 +194,19 @@ export default async function EventoPage({ params, searchParams }: Params) {
         ) : started || ev.status !== "OPEN" ? (
           ev.status !== "FINISHED" && !ev.rounds && <p className="mt-8 text-[var(--muted)]">Las inscripciones están cerradas.</p>
         ) : full ? (
-          <p className="mt-8 text-[var(--muted)]">Ya se llenó el cupo. Si alguien cancela, se abre su lugar aquí.</p>
+          <div className="mt-8">
+            <p className="text-[var(--muted)]">Ya se llenó el cupo.</p>
+            {me ? (
+              <NotifyMeButton body={{ kind: "EVENT", event_id: ev.id }} />
+            ) : (
+              <p className="mt-2 text-sm text-[var(--muted)]">
+                <Link href={`/login?next=${encodeURIComponent(`/torneos/${ev.id}`)}`} className="underline underline-offset-4">
+                  Inicia sesión
+                </Link>{" "}
+                y te avisamos si se abre un lugar.
+              </p>
+            )}
+          </div>
         ) : !me ? (
           <div className="mt-8">
             <Link href={`/login?next=${encodeURIComponent(`/torneos/${ev.id}`)}`} className="btn-primary w-full !py-3.5 text-center">

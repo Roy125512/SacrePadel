@@ -422,6 +422,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      slot_alerts: {
+        Row: {
+          id: string;
+          kind: string;
+          user_id: string | null;
+          email: string;
+          start_at: string | null;
+          ref_id: string | null;
+          created_at: string;
+          notified_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          kind: string;
+          user_id?: string | null;
+          email: string;
+          start_at?: string | null;
+          ref_id?: string | null;
+          created_at?: string;
+          notified_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          kind?: string;
+          user_id?: string | null;
+          email?: string;
+          start_at?: string | null;
+          ref_id?: string | null;
+          created_at?: string;
+          notified_at?: string | null;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
@@ -437,6 +470,7 @@ export type Database = {
           level_reliability: number;
           level_matches: number;
           level_updated_at: string | null;
+          ranking_visible: boolean;
         };
         Insert: {
           id: string;
@@ -452,6 +486,7 @@ export type Database = {
           level_reliability?: number;
           level_matches?: number;
           level_updated_at?: string | null;
+          ranking_visible?: boolean;
         };
         Update: {
           id?: string;
@@ -467,6 +502,7 @@ export type Database = {
           level_reliability?: number;
           level_matches?: number;
           level_updated_at?: string | null;
+          ranking_visible?: boolean;
         };
         Relationships: [];
       };

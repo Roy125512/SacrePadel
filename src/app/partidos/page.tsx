@@ -40,9 +40,14 @@ export default async function PartidosPage() {
           <h1 className="font-display text-5xl leading-[1.02] sm:text-6xl">
             Encuentra <em>con quién</em> jugar.
           </h1>
-          <Link href="/reservar" className="btn-secondary">
-            Crear un partido
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/ranking" className="btn-secondary">
+              Ranking
+            </Link>
+            <Link href="/reservar" className="btn-secondary">
+              Crear un partido
+            </Link>
+          </div>
         </div>
         <p className="mt-5 max-w-xl leading-relaxed text-[var(--muted)]">
           Únete a un partido de tu nivel y paga solo tu lugar. Si al final no puedes, sales sin costo hasta 24 h antes.

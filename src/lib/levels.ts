@@ -265,7 +265,7 @@ async function notifyReviewers(bookingId: string, reviewers: string[], ctx: Matc
 export async function myLevel(userId: string) {
   const { data: p } = await supabaseAdmin
     .from("profiles")
-    .select("level, level_reliability, level_matches, division")
+    .select("level, level_reliability, level_matches, division, ranking_visible")
     .eq("id", userId)
     .maybeSingle();
   const { data: results } = await supabaseAdmin
@@ -296,6 +296,7 @@ export async function myLevel(userId: string) {
     reliability: p?.level_reliability ?? 0,
     matches: p?.level_matches ?? 0,
     division: p?.division ?? null,
+    rankingVisible: p?.ranking_visible !== false,
     history,
   };
 }

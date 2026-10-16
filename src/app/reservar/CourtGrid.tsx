@@ -1,5 +1,6 @@
 "use client";
 
+import { isOffPeak, OFF_PEAK_RATE } from "@/lib/pricing-shared";
 import { cx, parseISOToLocalTime, type CourtAvailability, type SelectedSlot, type Slot } from "./reservarUtils";
 
 /** Cuadrícula de horarios por cancha. */
@@ -14,7 +15,15 @@ export default function CourtGrid({
   disabled: boolean;
   onPick: (court: CourtAvailability, slot: Slot) => void;
 }) {
+  const anyOffPeak = availability.some((c) => c.slots.some((s) => isOffPeak(s.start_at)));
   return (
+    <>
+    {anyOffPeak && (
+    <p className="mt-6 flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
+        <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: "rgb(4,120,87)" }} />
+        Hora valle: ${OFF_PEAK_RATE} la hora
+    </p>
+    )}
     <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
     {availability.map((c) => (
         <div key={c.court_id} className="overflow-hidden rounded-lg border bg-[var(--surface)] transition-colors duration-200 hover:border-[var(--brand-200)]" style={{ borderColor: "rgba(120,46,21,0.14)" }}>
@@ -68,9 +77,14 @@ export default function CourtGrid({
                     ? { background: "linear-gradient(180deg, #C2643A, #9C4622)" }
                     : undefined
                 }
-                title={`${parseISOToLocalTime(s.start_at)}\u2013${parseISOToLocalTime(s.end_at)} (30m)`}
+                title={`${parseISOToLocalTime(s.start_at)}\u2013${parseISOToLocalTime(s.end_at)} (30m)${isOffPeak(s.start_at) ? " · hora valle" : ""}`}
                 >
+                <span className="relative">
                 {parseISOToLocalTime(s.start_at)}
+                {isOffPeak(s.start_at) && !isBooked && (
+                    <span aria-label="hora valle" className="absolute -right-2 -top-0.5 h-1.5 w-1.5 rounded-full" style={{ background: "rgb(4,120,87)" }} />
+                )}
+                </span>
                 </button>
             );
             })}
@@ -79,5 +93,6 @@ export default function CourtGrid({
         </div>
     ))}
     </div>
+    </>
   );
 }

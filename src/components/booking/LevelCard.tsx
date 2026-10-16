@@ -8,6 +8,7 @@ type LevelInfo = {
   level: number | null;
   reliability: number;
   matches: number;
+  rankingVisible: boolean;
   history: { at: string; sets: number[][]; outcome: "W" | "L" | "T"; before: number | null; after: number | null }[];
 };
 
@@ -178,7 +179,27 @@ export default function LevelCard() {
             </ul>
           )}
 
-          <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+          <label className="mt-5 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={info.rankingVisible}
+              onChange={async (e) => {
+                const visible = e.target.checked;
+                setInfo({ ...info, rankingVisible: visible });
+                await fetch("/api/web/level/visibility", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ visible }),
+                }).catch(() => null);
+              }}
+            />
+            Aparecer en el{" "}
+            <Link href="/ranking" className="underline underline-offset-4">
+              ranking del club
+            </Link>
+          </label>
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
             <Link href="/partidos" className="font-semibold underline underline-offset-4">
               Buscar partidos de mi nivel
             </Link>

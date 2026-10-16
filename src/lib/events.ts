@@ -8,6 +8,7 @@ import { generateAmericana, type AmericanaRound } from "@/lib/americana";
 import { CANCEL_NOTICE_HOURS, withinCancelWindow } from "@/lib/config";
 import { SITE } from "@/lib/site";
 import { DEMO } from "@/lib/demo/flag";
+import { notifySlotFreed, notifySpotOpened } from "@/lib/alerts";
 
 /**
  * Torneos y americanas. El club crea el evento desde recepción; se apartan
@@ -170,6 +171,7 @@ export async function cancelEvent(eventId: string): Promise<Result<{ refunded: n
     const res = await cancelRegistrationById(r.id, "CLUB");
     if (res.ok && res.refundedMXN > 0) refunded++;
   }
+  await notifySlotFreed(ev.starts_at, ev.ends_at);
   return { ok: true, refunded };
 }
 
@@ -434,6 +436,10 @@ async function cancelRegistrationById(regId: string, by: "PLAYER" | "CLUB") {
   if (reg.payment_status === "PAID" && reg.mp_payment_id) {
     const ok = await refundRegistration(reg.id, reg.mp_payment_id, Number(reg.amount));
     if (ok) refundedMXN = Number(reg.amount);
+  }
+  if (by === "PLAYER") {
+    const ev = await getEvent(reg.event_id);
+    if (ev && ev.status === "OPEN") await notifySpotOpened("EVENT", ev.id, ev.title, eventUrl(ev.id));
   }
   if (by === "CLUB" && reg.contact_email) {
     const ev = await getEvent(reg.event_id);

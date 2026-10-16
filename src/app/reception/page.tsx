@@ -13,7 +13,7 @@ import type {
   FilterKey,
 } from "@/lib/reception/types";
 
-import { DAY_RATE, EVENING_RATE } from "@/lib/pricing-shared";
+import { DAY_RATE, EVENING_RATE, OFF_PEAK_RATE } from "@/lib/pricing-shared";
 
 import {
   addDaysYMD,
@@ -932,7 +932,7 @@ export default function ReceptionPage() {
               <span style={{ color: "var(--foreground)", fontWeight: 600 }}>{stats.totalReservas}</span> · Pendientes de cobro:{" "}
               <span style={{ color: "var(--foreground)", fontWeight: 600 }}>{stats.pendientesCount}</span> · Tarifa/hora:{" "}
               <span style={{ color: "var(--foreground)", fontWeight: 600 }}>
-                {currencyMXN(DAY_RATE)} día · {currencyMXN(EVENING_RATE)} noche
+                {currencyMXN(DAY_RATE)} día · {currencyMXN(EVENING_RATE)} noche · {currencyMXN(OFF_PEAK_RATE)} valle
               </span>
             </div>
 

@@ -10,5 +10,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/reservar`, changeFrequency: "daily", priority: 0.9 },
     { url: `${SITE_URL}/partidos`, changeFrequency: "daily", priority: 0.8 },
     { url: `${SITE_URL}/torneos`, changeFrequency: "daily", priority: 0.8 },
+    { url: `${SITE_URL}/ranking`, changeFrequency: "daily", priority: 0.6 },
   ];
 }

@@ -7,6 +7,7 @@ import { alertOwner, mxParts } from "@/lib/bookingNotifications";
 import { withinCancelWindow } from "@/lib/config";
 import { DEMO } from "@/lib/demo/flag";
 import { refundSplitBooking } from "@/lib/splitPayments";
+import { notifySlotFreed } from "@/lib/alerts";
 
 /**
  * Cancelación de reservas con reembolso automático (como Playtomic):
@@ -215,6 +216,9 @@ export async function cancelBooking(bookingId: string, by: CancelBy): Promise<Ca
       });
     }
   }
+
+  // Avisar a quien esperaba este horario.
+  await notifySlotFreed(b.start_at, b.end_at);
 
   return { ok: true, refund, refundedMXN, split: !!b.split_parts };
 }

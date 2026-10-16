@@ -6,6 +6,9 @@ import { syncBookingFromShares } from "@/lib/splitPayments";
 import { divisionNumber, withinCancelWindow, CANCEL_NOTICE_HOURS, type MatchGender } from "@/lib/config";
 import { levelToDivision } from "@/lib/levels-shared";
 import { DEMO } from "@/lib/demo/flag";
+import { notifySpotOpened } from "@/lib/alerts";
+import { mxParts } from "@/lib/bookingNotifications";
+import { SITE } from "@/lib/site";
 
 /**
  * Partidos abiertos (como Playtomic). Un partido abierto es una reserva con
@@ -47,7 +50,7 @@ export type LeaveResult = { ok: true; refundedMXN: number } | { ok: false; messa
 export async function leaveMatch(bookingId: string, userId: string): Promise<LeaveResult> {
   const { data: b } = await supabaseAdmin
     .from("bookings")
-    .select("id, status, start_at, user_id, is_open_match")
+    .select("id, status, start_at, user_id, is_open_match, split_token")
     .eq("id", bookingId)
     .maybeSingle();
   if (!b || !b.is_open_match) return { ok: false, message: "No encontramos este partido." };
@@ -105,6 +108,13 @@ export async function leaveMatch(bookingId: string, userId: string): Promise<Lea
       .eq("status", "PAID");
   }
   await syncBookingFromShares(bookingId);
+  const when = mxParts(b.start_at);
+  await notifySpotOpened(
+    "MATCH",
+    bookingId,
+    `el partido del ${when.dateLocal} a las ${when.timeLocal}`,
+    `${SITE.url}/reserva/pagar?t=${b.split_token}`
+  );
   return { ok: true, refundedMXN: Math.round(refundedMXN * 100) / 100 };
 }
 

@@ -7,6 +7,7 @@ import { computeExpectedAmountMXN, priceLabelForRange } from "@/lib/pricing-shar
 import {
   addMinutesIso,
   formatDateES,
+  parseISOToLocalTime,
   toYMDLocal,
   type AvailabilityResponse,
   type ConfirmedBooking,
@@ -18,6 +19,7 @@ import {
   type Slot,
 } from "./reservarUtils";
 import CourtGrid from "./CourtGrid";
+import { NotifyMeSlot } from "@/components/booking/NotifyMe";
 import BookingModal from "./BookingModal";
 import BookingSuccessModal from "./BookingSuccessModal";
 import { errorMessage } from "@/lib/errors";
@@ -33,8 +35,13 @@ export default function ReservarClient() {
     const router = useRouter();
     const isGuest = sp.get("mode") === "guest";
 
-    const [dateYMD, setDateYMD] = useState(() => toYMDLocal(new Date()));
-    const [dateDraft, setDateDraft] = useState(() => toYMDLocal(new Date()));
+    // ?date=YYYY-MM-DD (p. ej. desde el correo de "se liberó una cancha").
+    const [dateYMD, setDateYMD] = useState(() => {
+        const today = toYMDLocal(new Date());
+        const q = sp.get("date") ?? "";
+        return /^\d{4}-\d{2}-\d{2}$/.test(q) && q >= today ? q : today;
+    });
+    const [dateDraft, setDateDraft] = useState(dateYMD);
     const [isDateEditing, setIsDateEditing] = useState(false);
 
     const [loading, setLoading] = useState(false);
@@ -769,6 +776,26 @@ export default function ReservarClient() {
             disabled={saving}
             onPick={pickSlot}
             />
+
+            {/* ===== AVÍSAME SI SE LIBERA ===== */}
+            {data && (
+            <NotifyMeSlot
+                key={dateYMD}
+                askEmail={isGuest}
+                fullTimes={(() => {
+                const courts = data.availability ?? [];
+                if (courts.length === 0) return [];
+                const now = Date.now();
+                return courts[0].slots
+                    .filter(
+                    (s) =>
+                        new Date(s.start_at).getTime() > now &&
+                        courts.every((c) => c.slots.find((x) => x.start_at === s.start_at)?.available === false)
+                    )
+                    .map((s) => ({ start_at: s.start_at, label: parseISOToLocalTime(s.start_at) }));
+                })()}
+            />
+            )}
 
             {/* ===== FOOTER NOTE ===== */}
             <div className="mt-8 border-t pt-4 text-xs leading-relaxed" style={{ color: "var(--muted)", borderColor: "rgba(120,46,21,0.15)" }}>

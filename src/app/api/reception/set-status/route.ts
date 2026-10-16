@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireReceptionAccess } from "@/lib/guards/reception";
 import { dbErrorResponse } from "@/lib/apiError";
+import { notifySlotFreed } from "@/lib/alerts";
 import { cancelBooking } from "@/lib/cancellation";
 
 // Únicas transiciones que recepción puede hacer. Antes se aceptaba cualquier
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
 
     const { data: current, error: readErr } = await supabaseAdmin
       .from("bookings")
-      .select("id, status, payment_status, payment_method")
+      .select("id, status, payment_status, payment_method, start_at, end_at")
       .eq("id", booking_id)
       .maybeSingle();
 
@@ -93,6 +94,8 @@ export async function POST(req: Request) {
         { status: 409 }
       );
     }
+
+    if (status === "CANCELLED") await notifySlotFreed(current.start_at, current.end_at);
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e) {

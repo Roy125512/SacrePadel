@@ -11,7 +11,7 @@ import ContourLines from "@/components/three/ContourLines";
 // Three.js solo se descarga en el navegador y después de lo esencial: la
 // portada (texto y botón de reservar) nunca espera al 3D.
 const PaddleScene = dynamic(() => import("@/components/three/PaddleScene"), { ssr: false });
-import { DAY_RATE } from "@/lib/pricing-shared";
+import { OFF_PEAK_RATE } from "@/lib/pricing-shared";
 import ReservarButton from "@/components/ReservarButton";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
@@ -161,7 +161,7 @@ export default function Hero() {
               <ArrowRight className="h-4 w-4" />
             </ReservarButton>
             <a href="#tarifas" className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-[rgba(241,236,227,.8)] underline decoration-[var(--brand-highlight)] underline-offset-[10px]">
-              Desde ${DAY_RATE} la hora
+              Desde ${OFF_PEAK_RATE} la hora
             </a>
           </div>
         </div>
