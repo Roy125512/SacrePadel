@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import type {
@@ -958,9 +960,14 @@ export default function ReceptionPage() {
             borderBottom: "1px solid rgba(120,46,21,0.10)",
           }}
         >
-          <button className="btn-primary" onClick={openNewBooking}>
-            + Nueva reserva
-          </button>
+          <div className="flex gap-2">
+            <button className="btn-primary" onClick={openNewBooking}>
+              + Nueva reserva
+            </button>
+            <Link href="/reception/eventos" className="btn-secondary">
+              Torneos y americanas
+            </Link>
+          </div>
 
           <div className="flex gap-2">
             <button

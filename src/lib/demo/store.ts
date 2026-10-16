@@ -4,9 +4,10 @@
 // on a full server restart / module recompile — fine for a demo).
 
 import { DEMO_USERS } from "./session";
+import { generateAmericana } from "@/lib/americana";
 
 type Row = Record<string, any>;
-type TableName = "bookings" | "customers" | "profiles" | "courts" | "booking_events" | "booking_shares" | "match_results";
+type TableName = "bookings" | "customers" | "profiles" | "courts" | "booking_events" | "booking_shares" | "match_results" | "events" | "event_registrations";
 type Store = Record<TableName, Row[]>;
 
 const g = globalThis as any;
@@ -321,7 +322,99 @@ function seed(): Store {
     }
   }
 
-  return { bookings, customers, profiles, courts, booking_events: [], booking_shares, match_results };
+  // Torneos: una americana próxima (6 de 8 inscritos) y una ya jugada.
+  const extra = [
+    ["66666666-6666-4666-8666-666666666661", "Ana Torres", "F", "4ta", 3.3],
+    ["66666666-6666-4666-8666-666666666662", "Luis Ortega", "M", "4ta", 3.6],
+    ["66666666-6666-4666-8666-666666666663", "Carla Méndez", "F", "5ta", 2.7],
+    ["66666666-6666-4666-8666-666666666664", "Pablo Ríos", "M", "3ra", 4.1],
+    ["66666666-6666-4666-8666-666666666665", "Marta Silva", "F", "5ta", 2.4],
+  ] as const;
+  for (const [id, full_name, sex, division, level] of extra) {
+    profiles.push({ id, full_name, sex, division, level, level_reliability: 30, level_matches: 3, role: "customer", phone_e164: null, birth_date: null, notes: null, updated_at: nowIso() });
+  }
+  const dayIn = (n: number) => {
+    const d = new Date(Date.now() + n * 86400_000);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  };
+  const events: Row[] = [];
+  const event_registrations: Row[] = [];
+  const reg = (event_id: string, user_id: string, player_name: string) =>
+    event_registrations.push({
+      id: uuid(),
+      event_id,
+      user_id,
+      player_name,
+      partner_name: null,
+      contact_email: null,
+      status: "CONFIRMED",
+      amount: 250,
+      payment_status: "PAID",
+      mp_payment_id: `demo-ev-${uuid().slice(0, 6)}`,
+      checkout_until: null,
+      paid_at: nowIso(),
+      refunded_at: null,
+      cancelled_at: null,
+      created_at: nowIso(),
+    });
+  const base = {
+    kind: "AMERICANA",
+    description: null,
+    court_ids: ["court-3", "court-4"],
+    entry: "INDIVIDUAL",
+    capacity: 8,
+    price: 250,
+    level_min: 3,
+    level_max: 6,
+    gender: "ANY",
+    created_by: null,
+    created_at: nowIso(),
+  };
+  const nextId = "77777777-7777-4777-8777-777777777771";
+  events.push({ ...base, id: nextId, title: "Americana del club", starts_at: isoAt(dayIn(3), 18, 0), ends_at: isoAt(dayIn(3), 21, 0), status: "OPEN", rounds: null });
+  for (const c of ["court-3", "court-4"]) {
+    bookings.push({
+      ...bookings[0],
+      id: uuid(),
+      court_id: c,
+      start_at: isoAt(dayIn(3), 18, 0),
+      end_at: isoAt(dayIn(3), 21, 0),
+      status: "CONFIRMED",
+      source: "RECEPTION",
+      kind: "EVENT",
+      payment_status: "PAID",
+      paid_amount: 0,
+      customer_id: null,
+      user_id: null,
+      cancel_token: uuid(),
+      event_id: nextId,
+      created_by_name: "Americana del club",
+    });
+  }
+  const pool: [string, string][] = [
+    [mateo.id, mateo.full_name],
+    [sofia.id, sofia.full_name],
+    [diego.id, diego.full_name],
+    ...extra.map(([id, n]) => [id, n] as [string, string]),
+  ];
+  for (const [uid, n] of pool.slice(0, 6)) reg(nextId, uid, n);
+
+  // La de la semana pasada, ya jugada, con marcadores.
+  const pastId = "77777777-7777-4777-8777-777777777772";
+  let seedN = 7;
+  const rng = () => ((seedN = (seedN * 16807) % 2147483647) / 2147483647);
+  const players8 = pool.slice(0, 8);
+  const rounds = generateAmericana(players8.map(([id]) => id), 2, 5, rng).map((r) => ({
+    ...r,
+    matches: r.matches.map((m) => {
+      const a = 8 + Math.floor(rng() * 9);
+      return { ...m, scoreA: a, scoreB: 16 - (a - 8) };
+    }),
+  }));
+  events.push({ ...base, id: pastId, title: "Americana de bienvenida", starts_at: isoAt(dayIn(-6), 18, 0), ends_at: isoAt(dayIn(-6), 21, 0), status: "FINISHED", rounds });
+  for (const [uid, n] of players8) reg(pastId, uid, n);
+
+  return { bookings, customers, profiles, courts, booking_events: [], booking_shares, match_results, events, event_registrations };
 }
 
 export function getStore(): Store {
@@ -667,6 +760,26 @@ class FakeQuery {
         match_level_min: null,
         match_level_max: null,
         paddle_rentals: 0,
+        event_id: null,
+        ...base,
+      };
+    }
+    if (this.table === "events") {
+      return { description: null, court_ids: [], entry: "INDIVIDUAL", price: 0, level_min: null, level_max: null, gender: "ANY", status: "OPEN", rounds: null, created_by: null, ...base };
+    }
+    if (this.table === "event_registrations") {
+      return {
+        player_name: null,
+        partner_name: null,
+        contact_email: null,
+        status: "PENDING",
+        amount: 0,
+        payment_status: "UNPAID",
+        mp_payment_id: null,
+        checkout_until: null,
+        paid_at: null,
+        refunded_at: null,
+        cancelled_at: null,
         ...base,
       };
     }

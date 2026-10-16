@@ -93,6 +93,7 @@ export function asistenciaLabel(b: Booking) {
 }
 
 export function tipoLabel(b: Booking) {
+  if (b.kind === "EVENT") return "Evento";
   if (b.session_type === "CLASS") return "Clase";
   if (b.session_type === "MATCH") return "Reta";
   return "Reserva";
@@ -212,7 +213,9 @@ export type AggregateStats = {
   tarifaPromedio: number;
 };
 
-export function computeAggregateStats(rows: Booking[], days: number, opts?: CapacityOpts): AggregateStats {
+export function computeAggregateStats(allRows: Booking[], days: number, opts?: CapacityOpts): AggregateStats {
+  // Las canchas apartadas para torneos/americanas no son ventas de cancha.
+  const rows = allRows.filter((b) => b.kind !== "EVENT");
   const courts = opts?.courts ?? DEFAULT_COURTS;
   const openHour = opts?.openHour ?? OPEN_HOUR;
   const closeHour = opts?.closeHour ?? CLOSE_HOUR;
@@ -285,6 +288,7 @@ export function buildDailySummary(
   const map = new Map<string, Bucket>();
 
   for (const b of rows) {
+    if (b.kind === "EVENT") continue;
     const ymd = toYMDLocal(new Date(b.start_at));
     const bucket: Bucket =
       map.get(ymd) ?? { ymd, reservas: 0, ingresos: 0, pendiente: 0, horasVendidas: 0, canceladas: 0, noShow: 0, completadas: 0 };

@@ -179,6 +179,10 @@ export default function AppHeader() {
                 Partidos
               </Link>
 
+              <Link href="/torneos" className={linkClass("/torneos")}>
+                Torneos
+              </Link>
+
               <Link href="/perfil" className={linkClass("/perfil")}>
                 Perfil
               </Link>
@@ -253,6 +257,17 @@ export default function AppHeader() {
                     style={{ borderColor: "rgba(120, 46, 21, 0.14)" }}
                   >
                     Partidos
+                  </Link>
+
+                  <Link
+                    href="/torneos"
+                    className="w-full text-sm rounded-full border px-3 py-2 text-center
+                      transition active:scale-[0.99]
+                      active:bg-[rgba(253,238,232,0.95)]
+                      active:border-[rgba(175,78,43,0.35)]"
+                    style={{ borderColor: "rgba(120, 46, 21, 0.14)" }}
+                  >
+                    Torneos
                   </Link>
 
                   <Link

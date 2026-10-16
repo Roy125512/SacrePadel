@@ -3,6 +3,7 @@ import { WebhookSignatureValidator, InvalidWebhookSignatureError } from "mercado
 import { mpPayment } from "@/lib/mercadopago";
 import { finalizeMpBooking } from "@/lib/mpBookings";
 import { finalizeSharesPayment, SHARES_REF_PREFIX } from "@/lib/splitPayments";
+import { finalizeEventPayment, EVENT_REF_PREFIX } from "@/lib/events";
 
 export async function POST(req: Request) {
   const url = new URL(req.url);
@@ -58,6 +59,12 @@ export async function POST(req: Request) {
   const booking_id = payment.external_reference;
   if (!booking_id) {
     console.warn("MP webhook: pago aprobado sin external_reference:", payment.id);
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
+
+  // Inscripción a un torneo o americana.
+  if (booking_id.startsWith(EVENT_REF_PREFIX)) {
+    await finalizeEventPayment(payment);
     return NextResponse.json({ received: true }, { status: 200 });
   }
 

@@ -301,7 +301,7 @@ export default function BookingModal({
                         {
                         on: !splitParts && !openMatch,
                         title: "Pago completo",
-                        sub: `Tú pagas ${formatMXN(priceInfo.total)}`,
+                        sub: `Tú pagas ${formatMXN(priceInfo.total + paddles * PADDLE_RENTAL_PRICE)}`,
                         pick: () => {
                             setOpenMatch(null);
                             setSplitParts(null);

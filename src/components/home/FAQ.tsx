@@ -28,6 +28,14 @@ const QUESTIONS = [
     a: "Es un número de 0 a 7. Lo calculas una vez en tu perfil con 5 preguntas y después sube o baja con tus partidos abiertos competitivos: un jugador captura el marcador y la pareja contraria lo confirma. Ganarle a una pareja más fuerte sube más; al principio se mueve rápido y con más partidos se estabiliza.",
   },
   {
+    q: "¿Organizan torneos o americanas?",
+    a: "Sí. En la sección Torneos ves los próximos: te inscribes y pagas en línea, y si no puedes ir cancelas sin costo hasta 24 horas antes. En las americanas te inscribes solo; en cada ronda juegas con una pareja distinta y la tabla se actualiza con cada marcador.",
+  },
+  {
+    q: "¿Puedo rentar pala?",
+    a: "Sí, por $50. Agrégala al reservar: si pagas en línea se cobra junto con la cancha y te la tenemos lista en recepción.",
+  },
+  {
     q: "¿Qué pasa si llego tarde a mi horario?",
     a: "Cuentas con 15 minutos de tolerancia. Pasado ese tiempo, la cancha queda liberada para que otros puedan jugar.",
   },

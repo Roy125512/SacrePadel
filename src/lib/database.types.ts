@@ -44,6 +44,7 @@ export type Database = {
           match_level_min: number | null;
           match_level_max: number | null;
           paddle_rentals: number;
+          event_id: string | null;
         };
         Insert: {
           id?: string;
@@ -82,6 +83,7 @@ export type Database = {
           match_level_min?: number | null;
           match_level_max?: number | null;
           paddle_rentals?: number;
+          event_id?: string | null;
         };
         Update: {
           id?: string;
@@ -120,6 +122,7 @@ export type Database = {
           match_level_min?: number | null;
           match_level_max?: number | null;
           paddle_rentals?: number;
+          event_id?: string | null;
         };
         Relationships: [
           {
@@ -260,6 +263,120 @@ export type Database = {
           is_active?: boolean;
           created_at?: string;
           user_id?: string | null;
+        };
+        Relationships: [];
+      };
+      event_registrations: {
+        Row: {
+          id: string;
+          event_id: string;
+          user_id: string;
+          player_name: string | null;
+          partner_name: string | null;
+          contact_email: string | null;
+          status: string;
+          amount: number;
+          payment_status: string;
+          mp_payment_id: string | null;
+          checkout_until: string | null;
+          paid_at: string | null;
+          refunded_at: string | null;
+          cancelled_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          user_id: string;
+          player_name?: string | null;
+          partner_name?: string | null;
+          contact_email?: string | null;
+          status?: string;
+          amount?: number;
+          payment_status?: string;
+          mp_payment_id?: string | null;
+          checkout_until?: string | null;
+          paid_at?: string | null;
+          refunded_at?: string | null;
+          cancelled_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          user_id?: string;
+          player_name?: string | null;
+          partner_name?: string | null;
+          contact_email?: string | null;
+          status?: string;
+          amount?: number;
+          payment_status?: string;
+          mp_payment_id?: string | null;
+          checkout_until?: string | null;
+          paid_at?: string | null;
+          refunded_at?: string | null;
+          cancelled_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      events: {
+        Row: {
+          id: string;
+          title: string;
+          kind: string;
+          description: string | null;
+          starts_at: string;
+          ends_at: string;
+          court_ids: string[];
+          entry: string;
+          capacity: number;
+          price: number;
+          level_min: number | null;
+          level_max: number | null;
+          gender: string;
+          status: string;
+          rounds: Json | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          kind: string;
+          description?: string | null;
+          starts_at: string;
+          ends_at: string;
+          court_ids?: string[];
+          entry?: string;
+          capacity: number;
+          price?: number;
+          level_min?: number | null;
+          level_max?: number | null;
+          gender?: string;
+          status?: string;
+          rounds?: Json | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          kind?: string;
+          description?: string | null;
+          starts_at?: string;
+          ends_at?: string;
+          court_ids?: string[];
+          entry?: string;
+          capacity?: number;
+          price?: number;
+          level_min?: number | null;
+          level_max?: number | null;
+          gender?: string;
+          status?: string;
+          rounds?: Json | null;
+          created_by?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
