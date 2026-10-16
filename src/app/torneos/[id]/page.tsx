@@ -82,7 +82,8 @@ export default async function EventoPage({ params, searchParams }: Params) {
     ? await supabaseAdmin.from("profiles").select("id, full_name, level, division").in("id", ids)
     : { data: [] as { id: string; full_name: string | null; level: number | null; division: string | null }[] };
   const prof = new Map((profs ?? []).map((p) => [p.id, p]));
-  const nameOf = (uid: string) => first(prof.get(uid)?.full_name ?? regs.find((r) => r.user_id === uid)?.player_name);
+  // Solo el nombre del perfil: player_name puede venir del correo y aquí es público.
+  const nameOf = (uid: string) => first(prof.get(uid)?.full_name);
 
   let me: { id: string; sex: string | null; division: string | null; level: number | null } | null = null;
   try {

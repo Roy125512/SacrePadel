@@ -34,12 +34,15 @@ export default async function TorneosPage() {
     if (!e.rounds) continue;
     const { data: regs } = await supabaseAdmin
       .from("event_registrations")
-      .select("user_id, player_name")
+      .select("user_id")
       .eq("event_id", e.id)
       .eq("status", "CONFIRMED");
     const top = americanaStandings((regs ?? []).map((r) => r.user_id), e.rounds)[0];
-    const name = (regs ?? []).find((r) => r.user_id === top?.id)?.player_name;
-    if (top && top.points > 0 && name) winners.set(e.id, `${name.split(" ")[0]} · ${top.points} pts`);
+    if (!top || top.points <= 0) continue;
+    // Solo el nombre del perfil (player_name puede venir del correo).
+    const { data: p } = await supabaseAdmin.from("profiles").select("full_name").eq("id", top.id).maybeSingle();
+    const name = (p?.full_name ?? "").trim().split(/\s+/)[0] || "Jugador";
+    winners.set(e.id, `${name} · ${top.points} pts`);
   }
 
   return (

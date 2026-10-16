@@ -183,6 +183,14 @@ export default function Footer() {
         {/* Bottom line */}
         <div className="mt-12 border-t border-[rgba(246,240,230,0.08)] pt-6 text-center text-xs text-[rgba(246,240,230,0.5)]">
           <p>© {year} Sacré Pádel. Todos los derechos reservados.</p>
+          <p className="mt-2 space-x-4">
+            <Link href="/privacidad" className="underline-offset-4 transition hover:text-[var(--dark-foreground)] hover:underline">
+              Aviso de privacidad
+            </Link>
+            <Link href="/terminos" className="underline-offset-4 transition hover:text-[var(--dark-foreground)] hover:underline">
+              Términos y condiciones
+            </Link>
+          </p>
         </div>
       </div>
     </footer>

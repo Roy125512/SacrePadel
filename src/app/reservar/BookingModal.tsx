@@ -548,7 +548,11 @@ export default function BookingModal({
 
                 <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
                 Cancelación sin costo hasta {CANCEL_NOTICE_HOURS} h antes. Si pagas en línea y cancelas a tiempo, te
-                devolvemos el pago automáticamente.
+                devolvemos el pago automáticamente. Al reservar aceptas los{" "}
+                <a href="/terminos" target="_blank" className="underline underline-offset-2">
+                    términos y condiciones
+                </a>
+                .
                 </p>
             </div>
             )}

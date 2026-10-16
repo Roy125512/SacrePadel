@@ -12,5 +12,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/torneos`, changeFrequency: "daily", priority: 0.8 },
     { url: `${SITE_URL}/ranking`, changeFrequency: "daily", priority: 0.6 },
     { url: `${SITE_URL}/clases`, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${SITE_URL}/terminos`, changeFrequency: "yearly", priority: 0.2 },
+    { url: `${SITE_URL}/privacidad`, changeFrequency: "yearly", priority: 0.2 },
   ];
 }

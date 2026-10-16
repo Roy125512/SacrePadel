@@ -199,6 +199,20 @@ export default function LoginClient() {
           </button>
 
           {isSignup && (
+            <p className="mt-2 text-center text-xs leading-relaxed text-[var(--muted)]">
+              Al crear tu cuenta aceptas los{" "}
+              <a href="/terminos" target="_blank" className="underline underline-offset-2">
+                Términos y condiciones
+              </a>{" "}
+              y el{" "}
+              <a href="/privacidad" target="_blank" className="underline underline-offset-2">
+                Aviso de privacidad
+              </a>
+              .
+            </p>
+          )}
+
+          {isSignup && (
             <button
               type="button"
               onClick={resendConfirmation}
